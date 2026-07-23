@@ -9,6 +9,7 @@
     "lint": "echo \"ESLint flat-config via next lint was removed in Next.js 16; build typechecks instead.\""
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.8",
     "next": "^16.2.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

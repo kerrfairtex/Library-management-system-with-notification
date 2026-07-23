@@ -10,29 +10,35 @@ A full-stack library management app for cataloging books, registering members, c
 - **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
 - **Login** — staff sign-in with session cookie protection for desk and APIs
 - **Desk dashboard** — live stats, recent loans, and alert feed
-- **Persistent storage** — JSON file store under `data/library.json` (seeded on first run)
+- **Persistent storage** — Supabase Postgres (`books`, `members`, `loans`, `notifications`, optional `users`)
 
 ## Stack
 
 - Next.js (App Router) + TypeScript
 - Tailwind CSS
-- File-based API routes (`/api/*`)
+- Supabase (`@supabase/supabase-js`)
+- API routes (`/api/*`)
 
 ## Getting started
 
 ```bash
 npm install
+```
+
+Set environment variables:
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+```
+
+```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). You’ll be redirected to the login page.
 
-### Demo accounts
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Librarian | `librarian@shelfwalk.app` | `librarian123` |
-| Admin | `admin@shelfwalk.app` | `admin123` |
+Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:scrypt` string from `hashPassword` in `src/lib/auth.ts`).
 
 ## Scripts
 
@@ -69,5 +75,5 @@ Open [http://localhost:3000](http://localhost:3000). You’ll be redirected to t
 
 ## Notes
 
-- Seed data includes sample books, members, active loans, and unread alerts.
-- Delete `data/library.json` and restart the app to reseed.
+- Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
+- On Vercel, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in project environment variables.
