@@ -9,19 +9,37 @@ import type {
   Member,
   Notification,
   NotificationType,
+  PublicUser,
+  User,
 } from "./types";
-import { createSeedData } from "./seed";
+import { createSeedData, createSeedUsers } from "./seed";
+import { toPublicUser, verifyPassword } from "./auth";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "library.json");
 
 let writeQueue: Promise<void> = Promise.resolve();
 
+function normalizeData(raw: Partial<LibraryData>): LibraryData {
+  return {
+    users: raw.users?.length ? raw.users : createSeedUsers(),
+    books: raw.books ?? [],
+    members: raw.members ?? [],
+    loans: raw.loans ?? [],
+    notifications: raw.notifications ?? [],
+  };
+}
+
 async function ensureDataFile(): Promise<LibraryData> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     const raw = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(raw) as LibraryData;
+    const parsedRaw = JSON.parse(raw) as Partial<LibraryData>;
+    const parsed = normalizeData(parsedRaw);
+    if (!parsedRaw.users?.length) {
+      await fs.writeFile(DATA_FILE, JSON.stringify(parsed, null, 2), "utf-8");
+    }
+    return parsed;
   } catch {
     const seed = createSeedData();
     await fs.writeFile(DATA_FILE, JSON.stringify(seed, null, 2), "utf-8");
@@ -384,4 +402,28 @@ export async function resetLibraryData(): Promise<LibraryData> {
   const seed = createSeedData();
   await writeData(seed);
   return seed;
+}
+
+export async function authenticateUser(
+  email: string,
+  password: string
+): Promise<PublicUser | null> {
+  const data = await getLibraryData();
+  const user = data.users.find(
+    (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+  );
+  if (!user || !verifyPassword(password, user.passwordHash)) {
+    return null;
+  }
+  return toPublicUser(user);
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  const data = await getLibraryData();
+  return data.users.find((u) => u.id === id) ?? null;
+}
+
+export async function getPublicUserById(id: string): Promise<PublicUser | null> {
+  const user = await getUserById(id);
+  return user ? toPublicUser(user) : null;
 }

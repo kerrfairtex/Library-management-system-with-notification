@@ -8,6 +8,7 @@ A full-stack library management app for cataloging books, registering members, c
 - **Members** — register patrons, activate/deactivate accounts
 - **Circulation** — check out, renew, and return loans (max 5 active loans per member)
 - **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
+- **Login** — staff sign-in with session cookie protection for desk and APIs
 - **Desk dashboard** — live stats, recent loans, and alert feed
 - **Persistent storage** — JSON file store under `data/library.json` (seeded on first run)
 
@@ -24,7 +25,14 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). You’ll be redirected to the login page.
+
+### Demo accounts
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Librarian | `librarian@shelfwalk.app` | `librarian123` |
+| Admin | `admin@shelfwalk.app` | `admin123` |
 
 ## Scripts
 
@@ -39,6 +47,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Endpoint | Methods | Purpose |
 | --- | --- | --- |
+| `/api/auth/login` | POST | Sign in and set session cookie |
+| `/api/auth/logout` | POST | Clear session cookie |
+| `/api/auth/me` | GET | Current signed-in user |
 | `/api/books` | GET, POST | List / create books |
 | `/api/books/[id]` | PATCH, DELETE | Update / delete book |
 | `/api/members` | GET, POST | List / create members |

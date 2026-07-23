@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type { LibraryData } from "./types";
+import { hashPassword } from "./auth";
 
 const daysFromNow = (days: number) => {
   const d = new Date();
@@ -9,10 +10,32 @@ const daysFromNow = (days: number) => {
 
 const daysAgo = (days: number) => daysFromNow(-days);
 
+export function createSeedUsers() {
+  return [
+    {
+      id: randomUUID(),
+      name: "Alex Rivera",
+      email: "librarian@shelfwalk.app",
+      passwordHash: hashPassword("librarian123"),
+      role: "librarian" as const,
+      createdAt: daysAgo(90),
+    },
+    {
+      id: randomUUID(),
+      name: "Morgan Ellis",
+      email: "admin@shelfwalk.app",
+      passwordHash: hashPassword("admin123"),
+      role: "admin" as const,
+      createdAt: daysAgo(90),
+    },
+  ];
+}
+
 export function createSeedData(): LibraryData {
   const bookIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
   const memberIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
   const loanIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+  const users = createSeedUsers();
 
   const books = [
     {
@@ -205,5 +228,5 @@ export function createSeedData(): LibraryData {
     },
   ];
 
-  return { books, members, loans, notifications };
+  return { users, books, members, loans, notifications };
 }
