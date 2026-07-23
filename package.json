@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "echo \"ESLint flat-config via next lint was removed in Next.js 16; build typechecks instead.\""
+    "lint": "echo \"ESLint flat-config via next lint was removed in Next.js 16; build typechecks instead.\"",
+    "seed:users": "node --env-file=.env.local scripts/seed-users.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

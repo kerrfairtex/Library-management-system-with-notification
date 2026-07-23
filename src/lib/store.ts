@@ -655,7 +655,14 @@ export async function authenticateUser(
     .ilike("email", email.trim())
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    throw new Error(
+      `Failed to look up user in Supabase: ${error.message}. ` +
+        "Confirm the `users` table exists (see supabase/schema.sql) and that " +
+        "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set correctly."
+    );
+  }
+  if (!data) return null;
   const user = mapUser(data as UserRow);
   if (!verifyPassword(password, user.passwordHash)) return null;
   return toPublicUser(user);
