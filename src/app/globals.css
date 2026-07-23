@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #12241f;
+  --ink-soft: #243b33;
+  --jade: #1f7a5c;
+  --jade-deep: #165a44;
+  --jade-soft: #d7efe4;
+  --sand: #e8efe9;
+  --mist: #f3f7f4;
+  --paper: #fbfcfb;
+  --warn: #9a6b1f;
+  --warn-soft: #f5e8c8;
+  --danger: #9b3a3a;
+  --danger-soft: #f5d9d9;
+  --info: #2a5f7a;
+  --info-soft: #d7e8f0;
+  --ok: #1f7a5c;
+  --ok-soft: #d7efe4;
+  --line: rgba(18, 36, 31, 0.1);
+  --shadow: 0 18px 40px rgba(18, 36, 31, 0.08);
+  --radius: 18px;
+  --background: var(--mist);
+  --foreground: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  color: var(--foreground);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(31, 122, 92, 0.14), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(154, 107, 31, 0.1), transparent 50%),
+    linear-gradient(180deg, #eef5f0 0%, var(--mist) 42%, #e7efea 100%);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3,
+.brand,
+.display {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@layer components {
+  .shell {
+    @apply min-h-screen;
+  }
+
+  .panel {
+    background: color-mix(in srgb, var(--paper) 88%, white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
+  }
+
+  .btn-primary {
+    background: var(--jade);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--jade-deep);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(18, 36, 31, 0.04);
+  }
+
+  .btn-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .field {
+    @apply w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition;
+    border-color: var(--line);
+    background: white;
+  }
+
+  .field:focus {
+    border-color: color-mix(in srgb, var(--jade) 55%, white);
+    box-shadow: 0 0 0 3px rgba(31, 122, 92, 0.15);
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em];
+    color: color-mix(in srgb, var(--ink) 55%, transparent);
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .tone-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .tone-warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .tone-ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .tone-info {
+    background: var(--info-soft);
+    color: var(--info);
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition;
+    color: color-mix(in srgb, var(--ink) 72%, transparent);
+  }
+
+  .nav-link:hover,
+  .nav-link.active {
+    background: rgba(31, 122, 92, 0.1);
+    color: var(--jade-deep);
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .data-table {
+    @apply w-full min-w-[640px] text-left text-sm;
+  }
+
+  .data-table th {
+    @apply px-3 py-3 text-xs font-semibold uppercase tracking-[0.06em];
+    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .data-table td {
+    @apply px-3 py-3 align-middle;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  }
+
+  .fade-up {
+    animation: fadeUp 0.45s ease both;
+  }
+
+  .fade-up-delay-1 {
+    animation-delay: 0.05s;
+  }
+
+  .fade-up-delay-2 {
+    animation-delay: 0.1s;
+  }
+
+  .fade-up-delay-3 {
+    animation-delay: 0.15s;
+  }
+
+  .pulse-dot {
+    animation: pulseDot 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.7;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.35s ease both;
+}
