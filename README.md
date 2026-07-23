@@ -35,13 +35,34 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 AUTH_SECRET=a-long-random-string
 ```
 
+Create the tables in your Supabase project (SQL editor → paste and run):
+
+```bash
+supabase/schema.sql
+```
+
+Then seed the two demo accounts so login actually works:
+
+```bash
+npm run seed:users
+```
+
+This inserts:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Librarian | `librarian@trac.app` | `librarian123` |
+| Admin | `admin@trac.app` | `admin123` |
+
+The script is safe to re-run — it skips accounts that already exist. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
+
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). You’ll be redirected to the login page.
 
-Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:scrypt` string from `hashPassword` in `src/lib/auth.ts`).
+Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:scrypt` string from `hashPassword` in `src/lib/auth.ts`). You can add more accounts either by re-running/editing `scripts/seed-users.mjs` or by inserting rows directly with the same hashing scheme.
 
 ### Google sign-in
 
@@ -61,6 +82,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `npm run build` | Production build |
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
+| `npm run seed:users` | Create the demo librarian/admin accounts in Supabase |
 
 ## API overview
 
