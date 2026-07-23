@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { Notification } from "@/lib/types";
+import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate, notificationTone } from "@/lib/utils";
 
@@ -58,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          <UserFooter />
         </aside>
 
         <div className="min-w-0 space-y-4">
@@ -65,6 +66,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="fade-up">{children}</main>
         </div>
       </div>
+    </div>
+  );
+}
+
+function UserFooter() {
+  const router = useRouter();
+  const { data } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const user = data?.user;
+
+  async function logout() {
+    await apiJson("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
+
+  return (
+    <div className="mt-6 border-t border-[var(--line)] pt-4">
+      <p className="text-sm font-semibold">{user?.name ?? "Staff"}</p>
+      <p className="mb-3 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+        {user?.email ?? "Signed in"}
+        {user?.role ? ` · ${user.role}` : ""}
+      </p>
+      <button type="button" className="btn btn-ghost w-full" onClick={logout}>
+        Log out
+      </button>
     </div>
   );
 }

@@ -1,3 +1,21 @@
+export type UserRole = "librarian" | "admin";
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  createdAt: string;
+};
+
+export type PublicUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+};
+
 export type Book = {
   id: string;
   title: string;
@@ -51,6 +69,7 @@ export type Notification = {
 };
 
 export type LibraryData = {
+  users: User[];
   books: Book[];
   members: Member[];
   loans: Loan[];
