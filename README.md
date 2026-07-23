@@ -47,14 +47,14 @@ Then seed the two demo accounts so login actually works:
 npm run seed:users
 ```
 
-This inserts:
+This inserts (and updates on re-run):
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Librarian | `librarian@trac.app` | `librarian123` |
-| Admin | `admin@trac.app` | `admin123` |
+| Librarian | `librarian@shelfwalk.app` | `librarian123` |
+| Admin | `admin@shelfwalk.app` | `admin123` |
 
-The script is safe to re-run — it skips accounts that already exist. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
+The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
 
 ```bash
 npm run dev

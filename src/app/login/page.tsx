@@ -34,8 +34,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("librarian@shelfwalk.app");
+  const [password, setPassword] = useState("librarian123");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -146,6 +146,12 @@ function LoginForm() {
       <button type="submit" className="btn btn-primary w-full" disabled={busy}>
         {busy ? "Signing in…" : "Sign in to desk"}
       </button>
+
+      <p className="mt-4 text-center text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+        Demo: librarian@shelfwalk.app / librarian123
+        <br />
+        Admin: admin@shelfwalk.app / admin123
+      </p>
     </form>
   );
 }
