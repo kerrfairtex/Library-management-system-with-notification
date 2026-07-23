@@ -1,4 +1,4 @@
-# Shelfwalk — Library Management System with Notifications
+# TRAC — Library Management System with Notification
 
 A full-stack library management app for cataloging books, registering members, circulating loans, and surfacing due-date alerts.
 
@@ -8,7 +8,7 @@ A full-stack library management app for cataloging books, registering members, c
 - **Members** — register patrons, activate/deactivate accounts
 - **Circulation** — check out, renew, and return loans (max 5 active loans per member)
 - **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
-- **Login** — staff sign-in with session cookie protection for desk and APIs
+- **Login** — staff sign-in with session cookie protection for desk and APIs, plus Google sign-up/sign-in
 - **Desk dashboard** — live stats, recent loans, and alert feed
 - **Persistent storage** — Supabase Postgres (`books`, `members`, `loans`, `notifications`, optional `users`)
 
@@ -25,11 +25,14 @@ A full-stack library management app for cataloging books, registering members, c
 npm install
 ```
 
-Set environment variables:
+Copy `.env.example` to `.env.local` and fill in your Supabase project details:
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+AUTH_SECRET=a-long-random-string
 ```
 
 ```bash
@@ -39,6 +42,16 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). You’ll be redirected to the login page.
 
 Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:scrypt` string from `hashPassword` in `src/lib/auth.ts`).
+
+### Google sign-in
+
+"Sign up with Google" uses Supabase Auth's OAuth flow:
+
+1. In the Supabase dashboard, enable the **Google** provider under Authentication → Providers and add your Google OAuth client ID/secret.
+2. Add `<your-site-url>/auth/callback` to the provider's authorized redirect URLs (both in Supabase and in the Google Cloud OAuth client).
+3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` so the browser can start the OAuth handshake.
+
+On first sign-in, a row is created in the `users` table for the Google account (role defaults to `librarian`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain.
 
 ## Scripts
 
@@ -56,6 +69,7 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 | `/api/auth/login` | POST | Sign in and set session cookie |
 | `/api/auth/logout` | POST | Clear session cookie |
 | `/api/auth/me` | GET | Current signed-in user |
+| `/api/auth/google` | POST | Exchange a verified Google session for a TRAC session cookie |
 | `/api/books` | GET, POST | List / create books |
 | `/api/books/[id]` | PATCH, DELETE | Update / delete book |
 | `/api/members` | GET, POST | List / create members |
@@ -76,4 +90,4 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 ## Notes
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
-- On Vercel, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in project environment variables.
+- On Vercel, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `AUTH_SECRET` in project environment variables.

@@ -294,17 +294,9 @@ a {
 
 .login-headline {
   font-size: clamp(1.55rem, 3.2vw, 2.15rem);
-  line-height: 1.15;
+  line-height: 1.2;
   color: var(--ink-soft);
-  max-width: 16ch;
-}
-
-.login-subcopy {
-  margin-top: 0.85rem;
-  max-width: 34ch;
-  font-size: 1.02rem;
-  line-height: 1.55;
-  color: color-mix(in srgb, var(--ink) 65%, transparent);
+  max-width: 22ch;
 }
 
 .login-panel {
@@ -319,4 +311,24 @@ a {
 
 .login-form .field {
   background: rgba(255, 255, 255, 0.92);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.1rem 0;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
