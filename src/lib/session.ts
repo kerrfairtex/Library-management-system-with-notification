@@ -1,5 +1,5 @@
-const SESSION_SECRET = process.env.AUTH_SECRET || "shelfwalk-dev-secret-change-me";
-export const SESSION_COOKIE = "shelfwalk_session";
+const SESSION_SECRET = process.env.AUTH_SECRET || "trac-dev-secret-change-me";
+export const SESSION_COOKIE = "trac_session";
 
 const encoder = new TextEncoder();
 

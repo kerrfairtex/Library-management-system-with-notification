@@ -13,7 +13,7 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Shelfwalk — Library Management",
+  title: "TRAC — Library Management System with Notification",
   description: "Library management system with loan notifications and circulation tracking.",
 };
 

@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <aside className="panel relative h-fit p-4 md:sticky md:top-6">
           <div className="mb-6 flex items-center justify-between gap-3">
             <Link href="/" className="brand text-2xl text-[var(--ink)]">
-              Shelfwalk
+              TRAC
             </Link>
             <button
               type="button"
