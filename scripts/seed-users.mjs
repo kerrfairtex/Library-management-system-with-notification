@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Creates (or leaves untouched) the demo librarian/admin accounts in the
-// Supabase `users` table so the login page has working credentials.
+// Creates or updates the demo librarian/admin accounts in the Supabase
+// `users` table so the login page has working credentials.
 //
 // Usage:
 //   node --env-file=.env.local scripts/seed-users.mjs
@@ -35,13 +35,13 @@ function hashPassword(password) {
 const demoUsers = [
   {
     name: "Alex Rivera",
-    email: "librarian@trac.app",
+    email: "librarian@shelfwalk.app",
     password: "librarian123",
     role: "librarian",
   },
   {
     name: "Morgan Ellis",
-    email: "admin@trac.app",
+    email: "admin@shelfwalk.app",
     password: "admin123",
     role: "admin",
   },
@@ -65,8 +65,24 @@ for (const demo of demoUsers) {
     continue;
   }
 
+  const passwordHash = hashPassword(demo.password);
+
   if (existing) {
-    console.log(`• ${demo.email} already exists — skipped.`);
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        name: demo.name,
+        password_hash: passwordHash,
+        role: demo.role,
+      })
+      .eq("id", existing.id);
+
+    if (updateError) {
+      hadError = true;
+      console.error(`✗ Failed to update ${demo.email}: ${updateError.message}`);
+    } else {
+      console.log(`✓ Updated ${demo.email} / ${demo.password}`);
+    }
     continue;
   }
 
@@ -74,7 +90,7 @@ for (const demo of demoUsers) {
     id: randomUUID(),
     name: demo.name,
     email: demo.email,
-    password_hash: hashPassword(demo.password),
+    password_hash: passwordHash,
     role: demo.role,
     created_at: new Date().toISOString(),
   });
@@ -91,4 +107,7 @@ if (hadError) {
   process.exit(1);
 }
 
-console.log("\nDone. Sign in at /login with the credentials above.");
+console.log("\nDone. Sign in at /login with:");
+for (const demo of demoUsers) {
+  console.log(`  ${demo.role.padEnd(10)} ${demo.email} / ${demo.password}`);
+}
