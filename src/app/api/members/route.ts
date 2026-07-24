@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
-import { createMember, getLibraryData } from "@/lib/store";
+import { createMember, listMembers } from "@/lib/store";
 
 export async function GET() {
-  const data = await getLibraryData();
-  return NextResponse.json(data.members);
+  try {
+    const members = await listMembers();
+    return NextResponse.json(members);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load members." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {

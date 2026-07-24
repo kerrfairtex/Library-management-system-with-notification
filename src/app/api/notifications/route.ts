@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import {
-  getLibraryData,
+  getNotificationsData,
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/store";
 import { sortNotifications } from "@/lib/utils";
 
 export async function GET() {
-  const data = await getLibraryData();
-  return NextResponse.json(sortNotifications(data.notifications));
+  try {
+    const notifications = await getNotificationsData();
+    return NextResponse.json(sortNotifications(notifications));
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load notifications." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(request: Request) {
