@@ -19,6 +19,10 @@ A full-stack library management app for cataloging books, registering members, c
 - Supabase (`@supabase/supabase-js`)
 - API routes (`/api/*`)
 
+## Developing with Cursor
+
+This repo includes `.cursor/mcp.json`, which configures the [Supabase MCP server](https://supabase.com/docs/guides/getting-started/mcp) for this project (`project_ref=cphkxgykshjeultzgzmz`). Opening this repo in Cursor lets you (after authenticating once) ask the AI to inspect tables, run SQL, and check logs directly against this Supabase project — handy for diagnosing issues like the schema-cache error covered below.
+
 ## Getting started
 
 ```bash
