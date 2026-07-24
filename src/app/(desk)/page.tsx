@@ -38,7 +38,7 @@ export default function DashboardPage() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {[
           { label: "Copies in stock", value: stats.totalBooks, hint: `${stats.availableBooks} available` },
-          { label: "Active members", value: stats.totalMembers, hint: "Registered patrons" },
+          { label: "Active members", value: stats.totalMembers, hint: "Students & patrons" },
           { label: "Open loans", value: stats.activeLoans, hint: `${stats.overdueLoans} overdue` },
           { label: "Unread alerts", value: stats.unreadNotifications, hint: "Needs review" },
         ].map((item, i) => (

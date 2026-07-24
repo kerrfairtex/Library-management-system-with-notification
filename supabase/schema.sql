@@ -33,9 +33,47 @@ create table if not exists public.members (
   name text not null,
   email text not null,
   phone text not null,
+  member_type text not null default 'student' check (member_type in ('student', 'staff', 'community')),
+  student_id text,
+  grade text,
   joined_at timestamptz not null default now(),
   active boolean not null default true
 );
+
+-- Idempotent upgrades for databases created before student fields existed.
+alter table public.members add column if not exists member_type text;
+alter table public.members add column if not exists student_id text;
+alter table public.members add column if not exists grade text;
+
+update public.members
+set member_type = 'student'
+where member_type is null or member_type = '';
+
+alter table public.members
+  alter column member_type set default 'student';
+
+-- Backfill + constrain without failing on re-runs.
+do $$
+begin
+  alter table public.members alter column member_type set not null;
+exception
+  when others then null;
+end $$;
+
+do $$
+begin
+  alter table public.members
+    drop constraint if exists members_member_type_check;
+  alter table public.members
+    add constraint members_member_type_check
+    check (member_type in ('student', 'staff', 'community'));
+exception
+  when others then null;
+end $$;
+
+create unique index if not exists members_student_id_unique
+  on public.members (student_id)
+  where student_id is not null and student_id <> '';
 
 create table if not exists public.loans (
   id uuid primary key default gen_random_uuid(),

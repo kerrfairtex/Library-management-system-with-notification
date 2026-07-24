@@ -8,6 +8,7 @@ import type {
   Loan,
   LoanStatus,
   Member,
+  MemberType,
   Notification,
   NotificationType,
   PublicUser,
@@ -32,6 +33,9 @@ type MemberRow = {
   name: string;
   email: string;
   phone: string;
+  member_type: MemberType | null;
+  student_id: string | null;
+  grade: string | null;
   joined_at: string;
   active: boolean;
 };
@@ -80,14 +84,40 @@ function mapBook(row: BookRow): Book {
 }
 
 function mapMember(row: MemberRow): Member {
+  const memberType: MemberType =
+    row.member_type === "staff" || row.member_type === "community"
+      ? row.member_type
+      : "student";
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     phone: row.phone,
+    memberType,
+    studentId: row.student_id ?? null,
+    grade: row.grade ?? null,
     joinedAt: row.joined_at,
     active: row.active,
   };
+}
+
+function normalizeMemberType(value: unknown): MemberType {
+  if (value === "staff" || value === "community" || value === "student") {
+    return value;
+  }
+  return "student";
+}
+
+function assertMemberInput(input: {
+  memberType: MemberType;
+  studentId: string | null;
+  grade: string | null;
+}) {
+  if (input.memberType === "student") {
+    if (!input.studentId?.trim()) {
+      throw new Error("Student ID is required for student members.");
+    }
+  }
 }
 
 function mapLoan(row: LoanRow): Loan {
@@ -473,11 +503,21 @@ export async function deleteBook(id: string): Promise<boolean> {
 export async function createMember(
   input: Omit<Member, "id" | "joinedAt" | "active">
 ): Promise<Member> {
+  const memberType = normalizeMemberType(input.memberType);
+  const studentId =
+    memberType === "student" ? (input.studentId?.trim() || null) : null;
+  const grade =
+    memberType === "student" ? (input.grade?.trim() || null) : null;
+  assertMemberInput({ memberType, studentId, grade });
+
   const row = {
     id: randomUUID(),
     name: input.name,
     email: input.email,
     phone: input.phone,
+    member_type: memberType,
+    student_id: studentId,
+    grade,
     joined_at: new Date().toISOString(),
     active: true,
   };
@@ -486,10 +526,14 @@ export async function createMember(
   throwIfError(error, "Failed to create member.");
 
   const member = mapMember(data as MemberRow);
+  const label =
+    member.memberType === "student"
+      ? `Student ${member.name}${member.studentId ? ` (${member.studentId})` : ""}`
+      : member.name;
   await insertNotification(
     "member_added",
-    "New member registered",
-    `${member.name} joined the library.`,
+    member.memberType === "student" ? "New student registered" : "New member registered",
+    `${label} joined the library.`,
     member.id
   );
   return member;
@@ -507,11 +551,46 @@ export async function updateMember(
   throwIfError(fetchError, "Failed to load member.");
   if (!existing) return null;
 
+  const current = mapMember(existing as MemberRow);
+  const nextType = updates.memberType
+    ? normalizeMemberType(updates.memberType)
+    : current.memberType;
+  const nextStudentId =
+    updates.studentId !== undefined
+      ? updates.studentId?.trim() || null
+      : current.studentId;
+  const nextGrade =
+    updates.grade !== undefined ? updates.grade?.trim() || null : current.grade;
+
+  const resolvedStudentId = nextType === "student" ? nextStudentId : null;
+  const resolvedGrade = nextType === "student" ? nextGrade : null;
+
+  const touchingIdentity =
+    updates.memberType !== undefined ||
+    updates.studentId !== undefined ||
+    updates.grade !== undefined;
+  if (touchingIdentity || nextType === "student") {
+    // Allow legacy rows missing student_id until staff edits them,
+    // but require an ID whenever type/student fields are being saved as student.
+    if (touchingIdentity) {
+      assertMemberInput({
+        memberType: nextType,
+        studentId: resolvedStudentId,
+        grade: resolvedGrade,
+      });
+    }
+  }
+
   const patch: Partial<MemberRow> = {};
   if (updates.name !== undefined) patch.name = updates.name;
   if (updates.email !== undefined) patch.email = updates.email;
   if (updates.phone !== undefined) patch.phone = updates.phone;
   if (updates.active !== undefined) patch.active = updates.active;
+  if (touchingIdentity) {
+    patch.member_type = nextType;
+    patch.student_id = resolvedStudentId;
+    patch.grade = resolvedGrade;
+  }
 
   const { data, error } = await supabase
     .from("members")

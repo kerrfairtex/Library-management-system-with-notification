@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { createMember, listMembers } from "@/lib/store";
+import type { MemberType } from "@/lib/types";
+
+function parseMemberType(value: unknown): MemberType {
+  if (value === "staff" || value === "community" || value === "student") {
+    return value;
+  }
+  return "student";
+}
 
 export async function GET() {
   try {
@@ -16,14 +24,22 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, phone } = body;
+    const { name, email, phone, memberType, studentId, grade } = body;
     if (!name || !email || !phone) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
+    const type = parseMemberType(memberType);
     const member = await createMember({
       name: String(name).trim(),
       email: String(email).trim(),
       phone: String(phone).trim(),
+      memberType: type,
+      studentId:
+        studentId === undefined || studentId === null
+          ? null
+          : String(studentId).trim() || null,
+      grade:
+        grade === undefined || grade === null ? null : String(grade).trim() || null,
     });
     return NextResponse.json(member, { status: 201 });
   } catch (error) {

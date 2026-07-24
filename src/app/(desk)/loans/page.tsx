@@ -121,7 +121,7 @@ export default function LoansPage() {
               <thead>
                 <tr>
                   <th>Book</th>
-                  <th>Member</th>
+                  <th>Student / member</th>
                   <th>Borrowed</th>
                   <th>Due</th>
                   <th>Status</th>
@@ -134,7 +134,15 @@ export default function LoansPage() {
                   return (
                     <tr key={loan.id}>
                       <td className="font-semibold">{loan.book?.title ?? "Unknown"}</td>
-                      <td>{loan.member?.name ?? "Unknown"}</td>
+                      <td>
+                        <p>{loan.member?.name ?? "Unknown"}</p>
+                        {loan.member?.memberType === "student" && loan.member.studentId && (
+                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                            {loan.member.studentId}
+                            {loan.member.grade ? ` · ${loan.member.grade}` : ""}
+                          </p>
+                        )}
+                      </td>
                       <td>{formatDate(loan.borrowedAt)}</td>
                       <td>
                         {formatDate(loan.dueAt)}
@@ -216,7 +224,7 @@ export default function LoansPage() {
           </div>
           <div>
             <label className="label" htmlFor="memberId">
-              Member
+              Student / member
             </label>
             <select
               id="memberId"
@@ -225,10 +233,12 @@ export default function LoansPage() {
               value={memberId}
               onChange={(e) => setMemberId(e.target.value)}
             >
-              <option value="">Select a member</option>
+              <option value="">Select a student or member</option>
               {activeMembers.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name}
+                  {member.memberType === "student"
+                    ? `${member.name}${member.studentId ? ` (${member.studentId})` : ""}`
+                    : `${member.name} · ${member.memberType}`}
                 </option>
               ))}
             </select>

@@ -1,11 +1,11 @@
 # TRAC — Library Management System with Notification
 
-A full-stack library management app for cataloging books, registering members, circulating loans, and surfacing due-date alerts.
+A full-stack library management app for cataloging books, registering students and members, circulating loans, and surfacing due-date alerts.
 
 ## Features
 
 - **Catalog** — add, edit, search, and delete books with copy tracking
-- **Members** — register patrons, activate/deactivate accounts
+- **Students & members** — register students (student ID + grade), staff, or community patrons; activate/deactivate
 - **Circulation** — check out, renew, and return loans (max 5 active loans per member)
 - **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
 - **Login** — staff sign-in with session cookie protection for desk and APIs, plus Google sign-up/sign-in
