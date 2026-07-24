@@ -13,7 +13,13 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   if (client) return client;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Supabase is migrating from legacy JWT `anon` keys to the new
+  // `sb_publishable_...` publishable keys. Both work identically for
+  // browser use, so accept either env var name. See:
+  // https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return null;

@@ -5,18 +5,21 @@
 // Usage:
 //   node --env-file=.env.local scripts/seed-users.mjs
 //
-// Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (the same variables
-// the app's API routes use — see src/lib/supabase.ts).
+// Requires SUPABASE_URL and a server-side key: either the new
+// SUPABASE_SECRET_KEY (sb_secret_...) or the legacy
+// SUPABASE_SERVICE_ROLE_KEY — the same variables the app's API routes
+// use, see src/lib/supabase.ts.
 
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const serviceRoleKey =
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error(
-    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.\n" +
+    "Missing SUPABASE_URL or SUPABASE_SECRET_KEY (or the legacy SUPABASE_SERVICE_ROLE_KEY).\n" +
       "Run this with your env file loaded, e.g.:\n" +
       "  node --env-file=.env.local scripts/seed-users.mjs"
   );

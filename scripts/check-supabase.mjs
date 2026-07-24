@@ -4,24 +4,43 @@
 //
 // Usage:
 //   node --env-file=.env.local scripts/check-supabase.mjs
+//
+// Prefers a server-side key (new SUPABASE_SECRET_KEY or legacy
+// SUPABASE_SERVICE_ROLE_KEY) so it can check write access too. Falls back
+// to a publishable/anon key (read-only check) if that's all you have —
+// enough to confirm whether tables exist, since RLS is off by default
+// in supabase/schema.sql.
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey =
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const publicKey =
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const key = serviceRoleKey || publicKey;
 
-if (!supabaseUrl || !serviceRoleKey) {
+if (!supabaseUrl || !key) {
   console.error(
-    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.\n" +
+    "Missing SUPABASE_URL and a key to check with (SUPABASE_SECRET_KEY, " +
+      "SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PUBLISHABLE_KEY, or " +
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY).\n" +
       "Run this with your env file loaded, e.g.:\n" +
       "  node --env-file=.env.local scripts/check-supabase.mjs"
   );
   process.exit(1);
 }
 
-console.log(`Checking Supabase project: ${supabaseUrl}\n`);
+console.log(`Checking Supabase project: ${supabaseUrl}`);
+console.log(
+  serviceRoleKey
+    ? "Using a server-side key.\n"
+    : "Using a publishable/anon key (read-only check — set SUPABASE_SECRET_KEY for full access).\n"
+);
 
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = createClient(supabaseUrl, key);
 
 const tables = ["users", "books", "members", "loans", "notifications"];
 let hadFailure = false;
