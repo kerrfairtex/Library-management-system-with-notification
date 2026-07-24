@@ -483,17 +483,35 @@ export async function updateBook(
   return updated;
 }
 
-export async function deleteBook(id: string): Promise<boolean> {
-  const { data: activeLoans, error: loanError } = await supabase
-    .from("loans")
-    .select("id")
-    .eq("book_id", id)
-    .neq("status", "returned")
-    .limit(1);
-  throwIfError(loanError, "Failed to check book loans.");
-  if (activeLoans && activeLoans.length > 0) {
-    throw new Error("Cannot delete a book with active loans.");
+/**
+ * Loans reference books and members with ON DELETE RESTRICT, so returned loans
+ * block a delete just as active ones do. Checking both here keeps the failure
+ * readable instead of surfacing a raw foreign-key violation.
+ */
+function assertNoLoanHistory(
+  loans: Pick<LoanRow, "status">[] | null,
+  subject: "book" | "member"
+) {
+  if (!loans || loans.length === 0) return;
+  const active = loans.filter((loan) => loan.status !== "returned").length;
+  if (active > 0) {
+    throw new Error(`Cannot delete a ${subject} with active loans.`);
   }
+  throw new Error(
+    `Cannot delete a ${subject} with loan history. ` +
+      `${loans.length} past loan${loans.length === 1 ? "" : "s"} reference${
+        loans.length === 1 ? "s" : ""
+      } it.`
+  );
+}
+
+export async function deleteBook(id: string): Promise<boolean> {
+  const { data: loans, error: loanError } = await supabase
+    .from("loans")
+    .select("status")
+    .eq("book_id", id);
+  throwIfError(loanError, "Failed to check book loans.");
+  assertNoLoanHistory(loans as Pick<LoanRow, "status">[] | null, "book");
 
   const { data, error } = await supabase.from("books").delete().eq("id", id).select("id");
   throwIfError(error, "Failed to delete book.");
@@ -603,16 +621,12 @@ export async function updateMember(
 }
 
 export async function deleteMember(id: string): Promise<boolean> {
-  const { data: activeLoans, error: loanError } = await supabase
+  const { data: loans, error: loanError } = await supabase
     .from("loans")
-    .select("id")
-    .eq("member_id", id)
-    .neq("status", "returned")
-    .limit(1);
+    .select("status")
+    .eq("member_id", id);
   throwIfError(loanError, "Failed to check member loans.");
-  if (activeLoans && activeLoans.length > 0) {
-    throw new Error("Cannot delete a member with active loans.");
-  }
+  assertNoLoanHistory(loans as Pick<LoanRow, "status">[] | null, "member");
 
   const { data, error } = await supabase.from("members").delete().eq("id", id).select("id");
   throwIfError(error, "Failed to delete member.");

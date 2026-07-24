@@ -43,6 +43,8 @@ AUTH_SECRET=a-long-random-string
 
 Supabase is migrating from legacy JWT `anon`/`service_role` keys to new `sb_publishable_...`/`sb_secret_...` keys ([docs](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)). The app accepts either — `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` server-side, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the browser.
 
+`AUTH_SECRET` signs the session cookie and is **required in production** — the app refuses to sign anyone in without it, because the development fallback is public in this repository and could be used to forge sessions. Generate one with `openssl rand -base64 32`.
+
 Create the tables in your Supabase project (SQL editor → paste and run):
 
 ```bash

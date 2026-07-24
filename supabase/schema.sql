@@ -22,11 +22,48 @@ create table if not exists public.books (
   author text not null,
   isbn text not null,
   genre text not null,
-  total_copies integer not null default 1,
-  available_copies integer not null default 1,
+  total_copies integer not null default 1 check (total_copies >= 0),
+  available_copies integer not null default 1 check (available_copies >= 0),
   published_year integer not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint books_available_within_total check (available_copies <= total_copies)
 );
+
+-- Copy-count guards. The app checks availability before lending, but two
+-- simultaneous checkouts of the last copy would both pass that check, so the
+-- database has the final say.
+do $$
+begin
+  alter table public.books
+    drop constraint if exists books_total_copies_check;
+  alter table public.books
+    add constraint books_total_copies_check check (total_copies >= 0);
+
+  alter table public.books
+    drop constraint if exists books_available_copies_check;
+  alter table public.books
+    add constraint books_available_copies_check check (available_copies >= 0);
+
+  alter table public.books
+    drop constraint if exists books_available_within_total;
+  alter table public.books
+    add constraint books_available_within_total
+    check (available_copies <= total_copies);
+exception
+  when others then
+    raise notice 'Could not apply books copy-count constraints: %', sqlerrm;
+end $$;
+
+-- One catalog row per ISBN; extra physical copies belong in total_copies.
+do $$
+begin
+  create unique index if not exists books_isbn_unique
+    on public.books (isbn)
+    where isbn <> '';
+exception
+  when others then
+    raise notice 'Could not create books_isbn_unique (duplicate ISBNs?): %', sqlerrm;
+end $$;
 
 create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
@@ -52,12 +89,15 @@ where member_type is null or member_type = '';
 alter table public.members
   alter column member_type set default 'student';
 
--- Backfill + constrain without failing on re-runs.
+-- Backfill + constrain without failing on re-runs. Failures raise a notice
+-- rather than passing silently, so a legacy row with a bad member_type is
+-- visible in the SQL editor output instead of leaving the column unconstrained.
 do $$
 begin
   alter table public.members alter column member_type set not null;
 exception
-  when others then null;
+  when others then
+    raise notice 'Could not set members.member_type NOT NULL: %', sqlerrm;
 end $$;
 
 do $$
@@ -68,12 +108,25 @@ begin
     add constraint members_member_type_check
     check (member_type in ('student', 'staff', 'community'));
 exception
-  when others then null;
+  when others then
+    raise notice 'Could not apply members_member_type_check: %', sqlerrm;
 end $$;
 
 create unique index if not exists members_student_id_unique
   on public.members (student_id)
   where student_id is not null and student_id <> '';
+
+-- One patron per email address, compared case-insensitively to match the
+-- app's lookups.
+do $$
+begin
+  create unique index if not exists members_email_unique
+    on public.members (lower(email))
+    where email <> '';
+exception
+  when others then
+    raise notice 'Could not create members_email_unique (duplicate emails?): %', sqlerrm;
+end $$;
 
 create table if not exists public.loans (
   id uuid primary key default gen_random_uuid(),
