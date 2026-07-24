@@ -17,10 +17,6 @@ export const metadata: Metadata = {
   title: "TRAC — Library Management System with Notification",
   description:
     "Institute of Agricultural Sciences (TRAC, Bongao, Tawi-Tawi) library management system with loan notifications and circulation tracking.",
-  icons: {
-    icon: "/brand/trac-logo-192.png",
-    apple: "/brand/trac-logo-192.png",
-  },
 };
 
 export default function RootLayout({
