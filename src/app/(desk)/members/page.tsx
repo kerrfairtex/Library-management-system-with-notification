@@ -127,7 +127,7 @@ export default function MembersPage() {
         subtitle="Register students with a student ID and grade, plus staff or community patrons."
         action={
           <button type="button" className="btn btn-primary" onClick={openCreate}>
-            Add student
+            Add student / member
           </button>
         }
       />
