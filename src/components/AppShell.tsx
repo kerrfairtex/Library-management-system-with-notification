@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -24,8 +25,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-4 md:grid-cols-[240px_1fr] md:px-6 md:py-6">
         <aside className="panel relative h-fit p-4 md:sticky md:top-6">
           <div className="mb-6 flex items-center justify-between gap-3">
-            <Link href="/" className="brand text-2xl text-[var(--ink)]">
-              TRAC
+            <Link href="/" className="brand-mark" aria-label="TRAC home">
+              <Image
+                src="/brand/trac-logo.png"
+                alt=""
+                width={48}
+                height={48}
+                className="brand-mark-seal"
+                priority
+              />
+              <span className="brand-mark-text">
+                <span className="brand-mark-name">TRAC</span>
+                <span className="brand-mark-sub">Library desk</span>
+              </span>
             </Link>
             <button
               type="button"
@@ -37,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <p className="mb-5 hidden text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)] md:block">
-            Circulation desk with live loan alerts.
+            Institute of Agricultural Sciences · Bongao, Tawi-Tawi
           </p>
           <nav className={`${menuOpen ? "block" : "hidden"} space-y-1 md:block`}>
             {nav.map((item) => {

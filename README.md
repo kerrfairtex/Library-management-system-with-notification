@@ -1,6 +1,8 @@
 # TRAC — Library Management System with Notification
 
-A full-stack library management app for cataloging books, registering students and members, circulating loans, and surfacing due-date alerts.
+A full-stack library management app for the Institute of Agricultural Sciences (TRAC, Bongao, Tawi-Tawi) — cataloging books, registering students and members, circulating loans, and surfacing due-date alerts.
+
+Brand assets live in `public/brand/` (`trac-logo.png` seal, `trac-campus.jpg` campus photo) and appear on the login page and desk shell.
 
 ## Features
 

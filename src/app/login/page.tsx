@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
@@ -159,13 +160,34 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <main className="login-page">
-      <div className="login-atmosphere" aria-hidden />
-      <div className="login-shelves" aria-hidden />
+      <div className="login-atmosphere" aria-hidden>
+        <Image
+          src="/brand/trac-campus.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="login-campus-photo"
+        />
+        <div className="login-atmosphere-veil" />
+      </div>
 
       <section className="login-stage">
         <div className="login-copy fade-up">
+          <div className="login-seal">
+            <Image
+              src="/brand/trac-logo.png"
+              alt="Institute of Agricultural Sciences — TRAC, Bongao, Tawi-Tawi"
+              width={168}
+              height={168}
+              priority
+              className="login-seal-image"
+            />
+          </div>
           <p className="brand login-brand">TRAC</p>
+          <p className="login-institute">Institute of Agricultural Sciences</p>
           <h1 className="display login-headline">Library Management System with Notification</h1>
+          <p className="login-location">Bongao, Tawi-Tawi</p>
         </div>
 
         <div className="login-panel panel fade-up fade-up-delay-1">
