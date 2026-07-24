@@ -29,11 +29,13 @@ Copy `.env.example` to `.env.local` and fill in your Supabase project details:
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_SECRET_KEY=sb_secret_your-secret-key
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-publishable-key
 AUTH_SECRET=a-long-random-string
 ```
+
+Supabase is migrating from legacy JWT `anon`/`service_role` keys to new `sb_publishable_...`/`sb_secret_...` keys ([docs](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)). The app accepts either — `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` server-side, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the browser.
 
 Create the tables in your Supabase project (SQL editor → paste and run):
 
@@ -72,7 +74,7 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 
 1. In the Supabase dashboard, enable the **Google** provider under Authentication → Providers and add your Google OAuth client ID/secret.
 2. Add `<your-site-url>/auth/callback` to the provider's authorized redirect URLs (both in Supabase and in the Google Cloud OAuth client).
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` so the browser can start the OAuth handshake.
+3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
 
 On first sign-in, a row is created in the `users` table for the Google account (role defaults to `librarian`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain.
 
@@ -115,7 +117,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 ## Notes
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
-- On Vercel, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `AUTH_SECRET` in project environment variables.
+- On Vercel, set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), and `AUTH_SECRET` in project environment variables.
 
 ## Troubleshooting
 
@@ -123,7 +125,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 
 This is a PostgREST error meaning the Supabase Data API can't see the table — either it doesn't exist yet, or it exists but the API's schema cache hasn't refreshed. Run the checklist below (in order), then retry:
 
-1. **Run the schema.** Paste all of `supabase/schema.sql` into the Supabase SQL editor for the *exact* project your app points at, and run it. It's safe to re-run.
+1. **Run the schema.** Paste all of `supabase/schema.sql` into the Supabase SQL editor for the *exact* project your app points at ([SQL editor for this project](https://supabase.com/dashboard/project/cphkxgykshjeultzgzmz/sql/new)), and run it. It's safe to re-run.
 2. **Force a schema cache reload.** `schema.sql` already ends with `select pg_notify('pgrst', 'reload schema');`, which should apply immediately. If you ran an older copy of the file, run that line manually in the SQL editor, or go to the Supabase dashboard → **Settings → API** and click **Reload schema**.
 3. **Check exposed schemas.** In **Settings → API → Exposed schemas**, confirm `public` is listed. If it was removed, the API returns this exact error for every table even though they exist.
 4. **Check for a project mismatch.** Confirm `SUPABASE_URL` (and `SUPABASE_SERVICE_ROLE_KEY`) point at the same project you ran the SQL against — it's easy to run the SQL in one project's dashboard while your `.env.local`/Vercel env vars point at another.
