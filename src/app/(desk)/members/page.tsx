@@ -1,16 +1,32 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import type { Member } from "@/lib/types";
+import type { Member, MemberType } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
-const emptyForm = { name: "", email: "", phone: "" };
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  memberType: "student" as MemberType,
+  studentId: "",
+  grade: "",
+};
+
+const typeFilters: Array<"all" | MemberType> = ["all", "student", "staff", "community"];
+
+function typeLabel(type: MemberType): string {
+  if (type === "student") return "Student";
+  if (type === "staff") return "Staff";
+  return "Community";
+}
 
 export default function MembersPage() {
   const { data, loading, error, reload } = useApi<Member[]>("/api/members");
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | MemberType>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -20,10 +36,13 @@ export default function MembersPage() {
   const members = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (data ?? []).filter((m) => {
+      if (typeFilter !== "all" && m.memberType !== typeFilter) return false;
       if (!q) return true;
-      return [m.name, m.email, m.phone].some((v) => v.toLowerCase().includes(q));
+      return [m.name, m.email, m.phone, m.studentId ?? "", m.grade ?? ""].some((v) =>
+        v.toLowerCase().includes(q)
+      );
     });
-  }, [data, query]);
+  }, [data, query, typeFilter]);
 
   function openCreate() {
     setEditing(null);
@@ -34,7 +53,14 @@ export default function MembersPage() {
 
   function openEdit(member: Member) {
     setEditing(member);
-    setForm({ name: member.name, email: member.email, phone: member.phone });
+    setForm({
+      name: member.name,
+      email: member.email,
+      phone: member.phone,
+      memberType: member.memberType,
+      studentId: member.studentId ?? "",
+      grade: member.grade ?? "",
+    });
     setFormError(null);
     setOpen(true);
   }
@@ -43,16 +69,24 @@ export default function MembersPage() {
     e.preventDefault();
     setBusy(true);
     setFormError(null);
+    const payload = {
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      memberType: form.memberType,
+      studentId: form.memberType === "student" ? form.studentId : null,
+      grade: form.memberType === "student" ? form.grade : null,
+    };
     try {
       if (editing) {
         await apiJson(`/api/members/${editing.id}`, {
           method: "PATCH",
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiJson("/api/members", {
           method: "POST",
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       }
       setOpen(false);
@@ -89,36 +123,53 @@ export default function MembersPage() {
   return (
     <div>
       <PageHeader
-        title="Members"
-        subtitle="Register patrons and keep contact details ready for circulation."
+        title="Students & members"
+        subtitle="Register students with a student ID and grade, plus staff or community patrons."
         action={
           <button type="button" className="btn btn-primary" onClick={openCreate}>
-            Add member
+            Add student
           </button>
         }
       />
 
       <div className="panel p-4 md:p-5">
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <input
             className="field max-w-md"
-            placeholder="Search name, email, or phone"
+            placeholder="Search name, email, phone, student ID, or grade"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <div className="flex flex-wrap gap-2">
+            {typeFilters.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`btn ${typeFilter === key ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setTypeFilter(key)}
+              >
+                {key === "all" ? "All" : typeLabel(key)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <ErrorBanner message={error} />}
         {loading && <p className="text-sm">Loading members…</p>}
 
         {!loading && members.length === 0 ? (
-          <EmptyState title="No members found" body="Register a patron to start lending." />
+          <EmptyState
+            title="No students or members found"
+            body="Add a student to start lending books."
+          />
         ) : (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Type</th>
+                  <th>Student details</th>
                   <th>Contact</th>
                   <th>Joined</th>
                   <th>Status</th>
@@ -129,6 +180,29 @@ export default function MembersPage() {
                 {members.map((member) => (
                   <tr key={member.id}>
                     <td className="font-semibold">{member.name}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          member.memberType === "student" ? "tone-info" : "tone-ok"
+                        }`}
+                      >
+                        {typeLabel(member.memberType)}
+                      </span>
+                    </td>
+                    <td>
+                      {member.memberType === "student" ? (
+                        <>
+                          <p>{member.studentId || "—"}</p>
+                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                            {member.grade || "No grade set"}
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                          —
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <p>{member.email}</p>
                       <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
@@ -176,11 +250,31 @@ export default function MembersPage() {
 
       <Modal
         open={open}
-        title={editing ? "Edit member" : "Add member"}
+        title={editing ? "Edit member" : "Add student / member"}
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
+          <div>
+            <label className="label" htmlFor="memberType">
+              Patron type
+            </label>
+            <select
+              id="memberType"
+              className="field"
+              value={form.memberType}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  memberType: e.target.value as MemberType,
+                }))
+              }
+            >
+              <option value="student">Student</option>
+              <option value="staff">Staff</option>
+              <option value="community">Community</option>
+            </select>
+          </div>
           {(
             [
               ["name", "Full name"],
@@ -202,12 +296,41 @@ export default function MembersPage() {
               />
             </div>
           ))}
+          {form.memberType === "student" && (
+            <>
+              <div>
+                <label className="label" htmlFor="studentId">
+                  Student ID
+                </label>
+                <input
+                  id="studentId"
+                  className="field"
+                  required
+                  value={form.studentId}
+                  onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
+                  placeholder="e.g. STU-2026-0142"
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="grade">
+                  Grade / class
+                </label>
+                <input
+                  id="grade"
+                  className="field"
+                  value={form.grade}
+                  onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
+                  placeholder="e.g. Grade 10 / Year 2"
+                />
+              </div>
+            </>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "Saving…" : "Save member"}
+              {busy ? "Saving…" : form.memberType === "student" ? "Save student" : "Save member"}
             </button>
           </div>
         </form>

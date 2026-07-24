@@ -28,11 +28,18 @@ export type Book = {
   createdAt: string;
 };
 
+export type MemberType = "student" | "staff" | "community";
+
 export type Member = {
   id: string;
   name: string;
   email: string;
   phone: string;
+  memberType: MemberType;
+  /** School student ID — required when memberType is "student". */
+  studentId: string | null;
+  /** Class / grade level for students (e.g. "Grade 10", "Year 2"). */
+  grade: string | null;
   joinedAt: string;
   active: boolean;
 };

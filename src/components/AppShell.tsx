@@ -10,7 +10,7 @@ import { formatDate, notificationTone } from "@/lib/utils";
 const nav = [
   { href: "/", label: "Desk", icon: "◈" },
   { href: "/books", label: "Catalog", icon: "▣" },
-  { href: "/members", label: "Members", icon: "◎" },
+  { href: "/members", label: "Students", icon: "◎" },
   { href: "/loans", label: "Circulation", icon: "⇄" },
   { href: "/notifications", label: "Alerts", icon: "✦" },
 ];
