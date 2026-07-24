@@ -88,6 +88,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `npm run lint` | Run ESLint |
 | `npm run seed:users` | Create the demo librarian/admin accounts in Supabase |
 | `npm run db:check` | Verify Supabase env vars and that all tables are reachable |
+| `npm run db:apply-schema` | Apply `supabase/schema.sql` via the Management API (needs a Personal Access Token) |
 
 ## API overview
 
@@ -123,18 +124,34 @@ On first sign-in, a row is created in the `users` table for the Google account (
 
 ### "Could not find the table 'public.users' in the schema cache"
 
-This is a PostgREST error meaning the Supabase Data API can't see the table — either it doesn't exist yet, or it exists but the API's schema cache hasn't refreshed. Run the checklist below (in order), then retry:
+This is a PostgREST error meaning the Supabase Data API can't see the table — almost always because `supabase/schema.sql` hasn't been run against this project yet.
 
-1. **Run the schema.** Paste all of `supabase/schema.sql` into the Supabase SQL editor for the *exact* project your app points at ([SQL editor for this project](https://supabase.com/dashboard/project/cphkxgykshjeultzgzmz/sql/new)), and run it. It's safe to re-run.
-2. **Force a schema cache reload.** `schema.sql` already ends with `select pg_notify('pgrst', 'reload schema');`, which should apply immediately. If you ran an older copy of the file, run that line manually in the SQL editor, or go to the Supabase dashboard → **Settings → API** and click **Reload schema**.
-3. **Check exposed schemas.** In **Settings → API → Exposed schemas**, confirm `public` is listed. If it was removed, the API returns this exact error for every table even though they exist.
-4. **Check for a project mismatch.** Confirm `SUPABASE_URL` (and `SUPABASE_SERVICE_ROLE_KEY`) point at the same project you ran the SQL against — it's easy to run the SQL in one project's dashboard while your `.env.local`/Vercel env vars point at another.
-5. **Run the diagnostic script** with your real env vars loaded:
+**Important:** having `SUPABASE_URL` and an API key (`SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`/publishable/anon) configured is *not* enough on its own. Those keys let the app read and write **rows** in tables that already exist — they don't have permission to create tables. The schema still has to be applied once, either by hand or with a separate, more powerful credential (see option B below).
 
-   ```bash
-   npm run db:check
-   ```
+**Option A — run it by hand (fastest, no extra credentials):**
 
-   This checks all five tables individually and tells you exactly which ones aren't reachable and why.
+1. Open the SQL editor for your project (for this app's project: [SQL editor](https://supabase.com/dashboard/project/cphkxgykshjeultzgzmz/sql/new)).
+2. Paste the entire contents of `supabase/schema.sql` and click **Run**. It's safe to re-run.
 
-Once `npm run db:check` reports all tables reachable, run `npm run seed:users` and sign in.
+**Option B — apply it via script (no dashboard click-through):**
+
+```bash
+SUPABASE_PROJECT_REF=your-project-ref SUPABASE_ACCESS_TOKEN=sbp_xxx npm run db:apply-schema
+```
+
+`SUPABASE_ACCESS_TOKEN` is a **Personal Access Token** — an account-level credential, different from your project's API keys — created at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). `SUPABASE_PROJECT_REF` is the subdomain of your project URL (e.g. `cphkxgykshjeultzgzmz` for `https://cphkxgykshjeultzgzmz.supabase.co`). This calls Supabase's Management API to run the SQL directly — no dashboard visit needed.
+
+**Then verify and seed:**
+
+```bash
+npm run db:check     # confirms all five tables are reachable
+npm run seed:users   # creates the demo librarian/admin accounts
+```
+
+**If tables already exist and you still see this error**, it's one of:
+
+- **Stale schema cache.** `schema.sql` ends with `select pg_notify('pgrst', 'reload schema');` to force an immediate refresh — if you ran an older copy of the file, run that line manually, or go to **Settings → API** and click **Reload schema**.
+- **`public` not exposed.** Check **Settings → API → Exposed schemas** includes `public`.
+- **Project/key mismatch.** Confirm `SUPABASE_URL` and your key point at the *same* project you ran the SQL against — running the SQL in one project's dashboard while your env vars point at another produces this exact error.
+
+`npm run db:check` tells you exactly which of the five tables are unreachable and why.
