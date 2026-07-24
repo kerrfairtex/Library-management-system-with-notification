@@ -1,4 +1,18 @@
-const SESSION_SECRET = process.env.AUTH_SECRET || "trac-dev-secret-change-me";
+// The development fallback is public in this repo, so anyone could forge a
+// session cookie with it. Refuse to start in production without a real secret
+// rather than silently accepting forged sessions.
+function resolveSessionSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET is not set. Generate one with `openssl rand -base64 32` and " +
+        "add it to your deployment environment before serving traffic."
+    );
+  }
+  return "trac-dev-secret-change-me";
+}
+
 export const SESSION_COOKIE = "trac_session";
 
 const encoder = new TextEncoder();
@@ -21,7 +35,7 @@ function fromBase64Url(value: string): string {
 async function getKey() {
   return crypto.subtle.importKey(
     "raw",
-    encoder.encode(SESSION_SECRET),
+    encoder.encode(resolveSessionSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
