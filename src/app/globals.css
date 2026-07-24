@@ -241,66 +241,149 @@ a {
 .login-atmosphere {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(900px 520px at 12% 18%, rgba(31, 122, 92, 0.22), transparent 58%),
-    radial-gradient(700px 420px at 88% 12%, rgba(154, 107, 31, 0.16), transparent 55%),
-    linear-gradient(145deg, #dfece4 0%, #eef5f0 42%, #e4ece7 100%);
 }
 
-.login-shelves {
+.login-campus-photo {
+  object-fit: cover;
+  object-position: center 40%;
+  transform: scale(1.04);
+  animation: campusDrift 18s ease-in-out infinite alternate;
+}
+
+.login-atmosphere-veil {
   position: absolute;
   inset: 0;
-  opacity: 0.22;
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 46px,
-      rgba(18, 36, 31, 0.08) 46px,
-      rgba(18, 36, 31, 0.08) 48px
+  background:
+    linear-gradient(
+      120deg,
+      rgba(12, 28, 22, 0.72) 0%,
+      rgba(18, 36, 31, 0.55) 42%,
+      rgba(22, 48, 40, 0.45) 100%
     ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 88px,
-      rgba(18, 36, 31, 0.1) 88px,
-      rgba(18, 36, 31, 0.1) 92px
-    );
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 85%);
+    radial-gradient(700px 420px at 18% 20%, rgba(31, 122, 92, 0.28), transparent 60%);
 }
 
 .login-stage {
   position: relative;
   z-index: 1;
-  width: min(100%, 920px);
+  width: min(100%, 960px);
   display: grid;
   gap: 1.75rem;
 }
 
 @media (min-width: 860px) {
   .login-stage {
-    grid-template-columns: 1.1fr 0.9fr;
+    grid-template-columns: 1.05fr 0.95fr;
     align-items: center;
     gap: 2.5rem;
   }
 }
 
+.login-seal {
+  width: clamp(7.5rem, 18vw, 10.5rem);
+  margin-bottom: 1rem;
+  animation: sealIn 0.7s ease both;
+}
+
+.login-seal-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+}
+
 .login-brand {
   font-size: clamp(2.8rem, 7vw, 4.4rem);
   line-height: 0.95;
-  color: var(--ink);
+  color: #f7fbf8;
+  margin-bottom: 0.35rem;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+}
+
+.login-institute {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(247, 251, 248, 0.88);
   margin-bottom: 0.85rem;
 }
 
 .login-headline {
-  font-size: clamp(1.55rem, 3.2vw, 2.15rem);
-  line-height: 1.2;
-  color: var(--ink-soft);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.25;
+  color: rgba(247, 251, 248, 0.94);
   max-width: 22ch;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.3);
+}
+
+.login-location {
+  margin-top: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(247, 251, 248, 0.78);
+}
+
+@keyframes campusDrift {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.08) translate3d(-1.2%, -0.8%, 0);
+  }
+}
+
+@keyframes sealIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .login-panel {
   padding: 1.35rem;
+  background: color-mix(in srgb, var(--paper) 92%, white);
+  box-shadow: 0 22px 48px rgba(8, 18, 14, 0.28);
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.brand-mark-seal {
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(18, 36, 31, 0.16);
+}
+
+.brand-mark-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.brand-mark-name {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.45rem;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.brand-mark-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
 @media (min-width: 640px) {

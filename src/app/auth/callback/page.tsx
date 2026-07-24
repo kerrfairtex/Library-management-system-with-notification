@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { apiJson } from "@/lib/hooks";
@@ -53,10 +54,29 @@ function CallbackInner() {
 
   return (
     <main className="login-page">
-      <div className="login-atmosphere" aria-hidden />
-      <div className="login-shelves" aria-hidden />
-      <section className="login-stage">
+      <div className="login-atmosphere" aria-hidden>
+        <Image
+          src="/brand/trac-campus.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="login-campus-photo"
+        />
+        <div className="login-atmosphere-veil" />
+      </div>
+      <section className="login-stage" style={{ maxWidth: 420 }}>
         <div className="login-panel panel fade-up">
+          <div className="mb-4 flex justify-center">
+            <Image
+              src="/brand/trac-logo.png"
+              alt="TRAC"
+              width={88}
+              height={88}
+              className="login-seal-image"
+              priority
+            />
+          </div>
           {error ? (
             <>
               <div className="mb-4 rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
@@ -67,7 +87,7 @@ function CallbackInner() {
               </a>
             </>
           ) : (
-            <p className="text-sm">Completing Google sign-in…</p>
+            <p className="text-center text-sm">Completing Google sign-in…</p>
           )}
         </div>
       </section>
