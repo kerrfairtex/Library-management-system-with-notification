@@ -35,7 +35,7 @@ export default function DashboardPage() {
         subtitle="A live view of inventory, active loans, and the alerts that need attention."
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Copies in stock", value: stats.totalBooks, hint: `${stats.availableBooks} available` },
           { label: "Active members", value: stats.totalMembers, hint: "Students & patrons" },
