@@ -13,6 +13,7 @@
     "db:apply-schema": "node --env-file=.env.local scripts/apply-schema.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "@vercel/analytics": "^2.0.1",
     "next": "^16.3.0",
