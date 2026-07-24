@@ -67,3 +67,9 @@ create index if not exists notifications_read_idx on public.notifications (read)
 -- (see src/lib/supabase.ts), which bypasses Row Level Security. RLS can
 -- stay disabled, or be enabled with policies of your choosing — it has
 -- no effect on the service-role connection used server-side.
+
+-- Force PostgREST to pick up the tables immediately. Without this, the
+-- API can return "Could not find the table 'public.users' in the schema
+-- cache" for a minute or two after creating tables, even though they
+-- exist — this makes the fix in this file take effect right away.
+select pg_notify('pgrst', 'reload schema');

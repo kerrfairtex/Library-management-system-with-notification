@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { describeSupabaseError } from "@/lib/store";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
 
 export async function POST(request: Request) {
@@ -32,7 +33,10 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (findError) {
-      return NextResponse.json({ error: findError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: describeSupabaseError(findError, "Failed to look up user in Supabase.") },
+        { status: 500 }
+      );
     }
 
     let userId = existing?.id as string | undefined;
@@ -54,7 +58,11 @@ export async function POST(request: Request) {
 
       if (insertError || !inserted) {
         return NextResponse.json(
-          { error: insertError?.message ?? "Failed to create account." },
+          {
+            error: insertError
+              ? describeSupabaseError(insertError, "Failed to create account.")
+              : "Failed to create account.",
+          },
           { status: 500 }
         );
       }

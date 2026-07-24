@@ -125,8 +125,41 @@ function mapUser(row: UserRow): User {
   };
 }
 
-function throwIfError(error: { message: string } | null, fallback: string) {
-  if (error) throw new Error(error.message || fallback);
+/**
+ * PostgREST returns this when a table isn't visible to the API yet —
+ * either the table genuinely doesn't exist, or it was just created and
+ * PostgREST's schema cache hasn't picked it up. Both cases need the same
+ * remedy, so give a single actionable message instead of a raw DB error.
+ */
+function isSchemaCacheMiss(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST205" || /schema cache/i.test(error.message ?? "");
+}
+
+export function describeSupabaseError(
+  error: { code?: string; message?: string },
+  fallback: string
+): string {
+  if (isSchemaCacheMiss(error)) {
+    return (
+      `${fallback} Supabase says: "${error.message}". Fix this by:\n` +
+      "1. Running supabase/schema.sql in the Supabase SQL editor for THIS project " +
+      "(Table Editor should show users/books/members/loans/notifications afterward).\n" +
+      '2. Forcing PostgREST to refresh: run `select pg_notify(\'pgrst\', \'reload schema\');` ' +
+      'in the SQL editor, or in the dashboard go to Settings → API and click "Reload schema".\n' +
+      '3. Confirming "public" is listed under Settings → API → Exposed schemas.\n' +
+      "4. Double-checking SUPABASE_URL points at this same project (a mismatched " +
+      "project URL/key produces this exact error even when the table exists elsewhere).\n" +
+      "Run `npm run db:check` locally to verify connectivity and see which tables are visible."
+    );
+  }
+  return `${fallback} Supabase says: "${error.message ?? "unknown error"}".`;
+}
+
+function throwIfError(
+  error: { code?: string; message?: string } | null,
+  fallback: string
+): void {
+  if (error) throw new Error(describeSupabaseError(error, fallback));
 }
 
 async function insertNotification(
@@ -655,13 +688,7 @@ export async function authenticateUser(
     .ilike("email", email.trim())
     .maybeSingle();
 
-  if (error) {
-    throw new Error(
-      `Failed to look up user in Supabase: ${error.message}. ` +
-        "Confirm the `users` table exists (see supabase/schema.sql) and that " +
-        "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set correctly."
-    );
-  }
+  throwIfError(error, "Failed to look up user in Supabase.");
   if (!data) return null;
   const user = mapUser(data as UserRow);
   if (!verifyPassword(password, user.passwordHash)) return null;
@@ -670,6 +697,9 @@ export async function authenticateUser(
 
 export async function getUserById(id: string): Promise<User | null> {
   const { data, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
+  // Swallowed on purpose: this backs session validation on every request,
+  // so a transient/config error here should look like "not signed in"
+  // rather than crashing every page load.
   if (error || !data) return null;
   return mapUser(data as UserRow);
 }

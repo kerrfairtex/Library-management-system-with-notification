@@ -56,6 +56,8 @@ This inserts (and updates on re-run):
 
 The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
 
+If instead you see **"Could not find the table 'public.users' in the schema cache"**, see [Troubleshooting](#troubleshooting) below.
+
 ```bash
 npm run dev
 ```
@@ -83,6 +85,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run seed:users` | Create the demo librarian/admin accounts in Supabase |
+| `npm run db:check` | Verify Supabase env vars and that all tables are reachable |
 
 ## API overview
 
@@ -113,3 +116,23 @@ On first sign-in, a row is created in the `users` table for the Google account (
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
 - On Vercel, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `AUTH_SECRET` in project environment variables.
+
+## Troubleshooting
+
+### "Could not find the table 'public.users' in the schema cache"
+
+This is a PostgREST error meaning the Supabase Data API can't see the table — either it doesn't exist yet, or it exists but the API's schema cache hasn't refreshed. Run the checklist below (in order), then retry:
+
+1. **Run the schema.** Paste all of `supabase/schema.sql` into the Supabase SQL editor for the *exact* project your app points at, and run it. It's safe to re-run.
+2. **Force a schema cache reload.** `schema.sql` already ends with `select pg_notify('pgrst', 'reload schema');`, which should apply immediately. If you ran an older copy of the file, run that line manually in the SQL editor, or go to the Supabase dashboard → **Settings → API** and click **Reload schema**.
+3. **Check exposed schemas.** In **Settings → API → Exposed schemas**, confirm `public` is listed. If it was removed, the API returns this exact error for every table even though they exist.
+4. **Check for a project mismatch.** Confirm `SUPABASE_URL` (and `SUPABASE_SERVICE_ROLE_KEY`) point at the same project you ran the SQL against — it's easy to run the SQL in one project's dashboard while your `.env.local`/Vercel env vars point at another.
+5. **Run the diagnostic script** with your real env vars loaded:
+
+   ```bash
+   npm run db:check
+   ```
+
+   This checks all five tables individually and tells you exactly which ones aren't reachable and why.
+
+Once `npm run db:check` reports all tables reachable, run `npm run seed:users` and sign in.
