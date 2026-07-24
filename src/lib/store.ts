@@ -304,8 +304,7 @@ export async function getLibraryData(): Promise<LibraryData> {
   };
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const data = await getLibraryData();
+export function computeDashboardStats(data: LibraryData): DashboardStats {
   return {
     totalBooks: data.books.reduce((sum, b) => sum + b.totalCopies, 0),
     availableBooks: data.books.reduce((sum, b) => sum + b.availableCopies, 0),
@@ -314,6 +313,67 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     overdueLoans: data.loans.filter((l) => l.status === "overdue").length,
     unreadNotifications: data.notifications.filter((n) => !n.read).length,
   };
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const data = await getLibraryData();
+  return computeDashboardStats(data);
+}
+
+/**
+ * Lightweight table reads for endpoints that only need one entity type.
+ * Unlike getLibraryData(), these skip refreshLoanStatuses() and the other
+ * four tables — cutting per-request Supabase round trips (and the odds of
+ * concurrent overdue/due-soon notification checks racing each other) for
+ * pages that don't need a full sync just to list books or members.
+ */
+export async function listBooks(): Promise<Book[]> {
+  const { data, error } = await supabase
+    .from("books")
+    .select("*")
+    .order("created_at", { ascending: false });
+  throwIfError(error, "Failed to load books.");
+  return ((data as BookRow[] | null) ?? []).map(mapBook);
+}
+
+export async function listMembers(): Promise<Member[]> {
+  const { data, error } = await supabase
+    .from("members")
+    .select("*")
+    .order("joined_at", { ascending: false });
+  throwIfError(error, "Failed to load members.");
+  return ((data as MemberRow[] | null) ?? []).map(mapMember);
+}
+
+export async function getLoansData(): Promise<{
+  loans: Loan[];
+  books: Book[];
+  members: Member[];
+}> {
+  await refreshLoanStatuses();
+  const [loansRes, booksRes, membersRes] = await Promise.all([
+    supabase.from("loans").select("*").order("borrowed_at", { ascending: false }),
+    supabase.from("books").select("*"),
+    supabase.from("members").select("*"),
+  ]);
+  throwIfError(loansRes.error, "Failed to load loans.");
+  throwIfError(booksRes.error, "Failed to load books.");
+  throwIfError(membersRes.error, "Failed to load members.");
+  return {
+    loans: ((loansRes.data as LoanRow[] | null) ?? []).map(mapLoan),
+    books: ((booksRes.data as BookRow[] | null) ?? []).map(mapBook),
+    members: ((membersRes.data as MemberRow[] | null) ?? []).map(mapMember),
+  };
+}
+
+export async function getNotificationsData(): Promise<Notification[]> {
+  await refreshLoanStatuses();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .order("created_at", { ascending: false });
+  throwIfError(error, "Failed to load notifications.");
+  return ((data as NotificationRow[] | null) ?? []).map(mapNotification);
 }
 
 export async function createBook(

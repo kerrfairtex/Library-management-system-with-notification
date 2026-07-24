@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { checkoutBook, getLibraryData } from "@/lib/store";
+import { checkoutBook, getLoansData } from "@/lib/store";
 import { enrichLoans } from "@/lib/utils";
 
 export async function GET() {
-  const data = await getLibraryData();
-  return NextResponse.json(enrichLoans(data.loans, data.books, data.members));
+  try {
+    const { loans, books, members } = await getLoansData();
+    return NextResponse.json(enrichLoans(loans, books, members));
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load loans." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {

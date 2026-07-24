@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
-import { createBook, getLibraryData } from "@/lib/store";
+import { createBook, listBooks } from "@/lib/store";
 
 export async function GET() {
-  const data = await getLibraryData();
-  return NextResponse.json(data.books);
+  try {
+    const books = await listBooks();
+    return NextResponse.json(books);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load books." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
