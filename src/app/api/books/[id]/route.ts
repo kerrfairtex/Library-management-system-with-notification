@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { deleteBook, updateBook } from "@/lib/store";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "books.write",
+    "Only librarians and admins can update books."
+  );
   if (!user) return response;
 
   try {
@@ -25,7 +28,10 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "books.write",
+    "Only librarians and admins can delete books."
+  );
   if (!user) return response;
 
   try {

@@ -1,4 +1,4 @@
-export type UserRole = "librarian" | "admin";
+export type UserRole = "student" | "librarian" | "admin";
 
 export type User = {
   id: string;

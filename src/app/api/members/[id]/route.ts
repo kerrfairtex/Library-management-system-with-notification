@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { deleteMember, updateMember } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
 
@@ -14,7 +14,10 @@ function parseMemberType(value: unknown): MemberType | undefined {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "members.write",
+    "Only admins can update members."
+  );
   if (!user) return response;
 
   try {
@@ -52,7 +55,10 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "members.write",
+    "Only admins can delete members."
+  );
   if (!user) return response;
 
   try {

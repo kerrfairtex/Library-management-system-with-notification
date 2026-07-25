@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import type { Member, MemberType } from "@/lib/types";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { canAccess, roleLabel } from "@/lib/permissions";
+import type { Member, MemberType, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
@@ -24,6 +25,7 @@ function typeLabel(type: MemberType): string {
 }
 
 export default function MembersPage() {
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const { data, loading, error, reload } = useApi<Member[]>("/api/members");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | MemberType>("all");
@@ -32,6 +34,30 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const canManageMembers = canAccess(me?.user, "members.write");
+  const canViewMembers = canAccess(me?.user, "members.read");
+
+  useEffect(() => {
+    if (!canManageMembers) setOpen(false);
+  }, [canManageMembers]);
+
+  if (me && !canViewMembers) {
+    return (
+      <div>
+        <PageHeader
+          title="Students & members"
+          subtitle="Only librarians and admins can open the member registry."
+        />
+        <div className="panel p-4 md:p-5">
+          <EmptyState
+            title="Members are restricted"
+            body={`Signed in as ${roleLabel(me.user.role)}. You can update only your own profile.`}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const members = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -45,6 +71,7 @@ export default function MembersPage() {
   }, [data, query, typeFilter]);
 
   function openCreate() {
+    if (!canManageMembers) return;
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
@@ -52,6 +79,7 @@ export default function MembersPage() {
   }
 
   function openEdit(member: Member) {
+    if (!canManageMembers) return;
     setEditing(member);
     setForm({
       name: member.name,
@@ -67,6 +95,7 @@ export default function MembersPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canManageMembers) return;
     setBusy(true);
     setFormError(null);
     const payload = {
@@ -99,6 +128,7 @@ export default function MembersPage() {
   }
 
   async function toggleActive(member: Member) {
+    if (!canManageMembers) return;
     try {
       await apiJson(`/api/members/${member.id}`, {
         method: "PATCH",
@@ -111,6 +141,7 @@ export default function MembersPage() {
   }
 
   async function onDelete(id: string) {
+    if (!canManageMembers) return;
     if (!window.confirm("Remove this member?")) return;
     try {
       await apiJson(`/api/members/${id}`, { method: "DELETE" });
@@ -124,11 +155,17 @@ export default function MembersPage() {
     <div>
       <PageHeader
         title="Students & members"
-        subtitle="Register students with a student ID and grade, plus staff or community patrons."
+        subtitle={
+          canManageMembers
+            ? "Register students with a student ID and grade, plus staff or community patrons."
+            : "View the member registry. Only admins can add, edit, activate, or delete members."
+        }
         action={
-          <button type="button" className="btn btn-primary" onClick={openCreate}>
-            Add student / member
-          </button>
+          canManageMembers ? (
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              Add student / member
+            </button>
+          ) : undefined
         }
       />
 
@@ -217,27 +254,31 @@ export default function MembersPage() {
                     </td>
                     <td>
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => openEdit(member)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => toggleActive(member)}
-                        >
-                          {member.active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-danger"
-                          onClick={() => onDelete(member.id)}
-                        >
-                          Delete
-                        </button>
+                        {canManageMembers && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => openEdit(member)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => toggleActive(member)}
+                            >
+                              {member.active ? "Deactivate" : "Activate"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger"
+                              onClick={() => onDelete(member.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -249,7 +290,7 @@ export default function MembersPage() {
       </div>
 
       <Modal
-        open={open}
+        open={open && canManageMembers}
         title={editing ? "Edit member" : "Add student / member"}
         onClose={() => setOpen(false)}
       >

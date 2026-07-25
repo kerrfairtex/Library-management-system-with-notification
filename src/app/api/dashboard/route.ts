@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
+import { roleDashboardTitle } from "@/lib/permissions";
 import { computeDashboardStats, getLibraryData } from "@/lib/store";
 import { enrichLoans, sortNotifications } from "@/lib/utils";
 
@@ -10,6 +11,8 @@ export async function GET() {
   try {
     const data = await getLibraryData();
     return NextResponse.json({
+      user,
+      roleTitle: roleDashboardTitle(user.role),
       stats: computeDashboardStats(data),
       recentLoans: enrichLoans(data.loans, data.books, data.members).slice(0, 6),
       notifications: sortNotifications(data.notifications).slice(0, 8),

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { canAccess, type AppCapability } from "./permissions";
 import { SESSION_COOKIE, readSessionUserId } from "./session";
 import { getPublicUserById } from "./store";
 import type { PublicUser } from "./types";
@@ -43,16 +44,20 @@ export async function requireSession(): Promise<Allowed | Denied> {
 }
 
 export async function requireAdmin(): Promise<Allowed | Denied> {
+  return requireCapability("staff.manage", "Only an admin can manage user accounts.");
+}
+
+export async function requireCapability(
+  capability: AppCapability,
+  message = "You do not have access to this area."
+): Promise<Allowed | Denied> {
   const session = await requireSession();
   if (!session.user) return session;
 
-  if (session.user.role !== "admin") {
+  if (!canAccess(session.user, capability)) {
     return {
       user: null,
-      response: NextResponse.json(
-        { error: "Only an admin can manage staff accounts." },
-        { status: 403 }
-      ),
+      response: NextResponse.json({ error: message }, { status: 403 }),
     };
   }
 

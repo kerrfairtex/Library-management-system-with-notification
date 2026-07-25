@@ -12,9 +12,24 @@ create table if not exists public.users (
   name text not null,
   email text not null unique,
   password_hash text not null,
-  role text not null default 'librarian' check (role in ('librarian', 'admin')),
+  role text not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.users
+  alter column role set default 'student';
+
+do $$
+begin
+  alter table public.users
+    drop constraint if exists users_role_check;
+  alter table public.users
+    add constraint users_role_check
+    check (role in ('student', 'librarian', 'admin'));
+exception
+  when others then
+    raise notice 'Could not apply users_role_check: %', sqlerrm;
+end $$;
 
 create table if not exists public.books (
   id uuid primary key default gen_random_uuid(),

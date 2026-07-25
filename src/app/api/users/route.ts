@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
     if (!isUserRole(role)) {
       return NextResponse.json(
-        { error: "Role must be either librarian or admin." },
+        { error: "Role must be student, librarian, or admin." },
         { status: 400 }
       );
     }

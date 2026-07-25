@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import type { Book } from "@/lib/types";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { canAccess, roleLabel } from "@/lib/permissions";
+import type { Book, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
@@ -15,6 +16,7 @@ const emptyForm = {
 };
 
 export default function BooksPage() {
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const { data, loading, error, reload } = useApi<Book[]>("/api/books");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -22,6 +24,12 @@ export default function BooksPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const canManageBooks = canAccess(me?.user, "books.write");
+
+  useEffect(() => {
+    if (!canManageBooks) setOpen(false);
+  }, [canManageBooks]);
 
   const books = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -34,6 +42,7 @@ export default function BooksPage() {
   }, [data, query]);
 
   function openCreate() {
+    if (!canManageBooks) return;
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
@@ -41,6 +50,7 @@ export default function BooksPage() {
   }
 
   function openEdit(book: Book) {
+    if (!canManageBooks) return;
     setEditing(book);
     setForm({
       title: book.title,
@@ -56,6 +66,7 @@ export default function BooksPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canManageBooks) return;
     setBusy(true);
     setFormError(null);
     try {
@@ -80,6 +91,7 @@ export default function BooksPage() {
   }
 
   async function onDelete(id: string) {
+    if (!canManageBooks) return;
     if (!window.confirm("Delete this book from the catalog?")) return;
     try {
       await apiJson(`/api/books/${id}`, { method: "DELETE" });
@@ -93,11 +105,19 @@ export default function BooksPage() {
     <div>
       <PageHeader
         title="Catalog"
-        subtitle="Add titles, track available copies, and keep inventory ready for checkout."
+        subtitle={
+          canManageBooks
+            ? "Add titles, track available copies, and keep inventory ready for checkout."
+            : me?.user
+              ? `Signed in as ${roleLabel(me.user.role)}. You can browse the catalog but only librarians and admins can change it.`
+              : "You can browse the catalog here. Only librarians and admins can change it."
+        }
         action={
-          <button type="button" className="btn btn-primary" onClick={openCreate}>
-            Add book
-          </button>
+          canManageBooks ? (
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              Add book
+            </button>
+          ) : undefined
         }
       />
 
@@ -154,22 +174,24 @@ export default function BooksPage() {
                     </td>
                     <td>{book.publishedYear}</td>
                     <td>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => openEdit(book)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-danger"
-                          onClick={() => onDelete(book.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {canManageBooks && (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => openEdit(book)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() => onDelete(book.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -180,7 +202,7 @@ export default function BooksPage() {
       </div>
 
       <Modal
-        open={open}
+        open={open && canManageBooks}
         title={editing ? "Edit book" : "Add book"}
         onClose={() => setOpen(false)}
       >

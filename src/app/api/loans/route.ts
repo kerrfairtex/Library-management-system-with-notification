@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { checkoutBook, getLoansData } from "@/lib/store";
 import { enrichLoans } from "@/lib/utils";
 
 export async function GET() {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "loans.manage",
+    "Only librarians and admins can manage loans."
+  );
   if (!user) return response;
 
   try {
@@ -19,7 +22,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "loans.manage",
+    "Only librarians and admins can check out books."
+  );
   if (!user) return response;
 
   try {

@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import type { Book, Member } from "@/lib/types";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { canAccess, roleLabel } from "@/lib/permissions";
+import type { Book, Member, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
 import { daysUntil, formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
 export default function LoansPage() {
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const {
     data: loans,
     loading,
@@ -24,6 +26,28 @@ export default function LoansPage() {
   const [days, setDays] = useState(14);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const canManageLoans = canAccess(me?.user, "loans.manage");
+
+  useEffect(() => {
+    if (!canManageLoans) setOpen(false);
+  }, [canManageLoans]);
+
+  if (me && !canManageLoans) {
+    return (
+      <div>
+        <PageHeader
+          title="Circulation"
+          subtitle="Circulation actions are reserved for librarians and admins."
+        />
+        <div className="panel p-4 md:p-5">
+          <EmptyState
+            title="Circulation is restricted"
+            body={`Signed in as ${roleLabel(me.user.role)}. Ask library staff to process borrowing or returns.`}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const availableBooks = useMemo(
     () => (books ?? []).filter((b) => b.availableCopies > 0),
@@ -43,6 +67,7 @@ export default function LoansPage() {
 
   async function onCheckout(e: FormEvent) {
     e.preventDefault();
+    if (!canManageLoans) return;
     setBusy(true);
     setFormError(null);
     try {
@@ -63,6 +88,7 @@ export default function LoansPage() {
   }
 
   async function onAction(id: string, action: "return" | "renew") {
+    if (!canManageLoans) return;
     try {
       await apiJson(`/api/loans/${id}`, {
         method: "PATCH",
@@ -84,6 +110,7 @@ export default function LoansPage() {
             type="button"
             className="btn btn-primary"
             onClick={() => {
+              if (!canManageLoans) return;
               setFormError(null);
               setOpen(true);
             }}
@@ -200,7 +227,11 @@ export default function LoansPage() {
         )}
       </div>
 
-      <Modal open={open} title="Check out a book" onClose={() => setOpen(false)}>
+      <Modal
+        open={open && canManageLoans}
+        title="Check out a book"
+        onClose={() => setOpen(false)}
+      >
         <form className="space-y-3" onSubmit={onCheckout}>
           {formError && <ErrorBanner message={formError} />}
           <div>

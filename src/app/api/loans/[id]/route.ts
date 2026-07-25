@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { renewLoan, returnBook } from "@/lib/store";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "loans.manage",
+    "Only librarians and admins can update loans."
+  );
   if (!user) return response;
 
   try {

@@ -4,26 +4,28 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { canAccess, roleLabel, type AppCapability } from "@/lib/permissions";
 import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate, notificationTone } from "@/lib/utils";
 
 const nav = [
-  { href: "/", label: "Desk", icon: "◈" },
-  { href: "/books", label: "Catalog", icon: "▣" },
-  { href: "/members", label: "Students", icon: "◎" },
-  { href: "/loans", label: "Circulation", icon: "⇄" },
-  { href: "/notifications", label: "Alerts", icon: "✦" },
-  { href: "/staff", label: "Staff", icon: "◇", adminOnly: true },
-  { href: "/profile", label: "Profile", icon: "◉" },
+  { href: "/", label: "Dashboard", icon: "◈", capability: "dashboard.read" },
+  { href: "/books", label: "Catalog", icon: "▣", capability: "books.read" },
+  { href: "/members", label: "Students", icon: "◎", capability: "members.read" },
+  { href: "/loans", label: "Circulation", icon: "⇄", capability: "loans.manage" },
+  { href: "/notifications", label: "Alerts", icon: "✦", capability: "notifications.read" },
+  { href: "/staff", label: "Users", icon: "◇", capability: "staff.manage" },
+  { href: "/profile", label: "Profile", icon: "◉", capability: "dashboard.read" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: session } = useApi<{ user: PublicUser }>("/api/auth/me");
-  const isAdmin = session?.user?.role === "admin";
-  const visibleNav = nav.filter((item) => !item.adminOnly || isAdmin);
+  const visibleNav = nav.filter((item) =>
+    item.capability ? canAccess(session?.user, item.capability as AppCapability) : true
+  );
 
   return (
     <div className="shell">
@@ -104,7 +106,7 @@ function UserFooter() {
         <p className="text-sm font-semibold">{user?.name ?? "Staff"}</p>
         <p className="mb-3 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
           {user?.email ?? "Signed in"}
-          {user?.role ? ` · ${user.role}` : ""}
+          {user?.role ? ` · ${roleLabel(user.role)}` : ""}
         </p>
       </Link>
       <button type="button" className="btn btn-ghost w-full" onClick={logout}>

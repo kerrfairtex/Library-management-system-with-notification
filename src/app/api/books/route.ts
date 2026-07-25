@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { createBook, listBooks } from "@/lib/store";
 
 export async function GET() {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "books.read",
+    "Only signed-in users can view the catalog."
+  );
   if (!user) return response;
 
   try {
@@ -18,7 +21,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "books.write",
+    "Only librarians and admins can add books."
+  );
   if (!user) return response;
 
   try {
