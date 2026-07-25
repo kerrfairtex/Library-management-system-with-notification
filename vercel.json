@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": null,
+  "crons": [
+    {
+      "path": "/api/cron/refresh-loans",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

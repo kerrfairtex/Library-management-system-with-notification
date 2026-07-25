@@ -2,6 +2,10 @@ import { randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { describeSupabaseError } from "@/lib/store";
+import {
+  googleAccessDeniedMessage,
+  mayProvisionGoogleAccount,
+} from "@/lib/google-access";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
 
 export async function POST(request: Request) {
@@ -42,6 +46,15 @@ export async function POST(request: Request) {
     let userId = existing?.id as string | undefined;
 
     if (!userId) {
+      // Completing the Google handshake proves who you are, not that you work
+      // at the library, so only an allowlisted address gets a new account.
+      if (!mayProvisionGoogleAccount(email)) {
+        return NextResponse.json(
+          { error: googleAccessDeniedMessage(email) },
+          { status: 403 }
+        );
+      }
+
       const row = {
         id: randomUUID(),
         name,

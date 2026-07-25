@@ -7,6 +7,9 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/google",
+  // Scheduled invocations carry no session cookie. These routes authenticate
+  // themselves with CRON_SECRET instead.
+  "/api/cron",
 ];
 
 export async function proxy(request: NextRequest) {

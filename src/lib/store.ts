@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { supabase } from "./supabase";
 import { toPublicUser, verifyPassword } from "./auth";
+import { deriveLoanStatus } from "./loan-status";
 import type {
   Book,
   DashboardStats,
@@ -128,7 +129,7 @@ function mapLoan(row: LoanRow): Loan {
     borrowedAt: row.borrowed_at,
     dueAt: row.due_at,
     returnedAt: row.returned_at,
-    status: row.status,
+    status: deriveLoanStatus(row),
   };
 }
 
@@ -218,92 +219,128 @@ async function insertNotification(
   return mapNotification(data as NotificationRow);
 }
 
-async function refreshLoanStatuses(): Promise<void> {
-  const nowIso = new Date().toISOString();
+const DAY_MS = 1000 * 60 * 60 * 24;
+const DUE_SOON_WINDOW_DAYS = 3;
+
+/** How long a reminder suppresses the next one for the same loan. */
+const REMINDER_COOLDOWN_MS = DAY_MS * 4;
+
+export type LoanSweepResult = {
+  markedOverdue: number;
+  overdueAlerts: number;
+  dueSoonAlerts: number;
+};
+
+async function hasRecentAlert(
+  type: NotificationType,
+  loanId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id")
+    .eq("type", type)
+    .eq("related_id", loanId)
+    .gte("created_at", new Date(Date.now() - REMINDER_COOLDOWN_MS).toISOString())
+    .limit(1);
+  throwIfError(error, "Failed to check existing alerts.");
+  return Boolean(data && data.length > 0);
+}
+
+/**
+ * Stamps overdue loans and sends due-date reminders. Runs on a schedule (see
+ * src/app/api/cron/refresh-loans/route.ts) rather than during page loads, so a
+ * dashboard visit or a notification poll never writes to the database.
+ *
+ * Reads do not depend on this: deriveLoanStatus() reports a loan as overdue as
+ * soon as its due date passes. This job exists to persist that status and to
+ * generate the alerts.
+ */
+export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const result: LoanSweepResult = {
+    markedOverdue: 0,
+    overdueAlerts: 0,
+    dueSoonAlerts: 0,
+  };
 
   const { data: overdueCandidates, error: overdueError } = await supabase
     .from("loans")
     .select("*")
     .neq("status", "returned")
     .lt("due_at", nowIso);
-
   throwIfError(overdueError, "Failed to load overdue loans.");
 
-  for (const row of (overdueCandidates as LoanRow[] | null) ?? []) {
-    if (row.status === "overdue") continue;
+  const overdueRows = (overdueCandidates as LoanRow[] | null) ?? [];
+  const toStamp = overdueRows.filter((row) => row.status !== "overdue");
 
+  if (toStamp.length > 0) {
     const { error: updateError } = await supabase
       .from("loans")
       .update({ status: "overdue" })
-      .eq("id", row.id);
-    throwIfError(updateError, "Failed to mark loan overdue.");
-
-    const [{ data: book }, { data: member }, { data: existing }] = await Promise.all([
-      supabase.from("books").select("*").eq("id", row.book_id).maybeSingle(),
-      supabase.from("members").select("*").eq("id", row.member_id).maybeSingle(),
-      supabase
-        .from("notifications")
-        .select("id, created_at")
-        .eq("type", "overdue")
-        .eq("related_id", row.id)
-        .eq("read", false)
-        .gte("created_at", new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())
-        .limit(1),
-    ]);
-
-    if ((!existing || existing.length === 0) && book && member) {
-      await insertNotification(
-        "overdue",
-        "Overdue loan",
-        `"${(book as BookRow).title}" borrowed by ${(member as MemberRow).name} is overdue.`,
-        row.id
+      .in(
+        "id",
+        toStamp.map((row) => row.id)
       );
-    }
+    throwIfError(updateError, "Failed to mark loans overdue.");
+    result.markedOverdue = toStamp.length;
   }
 
-  const threeDaysAhead = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString();
+  for (const row of overdueRows) {
+    if (await hasRecentAlert("overdue", row.id)) continue;
+
+    const [{ data: book }, { data: member }] = await Promise.all([
+      supabase.from("books").select("title").eq("id", row.book_id).maybeSingle(),
+      supabase.from("members").select("name").eq("id", row.member_id).maybeSingle(),
+    ]);
+    if (!book || !member) continue;
+
+    const daysLate = Math.max(1, Math.floor((now - new Date(row.due_at).getTime()) / DAY_MS));
+    await insertNotification(
+      "overdue",
+      "Overdue loan",
+      `"${book.title}" borrowed by ${member.name} is ${daysLate} day${
+        daysLate === 1 ? "" : "s"
+      } overdue.`,
+      row.id
+    );
+    result.overdueAlerts += 1;
+  }
+
+  const horizon = new Date(now + DAY_MS * DUE_SOON_WINDOW_DAYS).toISOString();
   const { data: dueSoonCandidates, error: dueSoonError } = await supabase
     .from("loans")
     .select("*")
-    .eq("status", "active")
+    .neq("status", "returned")
     .gt("due_at", nowIso)
-    .lte("due_at", threeDaysAhead);
-
+    .lte("due_at", horizon);
   throwIfError(dueSoonError, "Failed to load due-soon loans.");
 
   for (const row of (dueSoonCandidates as LoanRow[] | null) ?? []) {
-    const { data: existing } = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("type", "due_soon")
-      .eq("related_id", row.id)
-      .limit(1);
-
-    if (existing && existing.length > 0) continue;
+    if (await hasRecentAlert("due_soon", row.id)) continue;
 
     const [{ data: book }, { data: member }] = await Promise.all([
-      supabase.from("books").select("*").eq("id", row.book_id).maybeSingle(),
-      supabase.from("members").select("*").eq("id", row.member_id).maybeSingle(),
+      supabase.from("books").select("title").eq("id", row.book_id).maybeSingle(),
+      supabase.from("members").select("name").eq("id", row.member_id).maybeSingle(),
     ]);
-
     if (!book || !member) continue;
 
-    const remaining = new Date(row.due_at).getTime() - Date.now();
-    const days = Math.max(1, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
+    const days = Math.max(1, Math.ceil((new Date(row.due_at).getTime() - now) / DAY_MS));
     await insertNotification(
       "due_soon",
       "Due soon",
-      `"${(book as BookRow).title}" borrowed by ${(member as MemberRow).name} is due in ${days} day${
+      `"${book.title}" borrowed by ${member.name} is due in ${days} day${
         days === 1 ? "" : "s"
       }.`,
       row.id
     );
+    result.dueSoonAlerts += 1;
   }
+
+  return result;
 }
 
 export async function getLibraryData(): Promise<LibraryData> {
-  await refreshLoanStatuses();
-
   const [booksRes, membersRes, loansRes, notificationsRes, usersRes] =
     await Promise.all([
       supabase.from("books").select("*").order("created_at", { ascending: false }),
@@ -351,11 +388,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 /**
- * Lightweight table reads for endpoints that only need one entity type.
- * Unlike getLibraryData(), these skip refreshLoanStatuses() and the other
- * four tables — cutting per-request Supabase round trips (and the odds of
- * concurrent overdue/due-soon notification checks racing each other) for
- * pages that don't need a full sync just to list books or members.
+ * Lightweight table reads for endpoints that only need one entity type,
+ * cutting per-request Supabase round trips for pages that don't need every
+ * table just to list books or members.
  */
 export async function listBooks(): Promise<Book[]> {
   const { data, error } = await supabase
@@ -380,7 +415,6 @@ export async function getLoansData(): Promise<{
   books: Book[];
   members: Member[];
 }> {
-  await refreshLoanStatuses();
   const [loansRes, booksRes, membersRes] = await Promise.all([
     supabase.from("loans").select("*").order("borrowed_at", { ascending: false }),
     supabase.from("books").select("*"),
@@ -397,7 +431,6 @@ export async function getLoansData(): Promise<{
 }
 
 export async function getNotificationsData(): Promise<Notification[]> {
-  await refreshLoanStatuses();
   const { data, error } = await supabase
     .from("notifications")
     .select("*")
@@ -785,7 +818,7 @@ export async function renewLoan(loanId: string, extraDays = 14): Promise<Loan> {
   ]);
 
   await insertNotification(
-    "due_soon",
+    "renewed",
     "Loan renewed",
     `"${bookRow?.title ?? "Book"}" for ${memberRow?.name ?? "member"} is now due ${next.toLocaleDateString()}.`,
     loanId

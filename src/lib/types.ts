@@ -60,6 +60,7 @@ export type NotificationType =
   | "overdue"
   | "due_soon"
   | "returned"
+  | "renewed"
   | "checked_out"
   | "book_added"
   | "member_added"

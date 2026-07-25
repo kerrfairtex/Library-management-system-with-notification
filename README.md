@@ -114,19 +114,47 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `/api/loans/[id]` | PATCH | Return or renew (`action`) |
 | `/api/notifications` | GET, PATCH | List / mark read |
 | `/api/dashboard` | GET | Aggregated desk data |
+| `/api/cron/refresh-loans` | GET, POST | Scheduled loan sweep (requires `CRON_SECRET`) |
 
 ## Notification rules
 
 - **Overdue** — loan past due date
 - **Due soon** — due within 3 days
-- **Checked out / returned** — circulation events
+- **Checked out / returned / renewed** — circulation events
 - **Book / member added** — catalog and membership events
 - **Low stock** — zero available copies
+
+Overdue stamping and due-date reminders run on a schedule rather than during page loads. `vercel.json` calls `/api/cron/refresh-loans` daily at 02:00 UTC, and a reminder for a given loan suppresses the next one for four days, so a repeated run cannot pile up duplicate alerts.
+
+Reads do not depend on that job: a loan is reported overdue as soon as its due date passes, so the desk is accurate between runs. To trigger the sweep by hand:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cron/refresh-loans
+```
+
+## Google sign-in access
+
+Completing the Google handshake proves who someone is, not that they work at the library, so a new desk account is only created for an allowlisted address:
+
+```bash
+GOOGLE_ALLOWED_DOMAINS=trac.edu.ph,students.trac.edu.ph
+GOOGLE_ALLOWED_EMAILS=head.librarian@gmail.com
+```
+
+Subdomains of an allowed domain are accepted. With neither variable set, Google sign-in works only for accounts a librarian has already created — everyone else is refused with a message explaining why.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers overdue derivation and the Google allowlist, including lookalike domains such as `trac.edu.ph.evil.com`.
 
 ## Notes
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
-- On Vercel, set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), and `AUTH_SECRET` in project environment variables.
+- On Vercel, set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), `AUTH_SECRET`, and `CRON_SECRET` in project environment variables.
 
 ## Troubleshooting
 
