@@ -67,6 +67,7 @@ export default function MembersPage() {
   }, [data, query, typeFilter]);
 
   function openCreate() {
+    if (!canManageMembers) return;
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
@@ -74,6 +75,7 @@ export default function MembersPage() {
   }
 
   function openEdit(member: Member) {
+    if (!canManageMembers) return;
     setEditing(member);
     setForm({
       name: member.name,
@@ -89,6 +91,7 @@ export default function MembersPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canManageMembers) return;
     setBusy(true);
     setFormError(null);
     const payload = {
@@ -121,6 +124,7 @@ export default function MembersPage() {
   }
 
   async function toggleActive(member: Member) {
+    if (!canManageMembers) return;
     try {
       await apiJson(`/api/members/${member.id}`, {
         method: "PATCH",
@@ -133,6 +137,7 @@ export default function MembersPage() {
   }
 
   async function onDelete(id: string) {
+    if (!canManageMembers) return;
     if (!window.confirm("Remove this member?")) return;
     try {
       await apiJson(`/api/members/${id}`, { method: "DELETE" });

@@ -38,6 +38,7 @@ export default function BooksPage() {
   }, [data, query]);
 
   function openCreate() {
+    if (!canManageBooks) return;
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
@@ -45,6 +46,7 @@ export default function BooksPage() {
   }
 
   function openEdit(book: Book) {
+    if (!canManageBooks) return;
     setEditing(book);
     setForm({
       title: book.title,
@@ -60,6 +62,7 @@ export default function BooksPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canManageBooks) return;
     setBusy(true);
     setFormError(null);
     try {
@@ -84,6 +87,7 @@ export default function BooksPage() {
   }
 
   async function onDelete(id: string) {
+    if (!canManageBooks) return;
     if (!window.confirm("Delete this book from the catalog?")) return;
     try {
       await apiJson(`/api/books/${id}`, { method: "DELETE" });

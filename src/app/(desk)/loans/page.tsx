@@ -63,6 +63,7 @@ export default function LoansPage() {
 
   async function onCheckout(e: FormEvent) {
     e.preventDefault();
+    if (!canManageLoans) return;
     setBusy(true);
     setFormError(null);
     try {
@@ -83,6 +84,7 @@ export default function LoansPage() {
   }
 
   async function onAction(id: string, action: "return" | "renew") {
+    if (!canManageLoans) return;
     try {
       await apiJson(`/api/loans/${id}`, {
         method: "PATCH",
@@ -104,6 +106,7 @@ export default function LoansPage() {
             type="button"
             className="btn btn-primary"
             onClick={() => {
+              if (!canManageLoans) return;
               setFormError(null);
               setOpen(true);
             }}
