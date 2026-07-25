@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
@@ -26,6 +26,10 @@ export default function BooksPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const canManageBooks = canAccess(me?.user, "books.write");
+
+  useEffect(() => {
+    if (!canManageBooks) setOpen(false);
+  }, [canManageBooks]);
 
   const books = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -197,7 +201,11 @@ export default function BooksPage() {
         )}
       </div>
 
-      <Modal open={open} title={editing ? "Edit book" : "Add book"} onClose={() => setOpen(false)}>
+      <Modal
+        open={open && canManageBooks}
+        title={editing ? "Edit book" : "Add book"}
+        onClose={() => setOpen(false)}
+      >
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
           {(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, Member, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
@@ -27,6 +27,10 @@ export default function LoansPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const canManageLoans = canAccess(me?.user, "loans.manage");
+
+  useEffect(() => {
+    if (!canManageLoans) setOpen(false);
+  }, [canManageLoans]);
 
   if (me && !canManageLoans) {
     return (
@@ -223,7 +227,11 @@ export default function LoansPage() {
         )}
       </div>
 
-      <Modal open={open} title="Check out a book" onClose={() => setOpen(false)}>
+      <Modal
+        open={open && canManageLoans}
+        title="Check out a book"
+        onClose={() => setOpen(false)}
+      >
         <form className="space-y-3" onSubmit={onCheckout}>
           {formError && <ErrorBanner message={formError} />}
           <div>

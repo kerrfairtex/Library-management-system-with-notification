@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Member, MemberType, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
@@ -37,6 +37,10 @@ export default function MembersPage() {
 
   const canManageMembers = canAccess(me?.user, "members.write");
   const canViewMembers = canAccess(me?.user, "members.read");
+
+  useEffect(() => {
+    if (!canManageMembers) setOpen(false);
+  }, [canManageMembers]);
 
   if (me && !canViewMembers) {
     return (
@@ -285,7 +289,11 @@ export default function MembersPage() {
         )}
       </div>
 
-      <Modal open={open} title={editing ? "Edit member" : "Add student / member"} onClose={() => setOpen(false)}>
+      <Modal
+        open={open && canManageMembers}
+        title={editing ? "Edit member" : "Add student / member"}
+        onClose={() => setOpen(false)}
+      >
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
           <div>
