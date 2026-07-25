@@ -970,3 +970,31 @@ export async function deleteStaff(id: string): Promise<boolean> {
   throwIfError(error, "Failed to delete staff account.");
   return Boolean(data && data.length > 0);
 }
+
+/**
+ * Allows a signed-in user to update their own name and/or password.
+ * Role changes are intentionally excluded — only an admin can change roles.
+ */
+export async function updateOwnProfile(
+  id: string,
+  updates: { name?: string; password?: string }
+): Promise<User | null> {
+  const patch: Partial<UserRow> = {};
+  if (updates.name !== undefined) patch.name = updates.name.trim();
+  if (updates.password !== undefined) {
+    patch.password_hash = hashPassword(updates.password);
+  }
+  if (Object.keys(patch).length === 0) {
+    return getUserById(id);
+  }
+
+  const { data, error } = await supabase
+    .from("users")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+  throwIfError(error, "Failed to update profile.");
+  if (!data) return null;
+  return mapUser(data as UserRow);
+}
