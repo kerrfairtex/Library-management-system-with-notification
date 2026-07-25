@@ -13,6 +13,9 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Node's --experimental-strip-types test runner needs explicit .ts
+    // specifiers, which only the test files use.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
