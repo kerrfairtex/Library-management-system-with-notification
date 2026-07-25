@@ -18,4 +18,7 @@ jobs:
       # The Supabase client and session secret are resolved per request, so a
       # build needs no credentials.
       - run: npx tsc --noEmit
+      # --if-present so this workflow is useful whether or not the test script
+      # has landed yet.
+      - run: npm run test --if-present
       - run: npm run build
