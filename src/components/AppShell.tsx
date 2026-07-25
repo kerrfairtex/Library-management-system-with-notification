@@ -15,6 +15,7 @@ const nav = [
   { href: "/loans", label: "Circulation", icon: "⇄" },
   { href: "/notifications", label: "Alerts", icon: "✦" },
   { href: "/staff", label: "Staff", icon: "◇", adminOnly: true },
+  { href: "/profile", label: "Profile", icon: "◉" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -99,11 +100,13 @@ function UserFooter() {
 
   return (
     <div className="mt-6 border-t border-[var(--line)] pt-4">
-      <p className="text-sm font-semibold">{user?.name ?? "Staff"}</p>
-      <p className="mb-3 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
-        {user?.email ?? "Signed in"}
-        {user?.role ? ` · ${user.role}` : ""}
-      </p>
+      <Link href="/profile" className="block hover:opacity-80">
+        <p className="text-sm font-semibold">{user?.name ?? "Staff"}</p>
+        <p className="mb-3 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+          {user?.email ?? "Signed in"}
+          {user?.role ? ` · ${user.role}` : ""}
+        </p>
+      </Link>
       <button type="button" className="btn btn-ghost w-full" onClick={logout}>
         Log out
       </button>
