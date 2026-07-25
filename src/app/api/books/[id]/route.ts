@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { deleteBook, updateBook } from "@/lib/store";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -21,6 +25,9 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const { id } = await params;
     const ok = await deleteBook(id);

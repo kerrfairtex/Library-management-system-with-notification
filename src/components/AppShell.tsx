@@ -14,11 +14,15 @@ const nav = [
   { href: "/members", label: "Students", icon: "◎" },
   { href: "/loans", label: "Circulation", icon: "⇄" },
   { href: "/notifications", label: "Alerts", icon: "✦" },
+  { href: "/staff", label: "Staff", icon: "◇", adminOnly: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { data: session } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const isAdmin = session?.user?.role === "admin";
+  const visibleNav = nav.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <div className="shell">
@@ -52,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Institute of Agricultural Sciences · Bongao, Tawi-Tawi
           </p>
           <nav className={`${menuOpen ? "block" : "hidden"} space-y-1 md:block`}>
-            {nav.map((item) => {
+            {visibleNav.map((item) => {
               const active =
                 item.href === "/"
                   ? pathname === "/"

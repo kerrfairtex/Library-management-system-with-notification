@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { supabase } from "./supabase";
-import { toPublicUser, verifyPassword } from "./auth";
+import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
 import type {
   Book,
@@ -893,4 +893,80 @@ export async function getUserById(id: string): Promise<User | null> {
 export async function getPublicUserById(id: string): Promise<PublicUser | null> {
   const user = await getUserById(id);
   return user ? toPublicUser(user) : null;
+}
+
+export async function listStaff(): Promise<PublicUser[]> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("created_at", { ascending: true });
+  throwIfError(error, "Failed to load staff accounts.");
+  return ((data as UserRow[] | null) ?? []).map((row) => toPublicUser(mapUser(row)));
+}
+
+export async function countAdmins(): Promise<number> {
+  const { data, error } = await supabase.from("users").select("id").eq("role", "admin");
+  throwIfError(error, "Failed to count admins.");
+  return data?.length ?? 0;
+}
+
+export async function createStaff(input: {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}): Promise<PublicUser> {
+  const email = input.email.trim().toLowerCase();
+
+  const { data: clash, error: clashError } = await supabase
+    .from("users")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  throwIfError(clashError, "Failed to check existing accounts.");
+  if (clash) throw new Error("An account with that email already exists.");
+
+  const row = {
+    id: randomUUID(),
+    name: input.name.trim(),
+    email,
+    password_hash: hashPassword(input.password),
+    role: input.role,
+    created_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase.from("users").insert(row).select("*").single();
+  throwIfError(error, "Failed to create staff account.");
+  return toPublicUser(mapUser(data as UserRow));
+}
+
+export async function updateStaff(
+  id: string,
+  updates: { name?: string; role?: UserRole; password?: string }
+): Promise<PublicUser | null> {
+  const patch: Partial<UserRow> = {};
+  if (updates.name !== undefined) patch.name = updates.name.trim();
+  if (updates.role !== undefined) patch.role = updates.role;
+  if (updates.password !== undefined) {
+    patch.password_hash = hashPassword(updates.password);
+  }
+  if (Object.keys(patch).length === 0) {
+    return getPublicUserById(id);
+  }
+
+  const { data, error } = await supabase
+    .from("users")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+  throwIfError(error, "Failed to update staff account.");
+  if (!data) return null;
+  return toPublicUser(mapUser(data as UserRow));
+}
+
+export async function deleteStaff(id: string): Promise<boolean> {
+  const { data, error } = await supabase.from("users").delete().eq("id", id).select("id");
+  throwIfError(error, "Failed to delete staff account.");
+  return Boolean(data && data.length > 0);
 }

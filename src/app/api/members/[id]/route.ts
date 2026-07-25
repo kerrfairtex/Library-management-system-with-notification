@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { deleteMember, updateMember } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
 
@@ -13,6 +14,9 @@ function parseMemberType(value: unknown): MemberType | undefined {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -48,6 +52,9 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const { id } = await params;
     const ok = await deleteMember(id);

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { createBook, listBooks } from "@/lib/store";
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const books = await listBooks();
     return NextResponse.json(books);
@@ -14,6 +18,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const body = await request.json();
     const { title, author, isbn, genre, totalCopies, publishedYear } = body;

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { createMember, listMembers } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
 
@@ -10,6 +11,9 @@ function parseMemberType(value: unknown): MemberType {
 }
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const members = await listMembers();
     return NextResponse.json(members);
@@ -22,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const body = await request.json();
     const { name, email, phone, memberType, studentId, grade } = body;

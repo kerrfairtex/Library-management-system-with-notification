@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export function useApi<T>(url: string, refreshKey = 0) {
+/** Pass a null url to hold off until the caller knows what to request. */
+export function useApi<T>(url: string | null, refreshKey = 0) {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(url));
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    if (!url) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

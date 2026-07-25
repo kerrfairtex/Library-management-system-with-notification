@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { checkoutBook, getLoansData } from "@/lib/store";
 import { enrichLoans } from "@/lib/utils";
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const { loans, books, members } = await getLoansData();
     return NextResponse.json(enrichLoans(loans, books, members));
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const body = await request.json();
     const { bookId, memberId, days } = body;
