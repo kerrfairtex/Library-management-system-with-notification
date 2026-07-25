@@ -32,6 +32,12 @@ const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
   ],
 };
 
+const roleLabels: Record<UserRole, string> = {
+  student: "Student",
+  librarian: "Librarian",
+  admin: "Admin",
+};
+
 function roleOf(actor: UserRole | Pick<PublicUser, "role">): UserRole {
   return typeof actor === "string" ? actor : actor.role;
 }
@@ -45,7 +51,9 @@ export function canAccess(
 }
 
 export function roleLabel(role: UserRole): string {
-  if (role === "admin") return "Admin";
-  if (role === "librarian") return "Librarian";
-  return "Student";
+  return roleLabels[role];
+}
+
+export function roleDashboardTitle(role: UserRole): string {
+  return `${roleLabel(role)} dashboard`;
 }

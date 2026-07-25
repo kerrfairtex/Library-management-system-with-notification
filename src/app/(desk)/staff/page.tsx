@@ -14,10 +14,14 @@ const emptyForm = {
   role: "student" as UserRole,
 };
 
+const roleBlurbs: Record<UserRole, string> = {
+  admin: "Full system control: users, roles, books, members, and circulation.",
+  librarian: "Can manage books and circulation, but not users or member records.",
+  student: "Read-only account for dashboard, catalog, alerts, and personal profile.",
+};
+
 function roleBlurb(role: UserRole): string {
-  if (role === "admin") return "Full system control: users, roles, books, members, and circulation.";
-  if (role === "librarian") return "Can manage books and circulation, but not users or member records.";
-  return "Read-only account for dashboard, catalog, alerts, and personal profile.";
+  return roleBlurbs[role];
 }
 
 export default function StaffPage() {

@@ -52,7 +52,6 @@ export default function DashboardPage() {
             ? [
                 { label: "Books in catalog", value: stats.totalBooks, hint: `${stats.availableBooks} available now` },
                 { label: "Unread alerts", value: stats.unreadNotifications, hint: "Library updates and reminders" },
-                { label: "Account role", value: roleLabel(user.role), hint: "Profile changes only" },
               ]
             : [
                 { label: "Copies in stock", value: stats.totalBooks, hint: `${stats.availableBooks} available` },
@@ -84,6 +83,9 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-3 text-sm text-[color-mix(in_srgb,var(--ink)_70%,transparent)]">
+              <p>
+                <span className="font-semibold text-[var(--ink)]">Role:</span> {roleLabel(user.role)}
+              </p>
               <p>You can view the catalog, alerts, and your own profile.</p>
               <p>Only librarians and admins can manage books, members, and circulation.</p>
             </div>

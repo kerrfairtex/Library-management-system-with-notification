@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
+import { roleDashboardTitle } from "@/lib/permissions";
 import { computeDashboardStats, getLibraryData } from "@/lib/store";
-import { roleLabel } from "@/lib/permissions";
 import { enrichLoans, sortNotifications } from "@/lib/utils";
 
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
     const data = await getLibraryData();
     return NextResponse.json({
       user,
-      roleTitle: `${roleLabel(user.role)} dashboard`,
+      roleTitle: roleDashboardTitle(user.role),
       stats: computeDashboardStats(data),
       recentLoans: enrichLoans(data.loans, data.books, data.members).slice(0, 6),
       notifications: sortNotifications(data.notifications).slice(0, 8),
