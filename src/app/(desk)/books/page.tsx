@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
-import type { Book } from "@/lib/types";
+import type { Book, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
@@ -16,7 +16,7 @@ const emptyForm = {
 };
 
 export default function BooksPage() {
-  const { data: me } = useApi<{ user: { role: "student" | "librarian" | "admin" } }>("/api/auth/me");
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const { data, loading, error, reload } = useApi<Book[]>("/api/books");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);

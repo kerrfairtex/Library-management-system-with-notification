@@ -2,14 +2,14 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
-import type { Book, Member } from "@/lib/types";
+import type { Book, Member, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
 import { daysUntil, formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
 export default function LoansPage() {
-  const { data: me } = useApi<{ user: { role: "student" | "librarian" | "admin" } }>("/api/auth/me");
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const {
     data: loans,
     loading,

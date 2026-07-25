@@ -12,7 +12,7 @@ create table if not exists public.users (
   name text not null,
   email text not null unique,
   password_hash text not null,
-  role text not null default 'student' check (role in ('student', 'librarian', 'admin')),
+  role text not null,
   created_at timestamptz not null default now()
 );
 

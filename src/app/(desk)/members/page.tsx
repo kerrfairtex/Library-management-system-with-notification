@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
-import type { Member, MemberType } from "@/lib/types";
+import type { Member, MemberType, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
@@ -25,7 +25,7 @@ function typeLabel(type: MemberType): string {
 }
 
 export default function MembersPage() {
-  const { data: me } = useApi<{ user: { role: "student" | "librarian" | "admin" } }>("/api/auth/me");
+  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const { data, loading, error, reload } = useApi<Member[]>("/api/members");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | MemberType>("all");

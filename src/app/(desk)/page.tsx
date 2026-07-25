@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Book, DashboardStats, Member, Notification } from "@/lib/types";
+import type { Book, DashboardStats, Member, Notification, PublicUser } from "@/lib/types";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { EnrichedLoan } from "@/lib/utils";
 import { useApi } from "@/lib/hooks";
@@ -9,7 +9,7 @@ import { daysUntil, formatDate, notificationTone } from "@/lib/utils";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 
 type DashboardResponse = {
-  user: { role: "student" | "librarian" | "admin"; name: string };
+  user: PublicUser;
   roleTitle: string;
   stats: DashboardStats;
   recentLoans: EnrichedLoan[];
