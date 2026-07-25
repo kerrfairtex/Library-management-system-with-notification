@@ -223,7 +223,7 @@ export default function LoansPage() {
         )}
       </div>
 
-      <Modal open={open && canManageLoans} title="Check out a book" onClose={() => setOpen(false)}>
+      <Modal open={open} title="Check out a book" onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={onCheckout}>
           {formError && <ErrorBanner message={formError} />}
           <div>

@@ -285,11 +285,7 @@ export default function MembersPage() {
         )}
       </div>
 
-      <Modal
-        open={open && canManageMembers}
-        title={editing ? "Edit member" : "Add student / member"}
-        onClose={() => setOpen(false)}
-      >
+      <Modal open={open} title={editing ? "Edit member" : "Add student / member"} onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
           <div>

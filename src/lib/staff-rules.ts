@@ -30,7 +30,8 @@ export function describeRoleChangeProblem({
   adminCount: number;
 }): string | null {
   if (target.role === nextRole) return null;
-  if (target.role !== "admin" || nextRole === "admin") return null;
+  const isAdminDemotion = target.role === "admin" && nextRole !== "admin";
+  if (!isAdminDemotion) return null;
 
   if (target.id === actorId) {
     return "You cannot remove your own admin role. Ask another admin to do it.";

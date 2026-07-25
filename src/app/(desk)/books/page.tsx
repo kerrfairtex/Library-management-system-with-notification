@@ -104,7 +104,9 @@ export default function BooksPage() {
         subtitle={
           canManageBooks
             ? "Add titles, track available copies, and keep inventory ready for checkout."
-            : `Signed in as ${roleLabel(me?.user?.role ?? "student")}. You can browse the catalog but only librarians and admins can change it.`
+            : me?.user
+              ? `Signed in as ${roleLabel(me.user.role)}. You can browse the catalog but only librarians and admins can change it.`
+              : "You can browse the catalog here. Only librarians and admins can change it."
         }
         action={
           canManageBooks ? (
@@ -195,11 +197,7 @@ export default function BooksPage() {
         )}
       </div>
 
-      <Modal
-        open={open && canManageBooks}
-        title={editing ? "Edit book" : "Add book"}
-        onClose={() => setOpen(false)}
-      >
+      <Modal open={open} title={editing ? "Edit book" : "Add book"} onClose={() => setOpen(false)}>
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
           {(
