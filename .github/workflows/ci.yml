@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The Supabase client and session secret are resolved per request, so a
+      # build needs no credentials.
+      - run: npx tsc --noEmit
+      # --if-present so this workflow is useful whether or not the test script
+      # has landed yet.
+      - run: npm run test --if-present
+      - run: npm run build
