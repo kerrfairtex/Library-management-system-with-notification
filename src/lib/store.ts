@@ -980,7 +980,7 @@ export async function updateOwnProfile(
   updates: { name?: string; password?: string }
 ): Promise<User | null> {
   const patch: Partial<UserRow> = {};
-  if (updates.name !== undefined) patch.name = updates.name.trim();
+  if (updates.name !== undefined) patch.name = updates.name;
   if (updates.password !== undefined) {
     patch.password_hash = hashPassword(updates.password);
   }

@@ -42,7 +42,7 @@ export default function ProfilePage() {
   async function savePassword(e: FormEvent) {
     e.preventDefault();
     if (pwForm.password !== pwForm.confirm) {
-      setPwForm((f) => ({ ...f, error: "Passwords do not match." }));
+      setPwForm((f) => ({ ...f, error: "Passwords do not match.", success: false }));
       return;
     }
     setPwForm((f) => ({ ...f, busy: true, error: null, success: false }));
