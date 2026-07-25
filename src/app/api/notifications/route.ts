@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import {
   getNotificationsData,
   markAllNotificationsRead,
@@ -7,6 +8,9 @@ import {
 import { sortNotifications } from "@/lib/utils";
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const notifications = await getNotificationsData();
     return NextResponse.json(sortNotifications(notifications));
@@ -19,6 +23,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const body = await request.json();
     if (body.action === "mark_all_read") {

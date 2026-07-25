@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/authz";
 import { computeDashboardStats, getLibraryData } from "@/lib/store";
 import { enrichLoans, sortNotifications } from "@/lib/utils";
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+
   try {
     const data = await getLibraryData();
     return NextResponse.json({

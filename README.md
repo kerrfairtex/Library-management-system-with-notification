@@ -114,7 +114,22 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `/api/loans/[id]` | PATCH | Return or renew (`action`) |
 | `/api/notifications` | GET, PATCH | List / mark read |
 | `/api/dashboard` | GET | Aggregated desk data |
+| `/api/users` | GET, POST | List / create staff accounts (**admin only**) |
+| `/api/users/[id]` | PATCH, DELETE | Change name, role or password / remove access (**admin only**) |
 | `/api/cron/refresh-loans` | GET, POST | Scheduled loan sweep (requires `CRON_SECRET`) |
+
+## Roles
+
+| Role | Can do |
+| --- | --- |
+| Librarian | Catalog, students, circulation, alerts |
+| Admin | Everything a librarian can, plus create staff accounts and assign roles |
+
+Only an admin sees the **Staff** page and only an admin may call `/api/users`. Every request re-reads the account from the database, so a demotion or deletion takes effect on the target's very next request rather than whenever their cookie expires.
+
+Two rules stop the library from losing control of itself: an admin cannot remove their own admin role or delete their own account, and the last remaining admin cannot be demoted or deleted.
+
+The first admin comes from `npm run seed:users`; after that, admins create each other from the Staff page.
 
 ## Notification rules
 
