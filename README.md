@@ -61,8 +61,9 @@ This inserts (and updates on re-run):
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Librarian | `librarian@shelfwalk.app` | `librarian123` |
-| Admin | `admin@shelfwalk.app` | `admin123` |
+| Student | `student@gmail.com` | `studentkerr123` |
+| Librarian | `librarian@gmail.com` | `librariankerr123` |
+| Admin | `admin@gmail.com` | `adminkerr123` |
 
 The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
 
@@ -84,7 +85,7 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 2. Add `<your-site-url>/auth/callback` to the provider's authorized redirect URLs (both in Supabase and in the Google Cloud OAuth client).
 3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
 
-On first sign-in, a row is created in the `users` table for the Google account (role defaults to `librarian`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain.
+On first sign-in, a row is created in the `users` table for the Google account (role defaults to `student`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain.
 
 ## Scripts
 

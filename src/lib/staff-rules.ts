@@ -3,7 +3,7 @@ import type { PublicUser, UserRole } from "./types";
 export const MIN_PASSWORD_LENGTH = 8;
 
 export function isUserRole(value: unknown): value is UserRole {
-  return value === "admin" || value === "librarian";
+  return value === "student" || value === "admin" || value === "librarian";
 }
 
 export function describePasswordProblem(password: string): string | null {
@@ -30,6 +30,7 @@ export function describeRoleChangeProblem({
   adminCount: number;
 }): string | null {
   if (target.role === nextRole) return null;
+  if (target.role !== "admin") return null;
   if (nextRole === "admin") return null;
 
   if (target.id === actorId) {

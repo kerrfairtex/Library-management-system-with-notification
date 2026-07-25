@@ -21,8 +21,15 @@ const librarian: PublicUser = {
   email: "desk@trac.edu.ph",
   role: "librarian",
 };
+const student: PublicUser = {
+  id: "stu-1",
+  name: "Student",
+  email: "student@trac.edu.ph",
+  role: "student",
+};
 
-test("only librarian and admin are roles", () => {
+test("student, librarian, and admin are roles", () => {
+  assert.equal(isUserRole("student"), true);
   assert.equal(isUserRole("admin"), true);
   assert.equal(isUserRole("librarian"), true);
   assert.equal(isUserRole("superuser"), false);
@@ -44,6 +51,20 @@ test("promoting a librarian to admin is always allowed", () => {
       adminCount: 1,
     }),
     null
+  );
+});
+
+test("demoting an admin to student still protects the final admin", () => {
+  assert.match(
+    String(
+      describeRoleChangeProblem({
+        actorId: admin.id,
+        target: otherAdmin,
+        nextRole: "student",
+        adminCount: 1,
+      })
+    ),
+    /at least one admin/
   );
 });
 
@@ -116,6 +137,13 @@ test("the last admin cannot be deleted", () => {
 test("a librarian can be deleted even with a single admin", () => {
   assert.equal(
     describeDeleteProblem({ actorId: admin.id, target: librarian, adminCount: 1 }),
+    null
+  );
+});
+
+test("a student can be deleted without affecting admin protection", () => {
+  assert.equal(
+    describeDeleteProblem({ actorId: admin.id, target: student, adminCount: 1 }),
     null
   );
 });

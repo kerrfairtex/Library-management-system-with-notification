@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { roleLabel } from "@/lib/permissions";
 import type { PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
@@ -8,10 +9,6 @@ import { ErrorBanner, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
 type ProfileUser = PublicUser & { createdAt: string };
-
-function roleLabel(role: PublicUser["role"]): string {
-  return role === "admin" ? "Admin" : "Librarian";
-}
 
 export default function ProfilePage() {
   const { data, reload } = useApi<{ user: ProfileUser }>("/api/auth/me");

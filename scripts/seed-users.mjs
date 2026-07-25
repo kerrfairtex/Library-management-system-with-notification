@@ -37,15 +37,21 @@ function hashPassword(password) {
 
 const demoUsers = [
   {
-    name: "Alex Rivera",
-    email: "librarian@shelfwalk.app",
-    password: "librarian123",
+    name: "student",
+    email: "student@gmail.com",
+    password: "studentkerr123",
+    role: "student",
+  },
+  {
+    name: "librarian",
+    email: "librarian@gmail.com",
+    password: "librariankerr123",
     role: "librarian",
   },
   {
-    name: "Morgan Ellis",
-    email: "admin@shelfwalk.app",
-    password: "admin123",
+    name: "admin",
+    email: "admin@gmail.com",
+    password: "adminkerr123",
     role: "admin",
   },
 ];

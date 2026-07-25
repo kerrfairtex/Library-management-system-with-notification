@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { roleLabel } from "@/lib/permissions";
 import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
@@ -10,17 +11,13 @@ const emptyForm = {
   name: "",
   email: "",
   password: "",
-  role: "librarian" as UserRole,
+  role: "student" as UserRole,
 };
 
-function roleLabel(role: UserRole): string {
-  return role === "admin" ? "Admin" : "Librarian";
-}
-
 function roleBlurb(role: UserRole): string {
-  return role === "admin"
-    ? "Runs the desk and manages staff accounts and roles."
-    : "Runs the desk: catalog, students, and circulation.";
+  if (role === "admin") return "Full system control: users, roles, books, members, and circulation.";
+  if (role === "librarian") return "Can manage books and circulation, but not users or member records.";
+  return "Read-only account for dashboard, catalog, alerts, and personal profile.";
 }
 
 export default function StaffPage() {
@@ -44,13 +41,13 @@ export default function StaffPage() {
     return (
       <div>
         <PageHeader
-          title="Staff accounts"
-          subtitle="Only an admin can add staff and choose whether they are a librarian or an admin."
+          title="User accounts"
+          subtitle="Only an admin can create accounts and assign student, librarian, or admin access."
         />
         <div className="panel p-4 md:p-5">
           <EmptyState
             title="Admins only"
-            body="Your account is a librarian. Ask an admin to change your role if you need to manage staff."
+            body="Ask an admin to change your role if you need to manage user accounts."
           />
         </div>
       </div>
@@ -123,11 +120,11 @@ export default function StaffPage() {
   return (
     <div>
       <PageHeader
-        title="Staff accounts"
-        subtitle="Add desk staff and choose whether each person is a librarian or an admin. Only admins can do this."
+      title="User accounts"
+      subtitle="Create accounts, assign the student/librarian/admin role, and control sign-in access."
         action={
           <button type="button" className="btn btn-primary" onClick={openCreate}>
-            Add staff
+          Add user
           </button>
         }
       />
@@ -137,7 +134,7 @@ export default function StaffPage() {
         {loading && <p className="text-sm">Loading staff…</p>}
 
         {!loading && staff.length === 0 ? (
-          <EmptyState title="No staff accounts" body="Add a librarian or admin to get started." />
+          <EmptyState title="No user accounts" body="Add a student, librarian, or admin to get started." />
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -208,6 +205,15 @@ export default function StaffPage() {
                               Make librarian
                             </button>
                           )}
+                          {person.role !== "student" && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => changeRole(person, "student")}
+                            >
+                              Make student
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-danger"
@@ -236,7 +242,7 @@ export default function StaffPage() {
 
       <Modal
         open={open}
-        title={editing ? `Edit ${editing.name}` : "Add staff"}
+        title={editing ? `Edit ${editing.name}` : "Add user"}
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
@@ -244,7 +250,7 @@ export default function StaffPage() {
 
           <div>
             <label className="label" htmlFor="name">
-              Full name
+              Name
             </label>
             <input
               id="name"
@@ -285,6 +291,7 @@ export default function StaffPage() {
               value={form.role}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
+              <option value="student">Student</option>
               <option value="librarian">Librarian</option>
               <option value="admin">Admin</option>
             </select>

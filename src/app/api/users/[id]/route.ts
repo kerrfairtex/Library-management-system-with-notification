@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.role !== undefined) {
       if (!isUserRole(body.role)) {
         return NextResponse.json(
-          { error: "Role must be either librarian or admin." },
+          { error: "Role must be student, librarian, or admin." },
           { status: 400 }
         );
       }

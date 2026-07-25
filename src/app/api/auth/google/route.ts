@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         name,
         email,
         password_hash: `google:${randomBytes(24).toString("hex")}`,
-        role: "librarian",
+        role: "student",
         created_at: new Date().toISOString(),
       };
       const { data: inserted, error: insertError } = await supabase

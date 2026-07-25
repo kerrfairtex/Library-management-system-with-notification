@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { createMember, listMembers } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
 
@@ -11,7 +11,10 @@ function parseMemberType(value: unknown): MemberType {
 }
 
 export async function GET() {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "members.read",
+    "Only librarians and admins can view members."
+  );
   if (!user) return response;
 
   try {
@@ -26,7 +29,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireSession();
+  const { user, response } = await requireCapability(
+    "members.write",
+    "Only admins can add members."
+  );
   if (!user) return response;
 
   try {
