@@ -172,8 +172,13 @@ Covers overdue derivation and the Google allowlist, including lookalike domains 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
 - On Vercel, set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), `AUTH_SECRET`, and `CRON_SECRET` in project environment variables.
 - Vercel project settings (Settings → General): **Root Directory** blank (repo root — not `public` or `src`), **Framework Preset** Next.js, **Output Directory** blank. `package.json` (with `"next"`) lives at the repo root; pointing Root Directory at `public` or `src` produces “No Next.js version detected” and can serve a static folder listing instead of the app.
+- `vercel.json` pins `"framework": "nextjs"`, `"buildCommand": "next build"`, and `"outputDirectory": null` so a dashboard Output Directory of `public` cannot turn the deploy into a static file listing.
 
 ## Troubleshooting
+
+### Login / Google sign-in 404, or the site shows “Files within /”
+
+The Next.js app is not what Vercel is serving — usually because **Output Directory** was set to `public` (or Root Directory is wrong). Confirm the live homepage is the TRAC login page, not a directory listing. `vercel.json` clears that override; after it lands, redeploy from `main`.
 
 ### "No Next.js version detected" / "Could not identify Next.js version"
 
@@ -185,7 +190,7 @@ The repo already lists `"next"` under `dependencies` in the root `package.json`.
 4. Clear **Output Directory** (Next.js manages `.next` itself — do not set it to `public`).
 5. Redeploy.
 
-`vercel.json` pins `"framework": "nextjs"` and the overdue-loan cron; it does not override a wrong Root Directory.
+`vercel.json` cannot override a wrong Root Directory.
 
 ### "Could not find the table 'public.users' in the schema cache"
 
