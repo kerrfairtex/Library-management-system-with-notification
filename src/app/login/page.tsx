@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
-import { roleLabel } from "@/lib/permissions";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { PublicUser } from "@/lib/types";
 
@@ -36,10 +35,9 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
 
-  const [email, setEmail] = useState("librarian@gmail.com");
-  const [password, setPassword] = useState("librariankerr123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemoHelp, setShowDemoHelp] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,34 +150,6 @@ function LoginForm() {
       <button type="submit" className="btn btn-primary w-full" disabled={busy}>
         {busy ? "Signing in…" : "Sign in to desk"}
       </button>
-
-      <div className="mt-4 flex justify-center">
-        <div className="text-center text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
-          <button
-            type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--line)] text-sm font-semibold text-[var(--jade-deep)]"
-            aria-label="Toggle demo credentials"
-            onClick={() => setShowDemoHelp((v) => !v)}
-          >
-            ?
-          </button>
-          {showDemoHelp && (
-            <div className="mt-3 space-y-2 rounded-2xl border border-[var(--line)] bg-[var(--mist)] px-3 py-3 text-left">
-              {[
-                ["student", "student@gmail.com", "studentkerr123"],
-                ["librarian", "librarian@gmail.com", "librariankerr123"],
-                ["admin", "admin@gmail.com", "adminkerr123"],
-              ].map(([role, demoEmail, demoPassword]) => (
-                <div key={role}>
-                  <p className="font-semibold">{roleLabel(role as PublicUser["role"])}</p>
-                  <p>Email: {demoEmail}</p>
-                  <p>Password: {demoPassword}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </form>
   );
 }
