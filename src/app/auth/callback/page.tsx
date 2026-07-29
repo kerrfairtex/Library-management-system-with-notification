@@ -9,7 +9,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 function CallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/";
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
 
@@ -30,6 +29,18 @@ function CallbackInner() {
       if (oauthError) {
         setError(oauthError);
         return;
+      }
+
+      let nextPath = "/";
+      try {
+        const stored = sessionStorage.getItem("trac.auth.next");
+        if (stored?.startsWith("/")) nextPath = stored;
+        sessionStorage.removeItem("trac.auth.next");
+      } catch {
+        // ignore storage errors
+      }
+      if (searchParams.get("next")?.startsWith("/")) {
+        nextPath = searchParams.get("next")!;
       }
 
       const code = searchParams.get("code");
@@ -62,7 +73,7 @@ function CallbackInner() {
         });
         await supabaseBrowser.auth.signOut();
         if (cancelled) return;
-        router.replace(nextPath.startsWith("/") ? nextPath : "/");
+        router.replace(nextPath);
         router.refresh();
       } catch (err) {
         if (!cancelled) {
@@ -75,7 +86,7 @@ function CallbackInner() {
     return () => {
       cancelled = true;
     };
-  }, [nextPath, router, searchParams]);
+  }, [router, searchParams]);
 
   return (
     <main className="login-page">

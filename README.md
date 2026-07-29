@@ -82,8 +82,13 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 "Sign up with Google" uses Supabase Auth's OAuth flow:
 
 1. In the Supabase dashboard, enable the **Google** provider under Authentication → Providers and add your Google OAuth client ID/secret.
-2. Add `<your-site-url>/auth/callback` to the provider's authorized redirect URLs (both in Supabase and in the Google Cloud OAuth client).
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
+2. In **Google Cloud** → OAuth client → Authorized redirect URIs, add **only** Supabase's callback (not the Vercel app URL):
+   `https://cphkxgykshjeultzgzmz.supabase.co/auth/v1/callback`
+3. In Supabase → Authentication → URL Configuration, set Site URL to your app origin and add Redirect URL:
+   `https://library-management-system-with-notification-kerros.vercel.app/auth/callback`
+4. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
+
+If you see **“OAuth state parameter missing”**, the Google client is almost always redirecting to the wrong place (often the Vercel `/auth/callback` instead of the Supabase `/auth/v1/callback` above). Fix the Google redirect URI, then try again from the login button (don’t open the callback URL by hand).
 
 On first sign-in, a row is created in the `users` table for the Google account (role defaults to `student`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain. New visitors can Sign up with Google unless you turn that off or set an allowlist (see below).
 
