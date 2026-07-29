@@ -100,7 +100,7 @@ function LoginForm() {
         disabled={googleBusy}
       >
         <GoogleIcon />
-        {googleBusy ? "Redirecting to Google…" : "Sign in with Google"}
+        {googleBusy ? "Redirecting to Google…" : "Sign in / Sign up with Google"}
       </button>
 
       <div className="login-divider" role="separator">

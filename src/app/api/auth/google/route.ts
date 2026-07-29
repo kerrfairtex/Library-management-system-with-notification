@@ -46,8 +46,8 @@ export async function POST(request: Request) {
     let userId = existing?.id as string | undefined;
 
     if (!userId) {
-      // Completing the Google handshake proves who you are, not that you work
-      // at the library, so only an allowlisted address gets a new account.
+      // First-time Google users may self sign-up as students unless an
+      // allowlist (or GOOGLE_OPEN_SIGNUP=false) blocks them.
       if (!mayProvisionGoogleAccount(email)) {
         return NextResponse.json(
           { error: googleAccessDeniedMessage(email) },

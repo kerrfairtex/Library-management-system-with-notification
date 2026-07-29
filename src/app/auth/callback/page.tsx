@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { apiJson } from "@/lib/hooks";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -11,8 +11,11 @@ function CallbackInner() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     let cancelled = false;
 
     async function run() {
@@ -22,18 +25,40 @@ function CallbackInner() {
         return;
       }
 
-      const { data, error: sessionError } = await supabaseBrowser.auth.getSession();
-      if (cancelled) return;
-
-      if (sessionError || !data.session) {
-        setError(sessionError?.message ?? "Could not complete Google sign-in.");
+      const oauthError =
+        searchParams.get("error_description") || searchParams.get("error");
+      if (oauthError) {
+        setError(oauthError);
         return;
+      }
+
+      const code = searchParams.get("code");
+      let accessToken: string | undefined;
+
+      if (code) {
+        // PKCE: Supabase returns ?code=… — exchange it before reading the session.
+        const { data, error: exchangeError } =
+          await supabaseBrowser.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (exchangeError || !data.session) {
+          setError(exchangeError?.message ?? "Could not complete Google sign-in.");
+          return;
+        }
+        accessToken = data.session.access_token;
+      } else {
+        const { data, error: sessionError } = await supabaseBrowser.auth.getSession();
+        if (cancelled) return;
+        if (sessionError || !data.session) {
+          setError(sessionError?.message ?? "Could not complete Google sign-in.");
+          return;
+        }
+        accessToken = data.session.access_token;
       }
 
       try {
         await apiJson("/api/auth/google", {
           method: "POST",
-          body: JSON.stringify({ accessToken: data.session.access_token }),
+          body: JSON.stringify({ accessToken }),
         });
         await supabaseBrowser.auth.signOut();
         if (cancelled) return;
@@ -50,7 +75,7 @@ function CallbackInner() {
     return () => {
       cancelled = true;
     };
-  }, [nextPath, router]);
+  }, [nextPath, router, searchParams]);
 
   return (
     <main className="login-page">
