@@ -25,10 +25,11 @@ export async function POST(request: Request) {
     }
 
     const email = authData.user.email.toLowerCase();
-    const name =
+    const metaName =
       (authData.user.user_metadata?.full_name as string | undefined) ||
-      (authData.user.user_metadata?.name as string | undefined) ||
-      email;
+      (authData.user.user_metadata?.name as string | undefined);
+    // Prefer the real Google display name; never invent a personal name.
+    const name = (metaName && metaName.trim()) || email;
 
     const { data: existing, error: findError } = await supabase
       .from("users")
