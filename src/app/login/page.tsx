@@ -100,8 +100,11 @@ function LoginForm() {
         disabled={googleBusy}
       >
         <GoogleIcon />
-        {googleBusy ? "Redirecting to Google…" : "Sign in with Google"}
+        {googleBusy ? "Redirecting to Google…" : "Continue with Google"}
       </button>
+      <p className="mt-2 text-center text-xs text-[var(--muted)]">
+        New here? Use your Gmail to register a student account.
+      </p>
 
       <div className="login-divider" role="separator">
         <span>or continue with email</span>

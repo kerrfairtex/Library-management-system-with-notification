@@ -85,7 +85,7 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 2. Add `<your-site-url>/auth/callback` to the provider's authorized redirect URLs (both in Supabase and in the Google Cloud OAuth client).
 3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
 
-On first sign-in, a row is created in the `users` table for the Google account (role defaults to `student`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain.
+On first sign-in, a row is created in the `users` table for the Google account (role defaults to `student`) and a normal TRAC session cookie is issued — no separate Google-only auth path to maintain. New visitors can Sign up with Google unless you turn that off or set an allowlist (see below).
 
 ## Scripts
 
@@ -150,14 +150,20 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cro
 
 ## Google sign-in access
 
-Completing the Google handshake proves who someone is, not that they work at the library, so a new desk account is only created for an allowlisted address:
+Completing the Google handshake proves identity. By default, a first-time visitor may **sign up** and gets a `student` account:
+
+```bash
+GOOGLE_OPEN_SIGNUP=true
+```
+
+Set `GOOGLE_OPEN_SIGNUP=false` to require an admin-created account first. To limit who may self sign-up, set an allowlist (when either is set, only matches are created — open sign-up no longer applies):
 
 ```bash
 GOOGLE_ALLOWED_DOMAINS=trac.edu.ph,students.trac.edu.ph
 GOOGLE_ALLOWED_EMAILS=head.librarian@gmail.com
 ```
 
-Subdomains of an allowed domain are accepted. With neither variable set, Google sign-in works only for accounts a librarian has already created — everyone else is refused with a message explaining why.
+Subdomains of an allowed domain are accepted. Existing `users` rows can always sign in with Google regardless of these settings.
 
 ## Tests
 
