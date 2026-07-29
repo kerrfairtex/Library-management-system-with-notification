@@ -69,9 +69,16 @@ function LoginForm() {
     }
 
     setGoogleBusy(true);
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-      nextPath
-    )}`;
+    // Keep redirectTo free of query params so it matches Supabase allowlists
+    // exactly. Carry "next" in sessionStorage instead — attaching ?next= to
+    // the OAuth redirect can break the state handoff in some setups.
+    const safeNext = nextPath.startsWith("/") ? nextPath : "/";
+    try {
+      sessionStorage.setItem("trac.auth.next", safeNext);
+    } catch {
+      // Private mode / blocked storage — callback falls back to "/".
+    }
+    const redirectTo = `${window.location.origin}/auth/callback`;
     const { error: oauthError } = await supabaseBrowser.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
