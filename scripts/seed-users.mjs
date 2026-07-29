@@ -35,25 +35,36 @@ function hashPassword(password) {
   return `${salt}:${hash}`;
 }
 
+// Use role labels — not invented personal names like "Morgan Ellis".
 const demoUsers = [
   {
-    name: "student",
+    name: "Demo Student",
     email: "student@gmail.com",
     password: "studentkerr123",
     role: "student",
   },
   {
-    name: "librarian",
+    name: "Demo Librarian",
     email: "librarian@gmail.com",
     password: "librariankerr123",
     role: "librarian",
   },
   {
-    name: "admin",
+    name: "Demo Admin",
     email: "admin@gmail.com",
     password: "adminkerr123",
     role: "admin",
   },
+];
+
+// Older seeds used made-up personal names / other demo emails. Scrub them so
+// the live desk no longer shows those placeholders after a re-seed.
+const retiredFakeNames = ["Morgan Ellis", "Alex Rivera"];
+const retiredDemoEmails = [
+  "admin@shelfwalk.app",
+  "librarian@shelfwalk.app",
+  "admin@trac.app",
+  "librarian@trac.app",
 ];
 
 let hadError = false;
@@ -90,7 +101,7 @@ for (const demo of demoUsers) {
       hadError = true;
       console.error(`✗ Failed to update ${demo.email}: ${updateError.message}`);
     } else {
-      console.log(`✓ Updated ${demo.email} / ${demo.password}`);
+      console.log(`✓ Updated ${demo.email} / ${demo.password} (${demo.name})`);
     }
     continue;
   }
@@ -108,7 +119,73 @@ for (const demo of demoUsers) {
     hadError = true;
     console.error(`✗ Failed to create ${demo.email}: ${insertError.message}`);
   } else {
-    console.log(`✓ Created ${demo.email} / ${demo.password}`);
+    console.log(`✓ Created ${demo.email} / ${demo.password} (${demo.name})`);
+  }
+}
+
+for (const email of retiredDemoEmails) {
+  const { data: rows, error } = await supabase
+    .from("users")
+    .select("id, email, name, role")
+    .ilike("email", email);
+
+  if (error) {
+    hadError = true;
+    console.error(`✗ Could not look up retired demo ${email}: ${error.message}`);
+    continue;
+  }
+
+  for (const row of rows ?? []) {
+    const replacement =
+      row.role === "admin"
+        ? "Demo Admin"
+        : row.role === "librarian"
+          ? "Demo Librarian"
+          : "Demo Student";
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ name: replacement })
+      .eq("id", row.id);
+
+    if (updateError) {
+      hadError = true;
+      console.error(`✗ Failed to rename ${row.email}: ${updateError.message}`);
+    } else {
+      console.log(`✓ Renamed ${row.email}: "${row.name}" → "${replacement}"`);
+    }
+  }
+}
+
+for (const fakeName of retiredFakeNames) {
+  const { data: rows, error } = await supabase
+    .from("users")
+    .select("id, email, name, role")
+    .eq("name", fakeName);
+
+  if (error) {
+    hadError = true;
+    console.error(`✗ Could not look up fake name ${fakeName}: ${error.message}`);
+    continue;
+  }
+
+  for (const row of rows ?? []) {
+    const replacement =
+      row.role === "admin"
+        ? "Demo Admin"
+        : row.role === "librarian"
+          ? "Demo Librarian"
+          : "Demo Student";
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ name: replacement })
+      .eq("id", row.id);
+
+    if (updateError) {
+      hadError = true;
+      console.error(`✗ Failed to rename ${row.email}: ${updateError.message}`);
+    } else {
+      console.log(`✓ Renamed ${row.email}: "${fakeName}" → "${replacement}"`);
+    }
   }
 }
 
