@@ -47,7 +47,6 @@ function CallbackInner() {
       let accessToken: string | undefined;
 
       if (code) {
-        // PKCE: Supabase returns ?code=… — exchange it before reading the session.
         const { data, error: exchangeError } =
           await supabaseBrowser.auth.exchangeCodeForSession(code);
         if (cancelled) return;
@@ -100,30 +99,33 @@ function CallbackInner() {
           className="login-campus-photo"
         />
         <div className="login-atmosphere-veil" />
+        <div className="login-atmosphere-grain" />
       </div>
-      <section className="login-stage" style={{ maxWidth: 420 }}>
-        <div className="login-panel panel fade-up">
+      <section className="login-stage login-callback-stage">
+        <div className="login-panel">
           <div className="mb-4 flex justify-center">
-            <Image
-              src="/brand/trac-logo.png"
-              alt="TRAC"
-              width={88}
-              height={88}
-              className="login-seal-image"
-              priority
-            />
+            <div className="login-seal" style={{ width: "5.5rem", marginBottom: 0 }}>
+              <Image
+                src="/brand/trac-logo.png"
+                alt="TRAC"
+                width={88}
+                height={88}
+                className="login-seal-image"
+                priority
+              />
+            </div>
           </div>
           {error ? (
             <>
-              <div className="mb-4 rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+              <div className="login-alert" role="alert">
                 {error}
               </div>
-              <a href="/login" className="btn btn-primary w-full">
+              <a href="/login" className="btn btn-primary login-submit">
                 Back to sign in
               </a>
             </>
           ) : (
-            <p className="text-center text-sm">Completing Google sign-in…</p>
+            <p className="login-callback-copy">Completing Google sign-in…</p>
           )}
         </div>
       </section>
