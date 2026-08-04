@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useId, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { PublicUser } from "@/lib/types";
@@ -34,6 +34,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
+  const errorId = useId();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,12 +50,12 @@ function LoginForm() {
     try {
       await apiJson<{ user: PublicUser }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
       router.replace(nextPath.startsWith("/") ? nextPath : "/");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Sign-in failed. Check your email and password.");
     } finally {
       setBusy(false);
     }
@@ -69,15 +70,13 @@ function LoginForm() {
     }
 
     setGoogleBusy(true);
-    // Keep redirectTo free of query params so it matches Supabase allowlists
-    // exactly. Carry "next" in sessionStorage instead — attaching ?next= to
-    // the OAuth redirect can break the state handoff in some setups.
     const safeNext = nextPath.startsWith("/") ? nextPath : "/";
     try {
       sessionStorage.setItem("trac.auth.next", safeNext);
     } catch {
       // Private mode / blocked storage — callback falls back to "/".
     }
+
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { data, error: oauthError } = await supabaseBrowser.auth.signInWithOAuth({
       provider: "google",
@@ -105,22 +104,37 @@ function LoginForm() {
     setGoogleBusy(false);
   }
 
+  const locked = busy || googleBusy;
+
   return (
-    <form className="login-form fade-up fade-up-delay-2" onSubmit={onSubmit}>
+    <form className="login-form" onSubmit={onSubmit} noValidate>
+      <header className="login-form-header">
+        <h2 className="login-form-title">Sign in</h2>
+        <p className="login-form-subtitle">
+          Use Google for a student account, or email for a staff desk login.
+        </p>
+      </header>
+
       {error && (
-        <div className="mb-4 rounded-xl bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+        <div
+          id={errorId}
+          className="login-alert"
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </div>
       )}
 
       <button
         type="button"
-        className="btn btn-ghost w-full gap-2"
+        className="btn login-google"
         onClick={onGoogleSignIn}
-        disabled={googleBusy}
+        disabled={locked}
+        aria-busy={googleBusy}
       >
         <GoogleIcon />
-        {googleBusy ? "Redirecting to Google…" : "Continue with Google"}
+        <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
       </button>
       <p className="mt-2 text-center text-xs text-[var(--muted)]">
         Opens Google to choose an account. New Gmail users are registered as
@@ -128,10 +142,10 @@ function LoginForm() {
       </p>
 
       <div className="login-divider" role="separator">
-        <span>or continue with email</span>
+        <span>or email</span>
       </div>
 
-      <div className="mb-3">
+      <div className="login-field">
         <label className="label" htmlFor="email">
           Email
         </label>
@@ -139,41 +153,88 @@ function LoginForm() {
           id="email"
           className="field"
           type="email"
+          name="email"
           autoComplete="username"
+          inputMode="email"
           required
+          autoFocus
+          disabled={locked}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          placeholder="name@example.com"
         />
       </div>
 
-      <div className="mb-5">
+      <div className="login-field">
         <label className="label" htmlFor="password">
           Password
         </label>
-        <div className="relative">
+        <div className="login-password">
           <input
             id="password"
-            className="field pr-20"
+            className="field"
             type={showPassword ? "text" : "password"}
+            name="password"
             autoComplete="current-password"
             required
+            disabled={locked}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            aria-invalid={Boolean(error)}
+            placeholder="Enter your password"
           />
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-[var(--jade-deep)]"
+            className="login-password-toggle"
             onClick={() => setShowPassword((v) => !v)}
+            disabled={locked}
+            aria-pressed={showPassword}
+            aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword ? "Hide" : "Show"}
           </button>
         </div>
       </div>
 
-      <button type="submit" className="btn btn-primary w-full" disabled={busy}>
+      <button
+        type="submit"
+        className="btn btn-primary login-submit"
+        disabled={locked || !email.trim() || !password}
+        aria-busy={busy}
+      >
         {busy ? "Signing in…" : "Sign in to desk"}
       </button>
+
+      <p className="login-footnote">
+        Google opens Google&apos;s account page. New Gmail users join as students
+        automatically.
+      </p>
     </form>
+  );
+}
+
+function LoginBrand() {
+  return (
+    <div className="login-copy">
+      <div className="login-seal">
+        <Image
+          src="/brand/trac-logo.png"
+          alt="Institute of Agricultural Sciences — TRAC, Bongao, Tawi-Tawi"
+          width={180}
+          height={180}
+          priority
+          className="login-seal-image"
+        />
+      </div>
+      <p className="brand login-brand">TRAC</p>
+      <p className="login-institute">Institute of Agricultural Sciences</p>
+      <h1 className="display login-headline">Library desk access</h1>
+      <p className="login-support">
+        Catalog, circulation, and due-date alerts for Bongao, Tawi-Tawi.
+      </p>
+    </div>
   );
 }
 
@@ -190,28 +251,15 @@ export default function LoginPage() {
           className="login-campus-photo"
         />
         <div className="login-atmosphere-veil" />
+        <div className="login-atmosphere-grain" />
       </div>
 
       <section className="login-stage">
-        <div className="login-copy fade-up">
-          <div className="login-seal">
-            <Image
-              src="/brand/trac-logo.png"
-              alt="Institute of Agricultural Sciences — TRAC, Bongao, Tawi-Tawi"
-              width={168}
-              height={168}
-              priority
-              className="login-seal-image"
-            />
-          </div>
-          <p className="brand login-brand">TRAC</p>
-          <p className="login-institute">Institute of Agricultural Sciences</p>
-          <h1 className="display login-headline">Library Management System with Notification</h1>
-          <p className="login-location">Bongao, Tawi-Tawi</p>
-        </div>
-
-        <div className="login-panel panel fade-up fade-up-delay-1">
-          <Suspense fallback={<p className="text-sm">Loading sign-in…</p>}>
+        <LoginBrand />
+        <div className="login-panel">
+          <Suspense
+            fallback={<p className="login-form-subtitle">Loading sign-in…</p>}
+          >
             <LoginForm />
           </Suspense>
         </div>
