@@ -114,7 +114,7 @@ a {
 
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em];
-    color: color-mix(in srgb, var(--ink) 55%, transparent);
+    color: var(--ink-soft);
   }
 
   .badge {
@@ -455,7 +455,7 @@ a {
   margin: 0.35rem 0 0;
   font-size: 0.92rem;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--ink) 58%, transparent);
+  color: var(--ink-soft);
 }
 
 .login-alert {
@@ -472,9 +472,14 @@ a {
 .login-google {
   width: 100%;
   min-height: 2.85rem;
-  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   background: #fff;
   color: var(--ink);
+}
+
+.login-google:focus-visible {
+  outline: 3px solid rgba(31, 122, 92, 0.35);
+  outline-offset: 2px;
 }
 
 .login-google:hover:not(:disabled) {
@@ -538,9 +543,9 @@ a {
 .login-footnote {
   margin: 0.95rem 0 0;
   text-align: center;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--ink) 52%, transparent);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 
 .login-divider {
@@ -548,8 +553,8 @@ a {
   align-items: center;
   gap: 0.75rem;
   margin: 1rem 0;
-  color: color-mix(in srgb, var(--ink) 45%, transparent);
-  font-size: 0.72rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
