@@ -79,15 +79,30 @@ function LoginForm() {
       // Private mode / blocked storage — callback falls back to "/".
     }
     const redirectTo = `${window.location.origin}/auth/callback`;
-    const { error: oauthError } = await supabaseBrowser.auth.signInWithOAuth({
+    const { data, error: oauthError } = await supabaseBrowser.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        // Always show Google's account picker (there is no in-app sign-up form).
+        queryParams: { prompt: "select_account" },
+        // We navigate ourselves so a missed auto-redirect cannot look like a no-op.
+        skipBrowserRedirect: true,
+      },
     });
 
     if (oauthError) {
       setError(oauthError.message);
       setGoogleBusy(false);
+      return;
     }
+
+    if (data?.url) {
+      window.location.assign(data.url);
+      return;
+    }
+
+    setError("Could not start Google sign-in. Try again.");
+    setGoogleBusy(false);
   }
 
   return (
@@ -108,7 +123,8 @@ function LoginForm() {
         {googleBusy ? "Redirecting to Google…" : "Continue with Google"}
       </button>
       <p className="mt-2 text-center text-xs text-[var(--muted)]">
-        New here? Use your Gmail to register a student account.
+        Opens Google to choose an account. New Gmail users are registered as
+        students automatically — there is no separate fill-in form on this site.
       </p>
 
       <div className="login-divider" role="separator">
