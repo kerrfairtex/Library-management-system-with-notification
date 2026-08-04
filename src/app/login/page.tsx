@@ -82,7 +82,9 @@ function LoginForm() {
       provider: "google",
       options: {
         redirectTo,
+        // Always show Google's account picker (there is no in-app sign-up form).
         queryParams: { prompt: "select_account" },
+        // We navigate ourselves so a missed auto-redirect cannot look like a no-op.
         skipBrowserRedirect: true,
       },
     });
@@ -134,6 +136,10 @@ function LoginForm() {
         <GoogleIcon />
         <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
       </button>
+      <p className="mt-2 text-center text-xs text-[var(--muted)]">
+        Opens Google to choose an account. New Gmail users are registered as
+        students automatically — there is no separate fill-in form on this site.
+      </p>
 
       <div className="login-divider" role="separator">
         <span>or email</span>
