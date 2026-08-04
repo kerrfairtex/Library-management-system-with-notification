@@ -132,6 +132,7 @@ function LoginForm() {
         onClick={onGoogleSignIn}
         disabled={locked}
         aria-busy={googleBusy}
+        aria-label="Continue with Google — opens Google account chooser"
       >
         <GoogleIcon />
         <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
