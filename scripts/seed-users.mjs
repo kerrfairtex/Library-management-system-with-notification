@@ -26,6 +26,19 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
+// The demo accounts below have publicly documented passwords (see README).
+// Never create them in a production environment unless explicitly asked.
+const allowDemo = process.argv.includes("--allow-demo");
+if (process.env.NODE_ENV === "production" && !allowDemo) {
+  console.error(
+    "Refusing to run in production: this script creates accounts whose " +
+      "passwords are published in this repository. If you truly need demo " +
+      "accounts here, re-run with --allow-demo — but prefer creating real " +
+      "staff accounts with unique passwords instead."
+  );
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 // Mirrors hashPassword() in src/lib/auth.ts (salt:scrypt-hash hex string).

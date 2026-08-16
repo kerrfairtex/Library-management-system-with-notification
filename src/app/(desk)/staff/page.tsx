@@ -40,6 +40,7 @@ export default function StaffPage() {
 
   const staff = useMemo(() => data ?? [], [data]);
   const adminCount = staff.filter((person) => person.role === "admin").length;
+  const pending = useMemo(() => staff.filter((p) => p.status === "pending"), [staff]);
 
   if (me && !isAdmin) {
     return (
@@ -111,6 +112,18 @@ export default function StaffPage() {
     }
   }
 
+  async function approvePending(person: PublicUser) {
+    try {
+      await apiJson(`/api/users/${person.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "active" }),
+      });
+      await reload();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Could not approve account");
+    }
+  }
+
   async function onDelete(person: PublicUser) {
     if (!window.confirm(`Remove ${person.name}'s access?`)) return;
     try {
@@ -137,6 +150,47 @@ export default function StaffPage() {
         {error && <ErrorBanner message={error} />}
         {loading && <p className="text-sm">Loading staff…</p>}
 
+        {!loading && pending.length > 0 && (
+          <section className="mb-6 space-y-3">
+            <div>
+              <h2 className="display text-xl">Pending verifications</h2>
+              <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)]">
+                These accounts signed up with Google and are waiting for
+                librarian review before they can use the desk.
+              </p>
+            </div>
+            {pending.map((person) => (
+              <div
+                key={person.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-4 py-3"
+              >
+                <div>
+                  <p className="font-semibold">{person.name}</p>
+                  <p className="text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+                    {person.email} · {person.role}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => approvePending(person)}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => onDelete(person)}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
         {!loading && staff.length === 0 ? (
           <EmptyState title="No user accounts" body="Add a student, librarian, or admin to get started." />
         ) : (
@@ -158,6 +212,9 @@ export default function StaffPage() {
                     <tr key={person.id}>
                       <td className="font-semibold">
                         {person.name}
+                        {person.status === "pending" && (
+                          <span className="badge tone-warn ml-2">pending</span>
+                        )}
                         {isSelf && (
                           <span className="ml-2 text-xs font-normal text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
                             you

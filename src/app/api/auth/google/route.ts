@@ -4,9 +4,13 @@ import { supabase } from "@/lib/supabase";
 import { describeSupabaseError } from "@/lib/store";
 import {
   googleAccessDeniedMessage,
+  isAllowlistConfigured,
   mayProvisionGoogleAccount,
 } from "@/lib/google-access";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+
+const GOOGLE_MAX_PER_IP = 20;
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +18,14 @@ export async function POST(request: Request) {
     const accessToken = String(body.accessToken ?? "");
     if (!accessToken) {
       return NextResponse.json({ error: "Missing access token." }, { status: 400 });
+    }
+
+    const ipLimit = rateLimit(`google:ip:${clientIp(request)}`, GOOGLE_MAX_PER_IP);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many sign-in attempts. Try again later." },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSeconds) } }
+      );
     }
 
     const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
@@ -62,6 +74,9 @@ export async function POST(request: Request) {
         email,
         password_hash: `google:${randomBytes(24).toString("hex")}`,
         role: "student",
+        // Allowlist matches are pre-approved by domain/email policy; open
+        // sign-ups land 'pending' until a librarian approves them.
+        status: isAllowlistConfigured() ? "active" : "pending",
         created_at: new Date().toISOString(),
       };
       const { data: inserted, error: insertError } = await supabase

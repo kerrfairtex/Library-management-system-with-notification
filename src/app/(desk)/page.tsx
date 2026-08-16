@@ -7,6 +7,7 @@ import type { EnrichedLoan } from "@/lib/utils";
 import { useApi } from "@/lib/hooks";
 import { daysUntil, formatDate, notificationTone } from "@/lib/utils";
 import { ErrorBanner, PageHeader } from "@/components/ui";
+import { AcademicShelvesSection } from "@/components/AcademicShelves";
 
 type DashboardResponse = {
   user: PublicUser;
@@ -72,6 +73,8 @@ export default function DashboardPage() {
           </article>
         ))}
       </section>
+
+      {isStudent && <AcademicShelvesSection />}
 
       {isStudent ? (
         <section className="grid gap-5 lg:grid-cols-2">

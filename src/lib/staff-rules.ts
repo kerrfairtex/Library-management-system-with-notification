@@ -1,9 +1,13 @@
-import type { PublicUser, UserRole } from "./types";
+import type { PublicUser, UserRole, UserStatus } from "./types";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
 export function isUserRole(value: unknown): value is UserRole {
   return value === "student" || value === "admin" || value === "librarian";
+}
+
+export function isUserStatus(value: unknown): value is UserStatus {
+  return value === "pending" || value === "active";
 }
 
 export function describePasswordProblem(password: string): string | null {
@@ -56,6 +60,25 @@ export function describeDeleteProblem({
   }
   if (target.role === "admin" && adminCount <= 1) {
     return "The library needs at least one admin.";
+  }
+  return null;
+}
+
+/**
+ * Membership verification gate: an admin approves or rejects pending
+ * self-sign-ups, but never flips their own status (that would let an admin
+ * lock themselves out of nothing meaningful, but it keeps the audit line
+ * clean — status changes come from another account).
+ */
+export function describeStatusChangeProblem({
+  actorId,
+  target,
+}: {
+  actorId: string;
+  target: PublicUser;
+}): string | null {
+  if (target.id === actorId) {
+    return "You cannot change your own verification status.";
   }
   return null;
 }

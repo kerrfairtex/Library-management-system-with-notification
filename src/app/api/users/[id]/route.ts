@@ -10,7 +10,9 @@ import {
   describeDeleteProblem,
   describePasswordProblem,
   describeRoleChangeProblem,
+  describeStatusChangeProblem,
   isUserRole,
+  isUserStatus,
 } from "@/lib/staff-rules";
 
 type Params = { params: Promise<{ id: string }> };
@@ -59,6 +61,18 @@ export async function PATCH(request: Request, { params }: Params) {
       });
       if (problem) return NextResponse.json({ error: problem }, { status: 409 });
       updates.role = body.role;
+    }
+
+    if (body.status !== undefined) {
+      if (!isUserStatus(body.status)) {
+        return NextResponse.json(
+          { error: "Status must be pending or active." },
+          { status: 400 }
+        );
+      }
+      const problem = describeStatusChangeProblem({ actorId: actor.id, target });
+      if (problem) return NextResponse.json({ error: problem }, { status: 409 });
+      updates.status = body.status;
     }
 
     const updated = await updateStaff(id, updates);

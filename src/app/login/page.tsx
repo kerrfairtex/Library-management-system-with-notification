@@ -110,9 +110,6 @@ function LoginForm() {
     <form className="login-form" onSubmit={onSubmit} noValidate>
       <header className="login-form-header">
         <h2 className="login-form-title">Sign in</h2>
-        <p className="login-form-subtitle">
-          Use Google for a student account, or email for a staff desk login.
-        </p>
       </header>
 
       {error && (
@@ -137,13 +134,9 @@ function LoginForm() {
         <GoogleIcon />
         <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
       </button>
-      <p className="mt-2 text-center text-xs text-[var(--muted)]">
-        Opens Google to choose an account. New Gmail users are registered as
-        students automatically — there is no separate fill-in form on this site.
-      </p>
 
       <div className="login-divider" role="separator">
-        <span>or email</span>
+        <span>or</span>
       </div>
 
       <div className="login-field">
@@ -207,11 +200,6 @@ function LoginForm() {
       >
         {busy ? "Signing in…" : "Sign in to desk"}
       </button>
-
-      <p className="login-footnote">
-        Google opens Google&apos;s account page. New Gmail users join as students
-        automatically.
-      </p>
     </form>
   );
 }

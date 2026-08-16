@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { mayProvisionGoogleAccount } from "./google-access.ts";
+import { isAllowlistConfigured, mayProvisionGoogleAccount } from "./google-access.ts";
 
 function configure(env: {
   domains?: string;
@@ -19,8 +19,14 @@ function configure(env: {
 
 afterEach(() => configure({}));
 
-test("open sign-up provisions strangers when no allowlist is set", () => {
+test("open sign-up is closed by default (no allowlist, no flag)", () => {
   configure({});
+  assert.equal(mayProvisionGoogleAccount("stranger@gmail.com"), false);
+  assert.equal(mayProvisionGoogleAccount("staff@trac.edu.ph"), false);
+});
+
+test("open sign-up provisions strangers only when explicitly enabled", () => {
+  configure({ openSignup: "true" });
   assert.equal(mayProvisionGoogleAccount("stranger@gmail.com"), true);
   assert.equal(mayProvisionGoogleAccount("staff@trac.edu.ph"), true);
 });
@@ -73,4 +79,13 @@ test("malformed addresses are refused", () => {
   configure({});
   assert.equal(mayProvisionGoogleAccount("no-at-sign"), false);
   assert.equal(mayProvisionGoogleAccount(""), false);
+});
+
+test("allowlist configuration is detected", () => {
+  configure({});
+  assert.equal(isAllowlistConfigured(), false);
+  configure({ domains: "trac.edu.ph" });
+  assert.equal(isAllowlistConfigured(), true);
+  configure({ emails: "head.librarian@gmail.com" });
+  assert.equal(isAllowlistConfigured(), true);
 });

@@ -4,7 +4,9 @@ import {
   describeDeleteProblem,
   describePasswordProblem,
   describeRoleChangeProblem,
+  describeStatusChangeProblem,
   isUserRole,
+  isUserStatus,
 } from "./staff-rules.ts";
 import type { PublicUser } from "./types.ts";
 
@@ -35,6 +37,32 @@ test("student, librarian, and admin are roles", () => {
   assert.equal(isUserRole("superuser"), false);
   assert.equal(isUserRole(""), false);
   assert.equal(isUserRole(undefined), false);
+});
+
+test("pending and active are the only user statuses", () => {
+  assert.equal(isUserStatus("pending"), true);
+  assert.equal(isUserStatus("active"), true);
+  assert.equal(isUserStatus("rejected"), false);
+  assert.equal(isUserStatus(""), false);
+  assert.equal(isUserStatus(undefined), false);
+});
+
+test("an admin cannot change their own verification status", () => {
+  assert.match(
+    String(describeStatusChangeProblem({ actorId: admin.id, target: admin })),
+    /your own verification status/
+  );
+});
+
+test("an admin can approve or suspend another account", () => {
+  assert.equal(
+    describeStatusChangeProblem({ actorId: admin.id, target: student }),
+    null
+  );
+  assert.equal(
+    describeStatusChangeProblem({ actorId: admin.id, target: librarian }),
+    null
+  );
 });
 
 test("a short password is refused", () => {

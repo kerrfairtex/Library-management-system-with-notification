@@ -8,7 +8,7 @@ Brand assets live in `public/brand/` (`trac-logo.png` seal, `trac-campus.jpg` ca
 
 - **Catalog** — add, edit, search, and delete books with copy tracking
 - **Students & members** — register students (student ID + grade), staff, or community patrons; activate/deactivate
-- **Circulation** — check out, renew, and return loans (max 5 active loans per member)
+- **Circulation** — check out, renew, and return loans (max 3 active loans per member, 7-day period)
 - **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
 - **Login** — staff sign-in with session cookie protection for desk and APIs, plus Google sign-up/sign-in
 - **Desk dashboard** — live stats, recent loans, and alert feed
@@ -65,7 +65,7 @@ This inserts (and updates on re-run):
 | Librarian | `librarian@gmail.com` | `librariankerr123` |
 | Admin | `admin@gmail.com` | `adminkerr123` |
 
-The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first.
+The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first. Note: the script refuses to run when `NODE_ENV=production` (the demo passwords are public in this repository); pass `--allow-demo` only if you truly want demo accounts in a production environment.
 
 If instead you see **"Could not find the table 'public.users' in the schema cache"**, see [Troubleshooting](#troubleshooting) below.
 
@@ -155,11 +155,13 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.vercel.app/api/cro
 
 ## Google sign-in access
 
-Completing the Google handshake proves identity. By default, a first-time visitor may **sign up** and gets a `student` account:
+Completing the Google handshake proves identity. By default, a first-time visitor is **not** provisioned (`GOOGLE_OPEN_SIGNUP` defaults to `false`) — they must have an admin-created `users` row first. To allow self sign-up as a `student` account:
 
 ```bash
 GOOGLE_OPEN_SIGNUP=true
 ```
+
+Self sign-ups are subject to the **membership verification gate**: an account matched by `GOOGLE_ALLOWED_DOMAINS`/`GOOGLE_ALLOWED_EMAILS` is activated immediately (the allowlist is the pre-approval), while an open sign-up is created with `status = pending` and appears in the **Pending verifications** queue on the admin's User accounts page — the librarian reviews and Approves (activates) or Rejects (removes) it. Pending accounts can browse the catalog but carry a verification banner and no borrowing capability (borrowing is staff-operated and member-gated anyway).
 
 Set `GOOGLE_OPEN_SIGNUP=false` to require an admin-created account first. To limit who may self sign-up, set an allowlist (when either is set, only matches are created — open sign-up no longer applies):
 

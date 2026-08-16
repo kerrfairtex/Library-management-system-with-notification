@@ -13,6 +13,16 @@ export function daysUntil(iso: string): number {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
+/** TRAC overdue policy: ₱5 per day late, charged from the first full day. */
+const OVERDUE_FINE_PER_DAY = 5;
+
+export function overdueFine(dueAtIso: string, now: number = Date.now()): number {
+  const due = new Date(dueAtIso).getTime();
+  if (!Number.isFinite(due) || due >= now) return 0;
+  const daysLate = Math.max(1, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
+  return daysLate * OVERDUE_FINE_PER_DAY;
+}
+
 export function notificationTone(type: NotificationType): string {
   switch (type) {
     case "overdue":

@@ -5,7 +5,7 @@ import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, Member, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
-import { daysUntil, formatDate } from "@/lib/utils";
+import { daysUntil, formatDate, overdueFine } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
 export default function LoansPage() {
@@ -23,7 +23,7 @@ export default function LoansPage() {
   const [open, setOpen] = useState(false);
   const [bookId, setBookId] = useState("");
   const [memberId, setMemberId] = useState("");
-  const [days, setDays] = useState(14);
+  const [days, setDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const canManageLoans = canAccess(me?.user, "loans.manage");
@@ -78,7 +78,7 @@ export default function LoansPage() {
       setOpen(false);
       setBookId("");
       setMemberId("");
-      setDays(14);
+      setDays(7);
       await reload();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Checkout failed");
@@ -152,6 +152,7 @@ export default function LoansPage() {
                   <th>Borrowed</th>
                   <th>Due</th>
                   <th>Status</th>
+                  <th>Fine</th>
                   <th></th>
                 </tr>
               </thead>
@@ -197,6 +198,15 @@ export default function LoansPage() {
                         >
                           {loan.status}
                         </span>
+                      </td>
+                      <td>
+                        {loan.status === "overdue" ? (
+                          <span className="font-semibold text-[var(--danger)]">
+                            ₱{overdueFine(loan.dueAt)}
+                          </span>
+                        ) : (
+                          <span className="text-[color-mix(in_srgb,var(--ink)_40%,transparent)]">—</span>
+                        )}
                       </td>
                       <td>
                         {loan.status !== "returned" && (

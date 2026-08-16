@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json(loan);
     }
     if (action === "renew") {
-      const loan = await renewLoan(id, body.extraDays ? Number(body.extraDays) : 14);
+      const loan = await renewLoan(id, body.extraDays ? Number(body.extraDays) : 7);
       return NextResponse.json(loan);
     }
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });

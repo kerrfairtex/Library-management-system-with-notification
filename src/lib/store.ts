@@ -15,6 +15,7 @@ import type {
   PublicUser,
   User,
   UserRole,
+  UserStatus,
 } from "./types";
 
 type BookRow = {
@@ -67,6 +68,7 @@ type UserRow = {
   email: string;
   password_hash: string;
   role: UserRole;
+  status?: string;
   created_at: string;
 };
 
@@ -152,6 +154,7 @@ function mapUser(row: UserRow): User {
     email: row.email,
     passwordHash: row.password_hash,
     role: row.role,
+    status: row.status === "pending" ? "pending" : "active",
     createdAt: row.created_at,
   };
 }
@@ -219,125 +222,34 @@ async function insertNotification(
   return mapNotification(data as NotificationRow);
 }
 
-const DAY_MS = 1000 * 60 * 60 * 24;
-const DUE_SOON_WINDOW_DAYS = 3;
-
-/** How long a reminder suppresses the next one for the same loan. */
-const REMINDER_COOLDOWN_MS = DAY_MS * 4;
-
 export type LoanSweepResult = {
   markedOverdue: number;
   overdueAlerts: number;
   dueSoonAlerts: number;
 };
 
-async function hasRecentAlert(
-  type: NotificationType,
-  loanId: string
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("id")
-    .eq("type", type)
-    .eq("related_id", loanId)
-    .gte("created_at", new Date(Date.now() - REMINDER_COOLDOWN_MS).toISOString())
-    .limit(1);
-  throwIfError(error, "Failed to check existing alerts.");
-  return Boolean(data && data.length > 0);
-}
-
 /**
  * Stamps overdue loans and sends due-date reminders. Runs on a schedule (see
  * src/app/api/cron/refresh-loans/route.ts) rather than during page loads, so a
  * dashboard visit or a notification poll never writes to the database.
  *
- * Reads do not depend on this: deriveLoanStatus() reports a loan as overdue as
- * soon as its due date passes. This job exists to persist that status and to
- * generate the alerts.
+ * Delegates to sweep_loan_statuses() on the database: a transaction-scoped
+ * advisory lock serializes overlapping runs, the stamp re-checks due_at (a
+ * renewed loan cannot be stamped), and the 4-day cooldown check plus each
+ * notification insert share the transaction, so duplicate alerts are
+ * impossible even if Vercel fires the cron twice.
  */
 export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
-  const now = Date.now();
-  const nowIso = new Date(now).toISOString();
-  const result: LoanSweepResult = {
-    markedOverdue: 0,
-    overdueAlerts: 0,
-    dueSoonAlerts: 0,
+  const { data, error } = await supabase.rpc("sweep_loan_statuses");
+  if (error) {
+    throw new Error(error.message || "Loan sweep failed.");
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    markedOverdue: row?.marked_overdue ?? 0,
+    overdueAlerts: row?.overdue_alerts ?? 0,
+    dueSoonAlerts: row?.due_soon_alerts ?? 0,
   };
-
-  const { data: overdueCandidates, error: overdueError } = await supabase
-    .from("loans")
-    .select("*")
-    .neq("status", "returned")
-    .lt("due_at", nowIso);
-  throwIfError(overdueError, "Failed to load overdue loans.");
-
-  const overdueRows = (overdueCandidates as LoanRow[] | null) ?? [];
-  const toStamp = overdueRows.filter((row) => row.status !== "overdue");
-
-  if (toStamp.length > 0) {
-    const { error: updateError } = await supabase
-      .from("loans")
-      .update({ status: "overdue" })
-      .in(
-        "id",
-        toStamp.map((row) => row.id)
-      );
-    throwIfError(updateError, "Failed to mark loans overdue.");
-    result.markedOverdue = toStamp.length;
-  }
-
-  for (const row of overdueRows) {
-    if (await hasRecentAlert("overdue", row.id)) continue;
-
-    const [{ data: book }, { data: member }] = await Promise.all([
-      supabase.from("books").select("title").eq("id", row.book_id).maybeSingle(),
-      supabase.from("members").select("name").eq("id", row.member_id).maybeSingle(),
-    ]);
-    if (!book || !member) continue;
-
-    const daysLate = Math.max(1, Math.floor((now - new Date(row.due_at).getTime()) / DAY_MS));
-    await insertNotification(
-      "overdue",
-      "Overdue loan",
-      `"${book.title}" borrowed by ${member.name} is ${daysLate} day${
-        daysLate === 1 ? "" : "s"
-      } overdue.`,
-      row.id
-    );
-    result.overdueAlerts += 1;
-  }
-
-  const horizon = new Date(now + DAY_MS * DUE_SOON_WINDOW_DAYS).toISOString();
-  const { data: dueSoonCandidates, error: dueSoonError } = await supabase
-    .from("loans")
-    .select("*")
-    .neq("status", "returned")
-    .gt("due_at", nowIso)
-    .lte("due_at", horizon);
-  throwIfError(dueSoonError, "Failed to load due-soon loans.");
-
-  for (const row of (dueSoonCandidates as LoanRow[] | null) ?? []) {
-    if (await hasRecentAlert("due_soon", row.id)) continue;
-
-    const [{ data: book }, { data: member }] = await Promise.all([
-      supabase.from("books").select("title").eq("id", row.book_id).maybeSingle(),
-      supabase.from("members").select("name").eq("id", row.member_id).maybeSingle(),
-    ]);
-    if (!book || !member) continue;
-
-    const days = Math.max(1, Math.ceil((new Date(row.due_at).getTime() - now) / DAY_MS));
-    await insertNotification(
-      "due_soon",
-      "Due soon",
-      `"${book.title}" borrowed by ${member.name} is due in ${days} day${
-        days === 1 ? "" : "s"
-      }.`,
-      row.id
-    );
-    result.dueSoonAlerts += 1;
-  }
-
-  return result;
 }
 
 export async function getLibraryData(): Promise<LibraryData> {
@@ -666,164 +578,53 @@ export async function deleteMember(id: string): Promise<boolean> {
   return Boolean(data && data.length > 0);
 }
 
-export async function checkoutBook(bookId: string, memberId: string, days = 14): Promise<Loan> {
-  const [{ data: bookRow, error: bookError }, { data: memberRow, error: memberError }] =
-    await Promise.all([
-      supabase.from("books").select("*").eq("id", bookId).maybeSingle(),
-      supabase.from("members").select("*").eq("id", memberId).maybeSingle(),
-    ]);
-
-  throwIfError(bookError, "Failed to load book.");
-  throwIfError(memberError, "Failed to load member.");
-  if (!bookRow) throw new Error("Book not found.");
-  if (!memberRow) throw new Error("Member not found.");
-
-  const book = mapBook(bookRow as BookRow);
-  const member = mapMember(memberRow as MemberRow);
-
-  if (!member.active) throw new Error("Member is inactive.");
-  if (book.availableCopies < 1) throw new Error("No copies available.");
-
-  const { data: activeLoans, error: activeError } = await supabase
-    .from("loans")
-    .select("id")
-    .eq("member_id", memberId)
-    .neq("status", "returned");
-  throwIfError(activeError, "Failed to check member loans.");
-  if ((activeLoans?.length ?? 0) >= 5) {
-    throw new Error("Member already has the maximum of 5 active loans.");
-  }
-
-  const due = new Date();
-  due.setDate(due.getDate() + days);
-  const loanRow = {
-    id: randomUUID(),
-    book_id: bookId,
-    member_id: memberId,
-    borrowed_at: new Date().toISOString(),
-    due_at: due.toISOString(),
-    returned_at: null,
-    status: "active" as const,
-  };
-
-  const nextAvailable = book.availableCopies - 1;
-  const { error: bookUpdateError } = await supabase
-    .from("books")
-    .update({ available_copies: nextAvailable })
-    .eq("id", bookId);
-  throwIfError(bookUpdateError, "Failed to update book availability.");
-
-  const { data, error } = await supabase.from("loans").insert(loanRow).select("*").single();
+export async function checkoutBook(
+  bookId: string,
+  memberId: string,
+  days = 7
+): Promise<Loan> {
+  // Runs checkout_loan() on the database: one transaction that atomically
+  // decrements availability (WHERE available_copies > 0), inserts the loan
+  // (the loans_capacity trigger is the final authority on copies and the
+  // 5-active-loan cap) and creates the notifications. Any failure rolls
+  // back the whole checkout — no manual compensation write needed.
+  const { data, error } = await supabase.rpc("checkout_loan", {
+    p_book_id: bookId,
+    p_member_id: memberId,
+    p_days: days,
+  });
   if (error) {
-    await supabase
-      .from("books")
-      .update({ available_copies: book.availableCopies })
-      .eq("id", bookId);
     throw new Error(error.message || "Failed to checkout book.");
   }
-
-  const loan = mapLoan(data as LoanRow);
-  await insertNotification(
-    "checked_out",
-    "Book checked out",
-    `${member.name} checked out "${book.title}". Due ${due.toLocaleDateString()}.`,
-    loan.id
-  );
-  if (nextAvailable === 0) {
-    await insertNotification(
-      "low_stock",
-      "No copies available",
-      `"${book.title}" has 0 available copies.`,
-      book.id
-    );
-  }
-  return loan;
-}
-
-export async function returnBook(loanId: string): Promise<Loan> {
-  const { data: loanRow, error: loanError } = await supabase
-    .from("loans")
-    .select("*")
-    .eq("id", loanId)
-    .maybeSingle();
-  throwIfError(loanError, "Failed to load loan.");
-  if (!loanRow) throw new Error("Loan not found.");
-
-  const loan = mapLoan(loanRow as LoanRow);
-  if (loan.status === "returned") throw new Error("Loan already returned.");
-
-  const [{ data: bookRow }, { data: memberRow }] = await Promise.all([
-    supabase.from("books").select("*").eq("id", loan.bookId).maybeSingle(),
-    supabase.from("members").select("*").eq("id", loan.memberId).maybeSingle(),
-  ]);
-
-  const returnedAt = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("loans")
-    .update({ status: "returned", returned_at: returnedAt })
-    .eq("id", loanId)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to return book.");
-
-  if (bookRow) {
-    const book = mapBook(bookRow as BookRow);
-    await supabase
-      .from("books")
-      .update({
-        available_copies: Math.min(book.totalCopies, book.availableCopies + 1),
-      })
-      .eq("id", book.id);
-  }
-
-  const bookTitle = bookRow ? (bookRow as BookRow).title : "a book";
-  const memberName = memberRow ? (memberRow as MemberRow).name : "Member";
-  await insertNotification(
-    "returned",
-    "Book returned",
-    `${memberName} returned "${bookTitle}".`,
-    loanId
-  );
-
   return mapLoan(data as LoanRow);
 }
 
-export async function renewLoan(loanId: string, extraDays = 14): Promise<Loan> {
-  const { data: loanRow, error: loanError } = await supabase
-    .from("loans")
-    .select("*")
-    .eq("id", loanId)
-    .maybeSingle();
-  throwIfError(loanError, "Failed to load loan.");
-  if (!loanRow) throw new Error("Loan not found.");
+export async function returnBook(loanId: string): Promise<Loan> {
+  // Runs return_loan() on the database: one transaction that conditionally
+  // marks the loan returned (a duplicate return is rejected, not
+  // double-incremented) and restores availability with an atomic capped
+  // increment. The availability update can no longer fail silently.
+  const { data, error } = await supabase.rpc("return_loan", {
+    p_loan_id: loanId,
+  });
+  if (error) {
+    throw new Error(error.message || "Failed to return book.");
+  }
+  return mapLoan(data as LoanRow);
+}
 
-  const loan = mapLoan(loanRow as LoanRow);
-  if (loan.status === "returned") throw new Error("Cannot renew a returned loan.");
-
-  const base = Math.max(Date.now(), new Date(loan.dueAt).getTime());
-  const next = new Date(base);
-  next.setDate(next.getDate() + extraDays);
-
-  const { data, error } = await supabase
-    .from("loans")
-    .update({ due_at: next.toISOString(), status: "active" })
-    .eq("id", loanId)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to renew loan.");
-
-  const [{ data: bookRow }, { data: memberRow }] = await Promise.all([
-    supabase.from("books").select("title").eq("id", loan.bookId).maybeSingle(),
-    supabase.from("members").select("name").eq("id", loan.memberId).maybeSingle(),
-  ]);
-
-  await insertNotification(
-    "renewed",
-    "Loan renewed",
-    `"${bookRow?.title ?? "Book"}" for ${memberRow?.name ?? "member"} is now due ${next.toLocaleDateString()}.`,
-    loanId
-  );
-
+export async function renewLoan(loanId: string, extraDays = 7): Promise<Loan> {
+  // Runs renew_loan() on the database: one transaction that validates the
+  // extension, refuses returned loans (a renew racing a return can no longer
+  // resurrect it), checks the member is still active, extends the due date
+  // monotonically, and creates the notification.
+  const { data, error } = await supabase.rpc("renew_loan", {
+    p_loan_id: loanId,
+    p_extra_days: extraDays,
+  });
+  if (error) {
+    throw new Error(error.message || "Failed to renew loan.");
+  }
   return mapLoan(data as LoanRow);
 }
 
@@ -932,6 +733,7 @@ export async function createStaff(input: {
     email,
     password_hash: hashPassword(input.password),
     role: input.role,
+    status: "active" as const,
     created_at: new Date().toISOString(),
   };
 
@@ -942,11 +744,12 @@ export async function createStaff(input: {
 
 export async function updateStaff(
   id: string,
-  updates: { name?: string; role?: UserRole; password?: string }
+  updates: { name?: string; role?: UserRole; password?: string; status?: UserStatus }
 ): Promise<PublicUser | null> {
   const patch: Partial<UserRow> = {};
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.role !== undefined) patch.role = updates.role;
+  if (updates.status !== undefined) patch.status = updates.status;
   if (updates.password !== undefined) {
     patch.password_hash = hashPassword(updates.password);
   }

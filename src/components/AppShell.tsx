@@ -81,6 +81,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="min-w-0 space-y-4">
+          {session?.user?.status === "pending" && (
+            <div className="panel border-[var(--danger-soft)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+              Your library account is pending verification. A librarian will
+              review your Google sign-up before you can use the desk.
+            </div>
+          )}
           <TopBar />
           <main className="fade-up">{children}</main>
         </div>

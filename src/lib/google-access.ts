@@ -5,8 +5,8 @@
  * finishes it may sign up as a student. Optionally restrict that with an
  * allowlist, or turn open sign-up off so only pre-created accounts work.
  *
- *   GOOGLE_OPEN_SIGNUP=true          (default) allow first-time Google sign-up
- *   GOOGLE_OPEN_SIGNUP=false         require an existing users row
+ *   GOOGLE_OPEN_SIGNUP=true          explicitly allow first-time Google sign-up
+ *   GOOGLE_OPEN_SIGNUP=false         (default) require an existing users row
  *   GOOGLE_ALLOWED_DOMAINS=…         when set, only these domains may sign up
  *   GOOGLE_ALLOWED_EMAILS=…          when set, only these addresses may sign up
  *
@@ -22,8 +22,17 @@ function parseList(value: string | undefined): string[] {
 }
 
 function openSignupEnabled(): boolean {
-  const raw = (process.env.GOOGLE_OPEN_SIGNUP ?? "true").trim().toLowerCase();
-  return raw !== "false" && raw !== "0" && raw !== "off" && raw !== "no";
+  // Closed by default: completing the Google handshake proves identity, but
+  // an unknown visitor only gets an account when an operator opts in.
+  const raw = (process.env.GOOGLE_OPEN_SIGNUP ?? "false").trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "on" || raw === "yes";
+}
+
+export function isAllowlistConfigured(): boolean {
+  return (
+    parseList(process.env.GOOGLE_ALLOWED_DOMAINS).length > 0 ||
+    parseList(process.env.GOOGLE_ALLOWED_EMAILS).length > 0
+  );
 }
 
 export function mayProvisionGoogleAccount(email: string): boolean {
@@ -33,9 +42,8 @@ export function mayProvisionGoogleAccount(email: string): boolean {
 
   const emails = parseList(process.env.GOOGLE_ALLOWED_EMAILS);
   const domains = parseList(process.env.GOOGLE_ALLOWED_DOMAINS);
-  const allowlistConfigured = emails.length > 0 || domains.length > 0;
 
-  if (allowlistConfigured) {
+  if (isAllowlistConfigured()) {
     if (emails.includes(address)) return true;
     return domains.some(
       (allowed) => domain === allowed || domain.endsWith(`.${allowed}`)
@@ -46,11 +54,7 @@ export function mayProvisionGoogleAccount(email: string): boolean {
 }
 
 export function googleAccessDeniedMessage(email: string): string {
-  const allowlistConfigured =
-    parseList(process.env.GOOGLE_ALLOWED_DOMAINS).length > 0 ||
-    parseList(process.env.GOOGLE_ALLOWED_EMAILS).length > 0;
-
-  if (allowlistConfigured) {
+  if (isAllowlistConfigured()) {
     return `${email} isn't approved for library access. Ask a librarian to add you.`;
   }
 
