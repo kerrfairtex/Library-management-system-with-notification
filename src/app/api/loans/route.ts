@@ -34,7 +34,14 @@ export async function POST(request: Request) {
     if (!bookId || !memberId) {
       return NextResponse.json({ error: "bookId and memberId are required." }, { status: 400 });
     }
-    const loan = await checkoutBook(bookId, memberId, days ? Number(days) : 7);
+    // Server-side clamp (E2): a negative/zero days value creates an
+    // already-overdue loan; huge values create absurd due dates. The UI caps
+    // 1-60; the API is the trust boundary.
+    const loanDays = days === undefined || days === null || days === "" ? 7 : Number(days);
+    if (!Number.isInteger(loanDays) || loanDays < 1 || loanDays > 60) {
+      return NextResponse.json({ error: "days must be an integer between 1 and 60." }, { status: 400 });
+    }
+    const loan = await checkoutBook(bookId, memberId, loanDays);
     return NextResponse.json(loan, { status: 201 });
   } catch (error) {
     return NextResponse.json(

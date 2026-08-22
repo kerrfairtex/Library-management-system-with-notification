@@ -205,6 +205,12 @@ create index if not exists loans_status_idx on public.loans (status);
 create index if not exists notifications_created_at_idx on public.notifications (created_at desc);
 create index if not exists notifications_read_idx on public.notifications (read);
 
+-- Hot-path indexes for the nightly sweep (D4): the overdue/due-soon range
+-- scans filter on due_at of non-returned loans, and the 4-day cooldown check
+-- looks up notifications by (type, related_id).
+create index if not exists loans_due_at_idx on public.loans (due_at) where status <> 'returned';
+create index if not exists notifications_type_related_idx on public.notifications (type, related_id, created_at desc);
+
 -- The app's API routes talk to Supabase using the service role key
 -- (see src/lib/supabase.ts), which bypasses Row Level Security. RLS can
 -- stay disabled, or be enabled with policies of your choosing — it has

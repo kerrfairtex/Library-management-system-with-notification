@@ -20,7 +20,19 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json(loan);
     }
     if (action === "renew") {
-      const loan = await renewLoan(id, body.extraDays ? Number(body.extraDays) : 7);
+      // Server-side clamp (R1): negative extraDays can shorten or re-overdue
+      // a loan; NaN produces an Invalid Date RangeError.
+      const extraDays =
+        body.extraDays === undefined || body.extraDays === null || body.extraDays === ""
+          ? 7
+          : Number(body.extraDays);
+      if (!Number.isInteger(extraDays) || extraDays < 1 || extraDays > 60) {
+        return NextResponse.json(
+          { error: "extraDays must be an integer between 1 and 60." },
+          { status: 400 }
+        );
+      }
+      const loan = await renewLoan(id, extraDays);
       return NextResponse.json(loan);
     }
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });

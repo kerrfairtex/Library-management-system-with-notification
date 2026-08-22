@@ -12,9 +12,19 @@ const LOGIN_MAX_PER_EMAIL = 10;
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const email = String(body.email ?? "").trim();
-    const password = String(body.password ?? "");
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      // request.json() throws on malformed JSON — return a generic 400
+      // instead of letting it surface as a 500 with the raw parser message.
+      return NextResponse.json(
+        { error: "Request body must be valid JSON." },
+        { status: 400 }
+      );
+    }
+    const email = String((body as { email?: unknown }).email ?? "").trim();
+    const password = String((body as { password?: unknown }).password ?? "");
 
     if (!email || !password) {
       return NextResponse.json(

@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+!.env.example
+*.md
+.vercel
+tsconfig.tsbuildinfo
+supabase-go
+supabase.tar.gz
+*.tar.gz

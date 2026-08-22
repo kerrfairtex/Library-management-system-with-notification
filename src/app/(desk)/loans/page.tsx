@@ -32,23 +32,9 @@ export default function LoansPage() {
     if (!canManageLoans) setOpen(false);
   }, [canManageLoans]);
 
-  if (me && !canManageLoans) {
-    return (
-      <div>
-        <PageHeader
-          title="Circulation"
-          subtitle="Circulation actions are reserved for librarians and admins."
-        />
-        <div className="panel p-4 md:p-5">
-          <EmptyState
-            title="Circulation is restricted"
-            body={`Signed in as ${roleLabel(me.user.role)}. Ask library staff to process borrowing or returns.`}
-          />
-        </div>
-      </div>
-    );
-  }
-
+  // All hooks must run before any conditional return (rules of hooks):
+  // returning early here while useMemo runs below would crash React when
+  // the session loads after first render.
   const availableBooks = useMemo(
     () => (books ?? []).filter((b) => b.availableCopies > 0),
     [books]
@@ -64,6 +50,8 @@ export default function LoansPage() {
       return loan.status === filter;
     });
   }, [loans, filter]);
+
+  const restricted = Boolean(me) && !canManageLoans;
 
   async function onCheckout(e: FormEvent) {
     e.preventDefault();
@@ -104,23 +92,37 @@ export default function LoansPage() {
     <div>
       <PageHeader
         title="Circulation"
-        subtitle="Check out titles, renew due dates, and return books with automatic alerts."
+        subtitle={
+          restricted
+            ? "Circulation actions are reserved for librarians and admins."
+            : "Check out titles, renew due dates, and return books with automatic alerts."
+        }
         action={
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => {
-              if (!canManageLoans) return;
-              setFormError(null);
-              setOpen(true);
-            }}
-          >
-            Check out
-          </button>
+          canManageLoans ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                setFormError(null);
+                setOpen(true);
+              }}
+            >
+              Check out
+            </button>
+          ) : undefined
         }
       />
 
-      <div className="panel p-4 md:p-5">
+      {restricted ? (
+        <div className="panel p-4 md:p-5">
+          <EmptyState
+            title="Circulation is restricted"
+            body={`Signed in as ${roleLabel(me!.user.role)}. Ask library staff to process borrowing or returns.`}
+          />
+        </div>
+      ) : (
+        <>
+        <div className="panel p-4 md:p-5">
         <div className="mb-4 flex flex-wrap gap-2">
           {(["all", "active", "overdue", "returned"] as const).map((key) => (
             <button
@@ -237,11 +239,11 @@ export default function LoansPage() {
         )}
       </div>
 
-      <Modal
-        open={open && canManageLoans}
-        title="Check out a book"
-        onClose={() => setOpen(false)}
-      >
+        <Modal
+          open={open && canManageLoans}
+          title="Check out a book"
+          onClose={() => setOpen(false)}
+        >
         <form className="space-y-3" onSubmit={onCheckout}>
           {formError && <ErrorBanner message={formError} />}
           <div>
@@ -308,7 +310,9 @@ export default function LoansPage() {
             </button>
           </div>
         </form>
-      </Modal>
+        </Modal>
+        </>
+      )}
     </div>
   );
 }

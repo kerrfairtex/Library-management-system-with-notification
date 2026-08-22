@@ -42,23 +42,6 @@ export default function MembersPage() {
     if (!canManageMembers) setOpen(false);
   }, [canManageMembers]);
 
-  if (me && !canViewMembers) {
-    return (
-      <div>
-        <PageHeader
-          title="Students & members"
-          subtitle="Only librarians and admins can open the member registry."
-        />
-        <div className="panel p-4 md:p-5">
-          <EmptyState
-            title="Members are restricted"
-            body={`Signed in as ${roleLabel(me.user.role)}. You can update only your own profile.`}
-          />
-        </div>
-      </div>
-    );
-  }
-
   const members = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (data ?? []).filter((m) => {
@@ -69,6 +52,10 @@ export default function MembersPage() {
       );
     });
   }, [data, query, typeFilter]);
+
+  // Restricted view rendered after all hooks (rules of hooks): the previous
+  // early return before useMemo crashed React when session data arrived late.
+  const restrictedView = Boolean(me) && !canViewMembers;
 
   function openCreate() {
     if (!canManageMembers) return;
@@ -156,9 +143,11 @@ export default function MembersPage() {
       <PageHeader
         title="Students & members"
         subtitle={
-          canManageMembers
-            ? "Register students with a student ID and grade, plus staff or community patrons."
-            : "View the member registry. Only admins can add, edit, activate, or delete members."
+          restrictedView
+            ? "Only librarians and admins can open the member registry."
+            : canManageMembers
+              ? "Register students with a student ID and grade, plus staff or community patrons."
+              : "View the member registry. Only admins can add, edit, activate, or delete members."
         }
         action={
           canManageMembers ? (
@@ -169,6 +158,15 @@ export default function MembersPage() {
         }
       />
 
+      {restrictedView ? (
+        <div className="panel p-4 md:p-5">
+          <EmptyState
+            title="Members are restricted"
+            body={`Signed in as ${roleLabel(me!.user.role)}. You can update only your own profile.`}
+          />
+        </div>
+      ) : (
+      <>
       <div className="panel p-4 md:p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <input
@@ -376,6 +374,8 @@ export default function MembersPage() {
           </div>
         </form>
       </Modal>
+      </>
+      )}
     </div>
   );
 }

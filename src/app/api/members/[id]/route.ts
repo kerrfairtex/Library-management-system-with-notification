@@ -28,7 +28,17 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.name !== undefined) updates.name = String(body.name).trim();
     if (body.email !== undefined) updates.email = String(body.email).trim();
     if (body.phone !== undefined) updates.phone = String(body.phone).trim();
-    if (body.active !== undefined) updates.active = Boolean(body.active);
+    // Strict boolean parse: Boolean("false") === true, so a stringified
+    // "false" would silently ACTIVATE a member. Accept real booleans only.
+    if (body.active !== undefined) {
+      if (typeof body.active !== "boolean") {
+        return NextResponse.json(
+          { error: "active must be a boolean (true or false)." },
+          { status: 400 }
+        );
+      }
+      updates.active = body.active;
+    }
 
     const memberType = parseMemberType(body.memberType);
     if (memberType !== undefined) updates.memberType = memberType;
