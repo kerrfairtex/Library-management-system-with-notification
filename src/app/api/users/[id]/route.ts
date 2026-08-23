@@ -81,9 +81,11 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
     }
 
-    // Approving a pending Google signup? Auto-create the matching members row
-    // so the student can immediately place holds and be tracked in circulation.
-    if (body.status === "active" && target.status === "pending") {
+    // Approving an account? Auto-create the matching members row so students
+    // can immediately place holds and be tracked in circulation. Idempotent:
+    // skips when a member row with that email already exists. Staff-role users
+    // are not given a membership automatically.
+    if (body.status === "active" && updated.role === "student") {
       const { data: existingMember } = await db(supabase)
         .from("members")
         .select("id")
