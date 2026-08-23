@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db, supabase } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/authz";
 import {
   countAdmins,
@@ -79,6 +80,28 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!updated) {
       return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
     }
+
+    // Approving a pending Google signup? Auto-create the matching members row
+    // so the student can immediately place holds and be tracked in circulation.
+    if (body.status === "active" && target.status === "pending") {
+      const { data: existingMember } = await db(supabase)
+        .from("members")
+        .select("id")
+        .ilike("email", updated.email)
+        .maybeSingle();
+      if (!existingMember) {
+        await db(supabase).from("members").insert({
+          name: updated.name,
+          email: updated.email,
+          phone: "",
+          member_type: "student",
+          student_id: null,
+          grade: null,
+          active: true,
+        });
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json(

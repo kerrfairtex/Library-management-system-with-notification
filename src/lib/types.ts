@@ -67,6 +67,7 @@ export type Loan = {
 export type NotificationType =
   | "overdue"
   | "hold_ready"
+  | "pending_approval"
   | "due_soon"
   | "returned"
   | "renewed"

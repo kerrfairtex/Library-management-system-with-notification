@@ -104,6 +104,18 @@ export async function POST(request: Request) {
         );
       }
       userId = inserted.id as string;
+
+      // Alert staff: a new signup is awaiting approval in /staff.
+      await db(supabase).from("notifications").insert({
+        type: "pending_approval",
+        title: "Signup awaiting approval",
+        message:
+          `${name} (${email}) signed up with Google and needs approval. ` +
+          `Open Users → approve to activate their membership.`,
+        related_id: userId,
+        read: false,
+        created_at: new Date().toISOString(),
+      });
     }
 
     const response = NextResponse.json({ success: true });
