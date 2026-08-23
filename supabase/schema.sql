@@ -80,6 +80,19 @@ create table if not exists public.books (
   constraint books_available_within_total check (available_copies <= total_copies)
 );
 
+-- Koha-style item taxonomy (idempotent additive migration): a book belongs
+-- to a category, sits at a shelf location inside the library, and carries a
+-- call number for spine-label ordering. All optional so existing rows stay valid.
+do $$ begin
+  alter table public.books add column if not exists category text not null default 'General';
+  alter table public.books add column if not exists shelf_location text;
+  alter table public.books add column if not exists call_number text;
+exception when others then
+  raise notice 'books taxonomy columns: %', sqlerrm;
+end $$;
+
+create index if not exists books_category_idx on public.books (category);
+
 -- Copy-count guards. The app checks availability before lending, but two
 -- simultaneous checkouts of the last copy would both pass that check, so the
 -- database has the final say.

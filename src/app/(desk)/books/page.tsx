@@ -11,6 +11,9 @@ const emptyForm = {
   author: "",
   isbn: "",
   genre: "",
+  category: "General",
+  shelfLocation: "",
+  callNumber: "",
   totalCopies: 1,
   publishedYear: new Date().getFullYear(),
 };
@@ -35,7 +38,7 @@ export default function BooksPage() {
     const q = query.trim().toLowerCase();
     return (data ?? []).filter((b) => {
       if (!q) return true;
-      return [b.title, b.author, b.isbn, b.genre].some((v) =>
+      return [b.title, b.author, b.isbn, b.genre, b.category, b.shelfLocation ?? "", b.callNumber ?? ""].some((v) =>
         v.toLowerCase().includes(q)
       );
     });
@@ -57,6 +60,9 @@ export default function BooksPage() {
       author: book.author,
       isbn: book.isbn,
       genre: book.genre,
+      category: book.category ?? "General",
+      shelfLocation: book.shelfLocation ?? "",
+      callNumber: book.callNumber ?? "",
       totalCopies: book.totalCopies,
       publishedYear: book.publishedYear,
     });
@@ -146,7 +152,8 @@ export default function BooksPage() {
                 <tr>
                   <th>Title</th>
                   <th>Author</th>
-                  <th>Genre</th>
+                  <th>Category</th>
+                  <th>Shelf / Call no.</th>
                   <th>Copies</th>
                   <th>Year</th>
                   <th></th>
@@ -162,7 +169,18 @@ export default function BooksPage() {
                       </p>
                     </td>
                     <td>{book.author}</td>
-                    <td>{book.genre}</td>
+                    <td>
+                      <span className="badge tone-info">{book.category}</span>
+                      <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                        {book.genre}
+                      </p>
+                    </td>
+                    <td>
+                      <p>{book.shelfLocation || "—"}</p>
+                      <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                        {book.callNumber || ""}
+                      </p>
+                    </td>
                     <td>
                       <span
                         className={`badge ${
@@ -230,6 +248,66 @@ export default function BooksPage() {
             </div>
           ))}
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="category">
+                Category
+              </label>
+              <input
+                id="category"
+                className="field"
+                list="category-options"
+                placeholder="e.g. Agriculture"
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              />
+              <datalist id="category-options">
+                {[
+                  "Agriculture",
+                  "Science",
+                  "Technology",
+                  "Computer / ICT",
+                  "Engineering",
+                  "Education",
+                  "Mathematics",
+                  "Language",
+                  "Literature",
+                  "History",
+                  "Religion",
+                  "Arts",
+                  "Health",
+                  "Reference",
+                  "General",
+                ].map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="label" htmlFor="shelfLocation">
+                Shelf location
+              </label>
+              <input
+                id="shelfLocation"
+                className="field"
+                placeholder="e.g. Shelf A-3, Row 2"
+                value={form.shelfLocation}
+                onChange={(e) => setForm((f) => ({ ...f, shelfLocation: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="callNumber">
+                Call number
+              </label>
+              <input
+                id="callNumber"
+                className="field"
+                placeholder='e.g. 630 S12i (spine label)'
+                value={form.callNumber}
+                onChange={(e) => setForm((f) => ({ ...f, callNumber: e.target.value }))}
+              />
+            </div>
             <div>
               <label className="label" htmlFor="totalCopies">
                 Total copies

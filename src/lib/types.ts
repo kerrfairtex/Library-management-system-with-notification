@@ -27,6 +27,9 @@ export type Book = {
   author: string;
   isbn: string;
   genre: string;
+  category: string;
+  shelfLocation: string | null;
+  callNumber: string | null;
   totalCopies: number;
   availableCopies: number;
   publishedYear: number;

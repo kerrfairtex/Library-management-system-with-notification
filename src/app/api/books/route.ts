@@ -38,6 +38,9 @@ export async function POST(request: Request) {
       author: String(author).trim(),
       isbn: String(isbn).trim(),
       genre: String(genre).trim(),
+      category: body.category ? String(body.category).trim() : "General",
+      shelfLocation: body.shelfLocation ? String(body.shelfLocation).trim() : null,
+      callNumber: body.callNumber ? String(body.callNumber).trim() : null,
       totalCopies: Number(totalCopies),
       publishedYear: Number(publishedYear),
     });

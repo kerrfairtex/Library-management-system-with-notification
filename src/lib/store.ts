@@ -24,6 +24,9 @@ type BookRow = {
   author: string;
   isbn: string;
   genre: string;
+  category?: string | null;
+  shelf_location?: string | null;
+  call_number?: string | null;
   total_copies: number;
   available_copies: number;
   published_year: number;
@@ -79,6 +82,9 @@ function mapBook(row: BookRow): Book {
     author: row.author,
     isbn: row.isbn,
     genre: row.genre,
+    category: row.category ?? "General",
+    shelfLocation: row.shelf_location ?? null,
+    callNumber: row.call_number ?? null,
     totalCopies: row.total_copies,
     availableCopies: row.available_copies,
     publishedYear: row.published_year,
@@ -360,6 +366,9 @@ export async function createBook(
     author: input.author,
     isbn: input.isbn,
     genre: input.genre,
+    category: input.category ?? "General",
+    shelf_location: input.shelfLocation ?? null,
+    call_number: input.callNumber ?? null,
     total_copies: input.totalCopies,
     available_copies: input.totalCopies,
     published_year: input.publishedYear,
@@ -406,6 +415,11 @@ export async function updateBook(
   if (updates.author !== undefined) patch.author = updates.author;
   if (updates.isbn !== undefined) patch.isbn = updates.isbn;
   if (updates.genre !== undefined) patch.genre = updates.genre;
+  if (updates.category !== undefined) patch.category = updates.category || "General";
+  if (updates.shelfLocation !== undefined)
+    patch.shelf_location = updates.shelfLocation?.trim() || null;
+  if (updates.callNumber !== undefined)
+    patch.call_number = updates.callNumber?.trim() || null;
   if (updates.publishedYear !== undefined) patch.published_year = updates.publishedYear;
 
   const { data, error } = await supabase

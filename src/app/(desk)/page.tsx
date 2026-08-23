@@ -19,6 +19,27 @@ type DashboardResponse = {
   members: Member[];
 };
 
+/** Koha-style "catalog by category" summary for the staff dashboard. */
+function categorySummary(
+  books: Book[]
+): Array<{ label: string; titles: number; copies: number; available: number }> {
+  const byCat = new Map<string, Book[]>();
+  for (const b of books) {
+    const key = (b.category || "General").trim();
+    const list = byCat.get(key);
+    if (list) list.push(b);
+    else byCat.set(key, [b]);
+  }
+  return [...byCat.entries()]
+    .map(([label, list]) => ({
+      label,
+      titles: list.length,
+      copies: list.reduce((s, b) => s + b.totalCopies, 0),
+      available: list.reduce((s, b) => s + b.availableCopies, 0),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 export default function DashboardPage() {
   const { data, loading, error } = useApi<DashboardResponse>("/api/dashboard");
 
@@ -75,6 +96,50 @@ export default function DashboardPage() {
       </section>
 
       {isStudent && <AcademicShelvesSection />}
+
+      {!isStudent && (
+        <section className="panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="display text-2xl">Catalog by category</h2>
+            <Link href="/books" className="text-sm font-semibold text-[var(--jade)]">
+              Open catalog
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Titles</th>
+                  <th>Copies</th>
+                  <th>Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categorySummary(data.books).map((row) => (
+                  <tr key={row.label}>
+                    <td className="font-semibold">{row.label}</td>
+                    <td>{row.titles}</td>
+                    <td>{row.copies}</td>
+                    <td>
+                      <span className={`badge ${row.available === 0 ? "tone-danger" : "tone-ok"}`}>
+                        {row.available}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {categorySummary(data.books).length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="text-sm text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+                      No books yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {isStudent ? (
         <section className="grid gap-5 lg:grid-cols-2">

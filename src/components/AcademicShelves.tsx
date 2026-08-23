@@ -111,6 +111,12 @@ function ShelfCard({ book, color }: { book: Book; color: string }) {
       <div>
         <h3 className="font-serif text-sm font-semibold leading-snug">{book.title}</h3>
         <p className="mt-1 text-[11px] opacity-80">{book.publishedYear}</p>
+        {book.callNumber && (
+          <p className="mt-0.5 text-[10px] font-mono opacity-70">{book.callNumber}</p>
+        )}
+        {book.shelfLocation && (
+          <p className="text-[10px] opacity-70">📍 {book.shelfLocation}</p>
+        )}
       </div>
       <span
         className={`badge self-start ${out ? "tone-danger" : "tone-ok"} !text-[10px]`}
