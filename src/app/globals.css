@@ -1001,3 +1001,29 @@ table.koha-table {
 .about-prose li { margin: 0.25rem 0; }
 .about-prose a { color: var(--koha-green); font-weight: 500; }
 .about-prose a:hover { text-decoration: underline; }
+
+
+/* ── Interactive animations (TRAC Library) ── */
+@keyframes trac-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.circ-card, .koha-table-wrap, .scan-bar {
+  animation: trac-fade-up 0.35s ease-out both;
+}
+.circ-grid > :nth-child(2) { animation-delay: 0.07s; }
+.circ-grid > :nth-child(3) { animation-delay: 0.14s; }
+
+.btn-koha, .circ-button, .koha-nav-link {
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.btn-koha:active, .circ-button:active { transform: scale(0.97); }
+
+.koha-table tbody tr { transition: background 0.12s ease; }
+
+.chip { transition: transform 0.12s ease; }
+.chip:hover { transform: scale(1.05); }
+
+@media (prefers-reduced-motion: reduce) {
+  .circ-card, .koha-table-wrap, .scan-bar { animation: none !important; }
+}
