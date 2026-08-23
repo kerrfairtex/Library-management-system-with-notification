@@ -15,7 +15,7 @@ import { formatDate } from "@/lib/utils";
 export default function CheckoutPage() {
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
-  const { data: loansData, reload } = useApi<{ loans: Loan[] }>("/api/loans");
+  const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
 
   const [query, setQuery] = useState("");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -25,7 +25,7 @@ export default function CheckoutPage() {
 
   const books = booksData?.books ?? [];
   const members = membersData?.members ?? [];
-  const loans = loansData?.loans ?? [];
+  const loans = loansData?.data ?? [];
 
   const bookMatches = useMemo(() => {
     if (query.trim().length < 2) return [];

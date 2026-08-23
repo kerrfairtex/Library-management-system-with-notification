@@ -14,8 +14,33 @@ const PUBLIC_PATHS = [
   "/api/cron",
 ];
 
+// Mutating requests must originate from our own site (CSRF defense).
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function sameOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return true; // non-browser clients (curl, cron) send no Origin
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // CSRF guard: reject cross-origin browser mutations before anything runs.
+  if (
+    MUTATING_METHODS.has(request.method) &&
+    pathname.startsWith("/api/") &&
+    !sameOrigin(request)
+  ) {
+    return NextResponse.json(
+      { error: "Cross-origin request rejected." },
+      { status: 403 }
+    );
+  }
 
   if (
     pathname.startsWith("/_next") ||

@@ -27,9 +27,12 @@ const primaryNav: { href: string; label: string; icon?: string; capability: stri
 
 /* "More" dropdown — mirrors Koha's overflow modules */
 const moreNav = [
+  { href: "/my-loans", label: "My record" },
   { href: "/about", label: "About & Privacy" },
   { href: "/books/new", label: "Cataloging" },
   { href: "/notifications", label: "Notifications" },
+  { href: "/holds", label: "Holds queue" },
+  { href: "/fines", label: "Fines desk" },
   { href: "/staff", label: "Administration" },
   { href: "/profile", label: "My profile" },
 ] as const;

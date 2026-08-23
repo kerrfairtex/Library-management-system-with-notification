@@ -169,13 +169,7 @@ function BorrowInner() {
       </section>
 
       {!canManage ? (
-        <section className="circ-card">
-          <p>
-            You are signed in as <strong>{user?.role ?? "guest"}</strong>. Borrowing on
-            behalf of a patron requires librarian access. Please contact the library
-            desk to complete this loan.
-          </p>
-        </section>
+        <StudentHoldPanel bookId={book.id} available={available} />
       ) : !available ? (
         <section className="circ-card">
           <p>All copies are currently checked out.</p>
@@ -248,5 +242,58 @@ export default function BorrowPage() {
     <Suspense fallback={<p style={{ padding: "2rem 0" }}>Loading…</p>}>
       <BorrowInner />
     </Suspense>
+  );
+}
+
+
+function StudentHoldPanel({ bookId, available }: { bookId: string; available: boolean }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function placeHold() {
+    setState("busy");
+    try {
+      const res = await fetch("/api/holds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Could not place hold.");
+      setState("done");
+      setMessage(
+        `Hold placed! You are #${body.hold.priority} in the queue — we'll notify you when it's ready.`
+      );
+    } catch (err) {
+      setState("error");
+      setMessage(err instanceof Error ? err.message : "Could not place hold.");
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <section className="circ-card">
+        <p>✅ {message}</p>
+        <Link href="/my-loans" className="btn-koha" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
+          View my record →
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <section className="circ-card">
+      <p>
+        {available
+          ? "A copy is on the shelf! Bring this page to the library desk to borrow it now."
+          : "All copies are out — place a hold and we'll keep your spot in the queue."}
+      </p>
+      <button type="button" className="btn-koha" onClick={placeHold} disabled={state === "busy"}>
+        {state === "busy" ? "Placing…" : "Place a hold"}
+      </button>
+      {state === "error" && (
+        <p className="chip chip-overdue" style={{ marginLeft: "0.6rem" }}>{message}</p>
+      )}
+    </section>
   );
 }

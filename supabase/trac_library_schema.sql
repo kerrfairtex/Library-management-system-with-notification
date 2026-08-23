@@ -679,3 +679,73 @@ drop trigger if exists trg_loans_sync_avail on trac_library.loans;
 create trigger trg_loans_sync_avail
 after insert or update or delete on trac_library.loans
 for each row execute function trac_library.sync_book_availability();
+
+-- ══════════════ FINES ACCRUAL (added post-audit) ══════════════
+
+-- ── Fines accrual (Koha-style): called by the nightly loan sweep ──────────
+create or replace function trac_library.accrue_overdue_fines()
+returns integer
+language plpgsql
+set search_path = trac_library
+as $$
+declare
+  v_row record;
+  v_count integer := 0;
+  v_rate numeric;
+  v_days integer;
+  v_amount numeric;
+begin
+  for v_row in
+    select l.id as loan_id, l.member_id, l.due_at, m.member_type
+      from trac_library.loans l
+      join trac_library.members m on m.id = l.member_id
+     where l.returned_at is null
+       and l.due_at < now()
+       and not exists (
+         select 1 from trac_library.fines f
+          where f.loan_id = l.id and f.type = 'overdue'
+       )
+  loop
+    select fine_per_day into v_rate
+      from trac_library.circulation_rules
+     where member_type = v_row.member_type;
+
+    if v_rate is null or v_rate <= 0 then
+      continue;
+    end if;
+
+    v_days := greatest(1, floor(extract(epoch from (now() - v_row.due_at)) / 86400)::int);
+    v_amount := v_rate * v_days;
+
+    insert into trac_library.fines
+      (member_id, loan_id, type, amount, amount_outstanding, description)
+    values
+      (v_row.member_id, v_row.loan_id, 'overdue', v_amount, v_amount,
+       'Overdue fine: ' || v_days || ' day(s) at ₱' || v_rate || '/day');
+
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+
+-- Close out open overdue fines when the loan is returned (freeze the amount).
+create or replace function trac_library.close_overdue_fine()
+returns trigger
+language plpgsql
+set search_path = trac_library
+as $$
+begin
+  update trac_library.fines
+     set description = description || ' (loan returned; amount frozen)'
+   where loan_id = new.id and type = 'overdue' and paid_at is null;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_close_fine on trac_library.loans;
+create trigger trg_close_fine
+after update of returned_at on trac_library.loans
+for each row
+when (new.returned_at is not null and old.returned_at is null)
+execute function trac_library.close_overdue_fine();

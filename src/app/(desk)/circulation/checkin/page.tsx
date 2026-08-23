@@ -23,7 +23,7 @@ type CheckinResult = {
 export default function CheckinPage() {
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
-  const { data: loansData, reload } = useApi<{ loans: Loan[] }>("/api/loans");
+  const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
 
   const [barcode, setBarcode] = useState("");
   const [results, setResults] = useState<CheckinResult[]>([]);
@@ -32,7 +32,7 @@ export default function CheckinPage() {
 
   const books = booksData?.books ?? [];
   const members = membersData?.members ?? [];
-  const loans = loansData?.loans ?? [];
+  const loans = loansData?.data ?? [];
 
   async function checkin(e?: React.FormEvent) {
     e?.preventDefault();

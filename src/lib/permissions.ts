@@ -2,6 +2,8 @@ import type { PublicUser, UserRole } from "./types";
 
 export type AppCapability =
   | "dashboard.read"
+  | "loans.read.own"
+  | "holds.place"
   | "books.read"
   | "books.write"
   | "members.read"
@@ -11,7 +13,7 @@ export type AppCapability =
   | "staff.manage";
 
 const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
-  student: ["dashboard.read", "books.read", "notifications.read"],
+  student: ["dashboard.read", "books.read", "notifications.read", "loans.read.own", "holds.place"],
   librarian: [
     "dashboard.read",
     "books.read",

@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
 import { checkoutBook, getLoansData } from "@/lib/store";
 import { enrichLoans } from "@/lib/utils";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { user, response } = await requireCapability(
     "loans.manage",
     "Only librarians and admins can manage loans."
@@ -11,8 +11,23 @@ export async function GET() {
   if (!user) return response;
 
   try {
-    const { loans, books, members } = await getLoansData();
-    return NextResponse.json(enrichLoans(loans, books, members));
+    const url = new URL(request.url);
+    // Server-side pagination: ?page=1&pageSize=200 (defaults preserve the
+    // full-feed behaviour the desk UI expects, but cap payload size).
+    const page = Math.max(1, Number(url.searchParams.get("page") ?? 1));
+    const pageSize = Math.min(1000, Math.max(10, Number(url.searchParams.get("pageSize") ?? 500)));
+    const { loans: allLoans, books, members } = await getLoansData();
+    const enriched = enrichLoans(allLoans, books, members);
+    const total = enriched.length;
+    const start = (page - 1) * pageSize;
+    const paged = enriched.slice(start, start + pageSize);
+    return NextResponse.json({
+      data: paged,
+      page,
+      pageSize,
+      total,
+      hasMore: start + pageSize < total,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load loans." },

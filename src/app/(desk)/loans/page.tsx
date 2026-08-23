@@ -11,11 +11,12 @@ import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 export default function LoansPage() {
   const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const {
-    data: loans,
+    data: loansPage,
     loading,
     error,
     reload,
-  } = useApi<EnrichedLoan[]>("/api/loans");
+  } = useApi<{ data: EnrichedLoan[]; total: number; hasMore: boolean }>("/api/loans?pageSize=1000");
+  const loans = loansPage?.data;
   const { data: books } = useApi<Book[]>("/api/books");
   const { data: members } = useApi<Member[]>("/api/members");
 

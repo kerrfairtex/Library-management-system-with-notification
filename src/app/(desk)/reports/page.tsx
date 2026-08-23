@@ -12,10 +12,10 @@ import type { Book, Loan, Member } from "@/lib/types";
 export default function ReportsPage() {
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
-  const { data: loansData } = useApi<{ loans: Loan[] }>("/api/loans");
+  const { data: loansData } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
 
   const books = booksData?.books ?? [];
-  const loans = loansData?.loans ?? [];
+  const loans = loansData?.data ?? [];
   const members = membersData?.members ?? [];
 
   // cat_issues_top — most circulated titles

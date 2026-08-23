@@ -13,8 +13,8 @@ import { deriveLoanStatus } from "@/lib/loan-status";
 type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
 export default function CirculationHomePage() {
-  const { data, loading } = useApi<{ loans: LoanDto[] }>("/api/loans");
-  const loans = data?.loans ?? [];
+  const { data: loansPage, loading } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
+  const loans = loansPage?.data ?? [];
   const open = loans.filter((l) => l.status !== "returned");
   const overdue = open.filter(
     (l) => deriveLoanStatus({ status: l.status, due_at: l.dueAt }) === "overdue"
@@ -59,6 +59,12 @@ export default function CirculationHomePage() {
               <Link href="/loans?filter=active">
                 Active loans <span className="circ-count">{open.length}</span>
               </Link>
+            </li>
+            <li>
+              <Link href="/holds">Holds queue</Link>
+            </li>
+            <li>
+              <Link href="/fines">Fines desk</Link>
             </li>
             <li>
               <Link href="/members">Patron search</Link>
