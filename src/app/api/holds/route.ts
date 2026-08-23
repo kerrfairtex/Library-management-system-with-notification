@@ -114,10 +114,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { user, response } = await requireCapability(
-    "loans.manage",
-    "Only librarians and admins can manage the holds queue."
-  );
+  const { user, response } = await requireSession();
   if (!user) return response;
 
   try {
@@ -125,24 +122,90 @@ export async function PATCH(request: NextRequest) {
     const id = String(body.id ?? "");
     const action = String(body.action ?? "");
 
-    if (!id || !["cancel", "fulfill"].includes(action)) {
+    if (!id) {
+      return NextResponse.json({ error: "id is required." }, { status: 400 });
+    }
+
+    // ── Students: may cancel only their own pending/ready hold. ──
+    if (user.role === "student") {
+      if (action !== "cancel") {
+        return NextResponse.json(
+          { error: "Students can only cancel their own holds." },
+          { status: 403 }
+        );
+      }
+      const { data: me } = await db(supabase)
+        .from("members")
+        .select("id")
+        .ilike("email", user.email)
+        .maybeSingle();
+      if (!me) throw new Error("No library membership found.");
+      const memberId = (me as { id: string }).id;
+      const { error } = await db(supabase)
+        .from("holds")
+        .update({ status: "cancelled" })
+        .eq("id", id)
+        .eq("member_id", memberId)
+        .in("status", ["pending", "ready"]);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Staff (loans.manage): cancel or fulfill. ──
+    const { user: staff, response: staffResponse } = await requireCapability(
+      "loans.manage",
+      "Only librarians and admins can manage the holds queue."
+    );
+    if (!staff) return staffResponse;
+
+    if (!["cancel", "fulfill"].includes(action)) {
       return NextResponse.json(
-        { error: "id and action ('cancel' or 'fulfill') are required." },
+        { error: "action must be 'cancel' or 'fulfill'." },
         { status: 400 }
       );
     }
 
-    const patch =
-      action === "cancel" ? { status: "cancelled" } : { status: "fulfilled" };
+    if (action === "cancel") {
+      const { data, error } = await db(supabase)
+        .from("holds")
+        .update({ status: "cancelled" })
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return NextResponse.json(data);
+    }
 
-    const { data, error } = await db(supabase)
+    // Fulfill → mark READY for pickup with a 3-day window + notify student.
+    // The loan itself is created at desk checkout (physical handover).
+    const pickupExpires = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: hold, error } = await db(supabase)
       .from("holds")
-      .update(patch)
+      .update({ status: "ready", expires_at: pickupExpires })
       .eq("id", id)
       .select("*")
       .single();
     if (error) throw new Error(error.message);
-    return NextResponse.json(data);
+
+    const holdRow = hold as { book_id: string; member_id: string };
+    const [{ data: book }, { data: member }] = await Promise.all([
+      db(supabase).from("books").select("title").eq("id", holdRow.book_id).single(),
+      db(supabase).from("members").select("name").eq("id", holdRow.member_id).single(),
+    ]);
+    const title = (book as { title?: string } | null)?.title ?? "your reserved title";
+    const memberName = (member as { name?: string } | null)?.name ?? "";
+    await db(supabase).from("notifications").insert({
+      type: "hold_ready",
+      title: "Hold ready for pickup",
+      message:
+        `${memberName ? memberName + ": " : ""}"${title}" is ready at the ` +
+        `library desk. Please pick it up within 3 days (by ` +
+        `${new Date(pickupExpires).toLocaleDateString("en-PH")}).`,
+      related_id: holdRow.book_id,
+      read: false,
+    });
+
+    return NextResponse.json(hold);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to update hold." },

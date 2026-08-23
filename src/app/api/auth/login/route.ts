@@ -5,7 +5,7 @@ import {
   sessionCookieOptions,
 } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { authenticateUser } from "@/lib/store";
+import { authenticateUser, isAccountPending } from "@/lib/store";
 
 const LOGIN_MAX_PER_IP = 40;
 const LOGIN_MAX_PER_EMAIL = 10;
@@ -51,6 +51,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Too many login attempts for this account. Try again later." },
         { status: 429, headers: { "Retry-After": String(emailLimit.retryAfterSeconds) } }
+      );
+    }
+
+    if (await isAccountPending(email)) {
+      return NextResponse.json(
+        { error: "Your account is awaiting librarian approval. Please visit the library desk." },
+        { status: 403 }
       );
     }
 

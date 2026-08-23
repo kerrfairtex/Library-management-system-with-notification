@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useId, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
@@ -42,6 +43,7 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgot, setShowForgot] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -200,6 +202,40 @@ function LoginForm() {
       >
         {busy ? "Signing in…" : "Sign in to desk"}
       </button>
+
+      <div className="login-help">
+        <button
+          type="button"
+          className="login-link"
+          onClick={() => setShowForgot((v) => !v)}
+          aria-expanded={showForgot}
+        >
+          Forgot password?
+        </button>
+        <span aria-hidden>·</span>
+        <Link href="/about" className="login-link">
+          About &amp; Privacy
+        </Link>
+        <span aria-hidden>·</span>
+        <a
+          href={(process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app")}
+          className="login-link"
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          ← Back to 3D Bookshelf
+        </a>
+      </div>
+
+      {showForgot && (
+        <div className="login-forgot" role="note">
+          <p>
+            Password resets are handled at the library desk for security.
+            Visit us or call <a href="tel:+639637130812">0963 713 0812</a> and
+            a librarian will set a temporary password for you.
+          </p>
+        </div>
+      )}
     </form>
   );
 }

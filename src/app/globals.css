@@ -1049,3 +1049,35 @@ table.koha-table {
 @media (prefers-reduced-motion: reduce) {
   .koha-shelf-btn { transition: none; }
 }
+
+
+/* ── Login help row + forgot panel ── */
+.login-help {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  font-size: 0.82rem;
+}
+.login-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--jade, #1f7a5c);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.login-link:hover { text-decoration: underline; }
+.login-forgot {
+  margin-top: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: var(--info-soft, #d7e8f0);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.login-forgot p { margin: 0; }
+.login-forgot a { font-weight: 600; }

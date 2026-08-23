@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { supabase, db } from "@/lib/supabase";
-import { describeSupabaseError } from "@/lib/store";
+import { describeSupabaseError, isAccountPending } from "@/lib/store";
 import {
   googleAccessDeniedMessage,
   isAllowlistConfigured,
@@ -57,6 +57,14 @@ export async function POST(request: Request) {
     }
 
     let userId = existing?.id as string | undefined;
+
+    // Pending accounts cannot sign in until a librarian approves them.
+    if (userId && (await isAccountPending(email))) {
+      return NextResponse.json(
+        { error: "Your account is awaiting librarian approval. Please visit the library desk." },
+        { status: 403 }
+      );
+    }
 
     if (!userId) {
       // First-time Google users may self sign-up as students unless an

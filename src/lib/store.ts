@@ -679,6 +679,16 @@ export async function markAllNotificationsRead(): Promise<number> {
   return ids.length;
 }
 
+/** True when the account exists but is still awaiting librarian approval. */
+export async function isAccountPending(email: string): Promise<boolean> {
+  const { data } = await db(supabase)
+    .from("users")
+    .select("status")
+    .ilike("email", email.trim())
+    .maybeSingle();
+  return (data as { status?: string } | null)?.status === "pending";
+}
+
 export async function authenticateUser(
   email: string,
   password: string
