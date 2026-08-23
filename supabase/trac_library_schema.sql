@@ -749,3 +749,19 @@ after update of returned_at on trac_library.loans
 for each row
 when (new.returned_at is not null and old.returned_at is null)
 execute function trac_library.close_overdue_fine();
+
+
+-- ══════════════ SECURITY LOCKDOWN (audit fix) ══════════════
+-- The app talks to the DB exclusively via the server-side service_role key
+-- (which bypasses RLS). Browser keys must have NO direct table access.
+revoke all on all tables in schema trac_library from anon, authenticated;
+revoke all on all functions in schema trac_library from anon, authenticated;
+
+alter table trac_library.users enable row level security;
+alter table trac_library.members enable row level security;
+alter table trac_library.loans enable row level security;
+alter table trac_library.fines enable row level security;
+alter table trac_library.holds enable row level security;
+alter table trac_library.notifications enable row level security;
+alter table trac_library.book_items enable row level security;
+-- No policies created: RLS with zero policies = deny-all for non-service roles.
