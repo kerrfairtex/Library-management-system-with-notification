@@ -1027,3 +1027,25 @@ table.koha-table {
 @media (prefers-reduced-motion: reduce) {
   .circ-card, .koha-table-wrap, .scan-bar { animation: none !important; }
 }
+
+
+/* ── 3D Bookshelf topbar button ── */
+.koha-shelf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.koha-shelf-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .koha-shelf-btn { transition: none; }
+}

@@ -17,6 +17,8 @@ import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 
 /* Top-nav modules — mirrors Koha's header.inc nav items */
+const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app";
+
 const primaryNav: { href: string; label: string; icon?: string; capability: string }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },
   { href: "/circulation", label: "Circulation", icon: "⇄", capability: "loans.manage" },
@@ -127,6 +129,15 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="koha-topbar-right">
+            <a
+              className="koha-shelf-btn"
+              href={SHELF_ORIGIN}
+              target="_blank"
+              rel="noreferrer noopener"
+              title="Browse the 3D bookshelf"
+            >
+              📚 3D Bookshelf
+            </a>
             <NotificationBell />
             <div className="koha-dropdown-wrap" ref={accountRef}>
               <button
@@ -210,7 +221,7 @@ function Breadcrumb({ path }: { path: string }) {
   return (
     <ol className="koha-breadcrumbs">
       <li>
-        <Link href="/">Koha home</Link>
+        <Link href="/">Home</Link>
       </li>
       {parts.map((part, i) => (
         <li key={i} aria-current={i === parts.length - 1 ? "page" : undefined}>
