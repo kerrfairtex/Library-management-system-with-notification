@@ -1081,3 +1081,13 @@ table.koha-table {
 }
 .login-forgot p { margin: 0; }
 .login-forgot a { font-weight: 600; }
+
+
+/* ── Google redirect reassurance note ── */
+.login-google-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  text-align: center;
+  color: color-mix(in srgb, var(--ink, #12241f) 55%, transparent);
+}

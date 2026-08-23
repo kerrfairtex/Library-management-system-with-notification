@@ -136,6 +136,10 @@ function LoginForm() {
         <GoogleIcon />
         <span>{googleBusy ? "Opening Google…" : "Continue with Google"}</span>
       </button>
+      <p className="login-google-note">
+        You&apos;ll be redirected through Google&apos;s secure sign-in and returned
+        right back to TRAC Library.
+      </p>
 
       <div className="login-divider" role="separator">
         <span>or</span>
