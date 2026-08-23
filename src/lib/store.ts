@@ -246,7 +246,7 @@ export type LoanSweepResult = {
  * impossible even if Vercel fires the cron twice.
  */
 export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
-  const { data, error } = await supabase.rpc("sweep_loan_statuses");
+  const { data, error } = await db(supabase).rpc("sweep_loan_statuses");
   if (error) {
     throw new Error(error.message || "Loan sweep failed.");
   }
@@ -602,7 +602,7 @@ export async function checkoutBook(
   // (the loans_capacity trigger is the final authority on copies and the
   // 5-active-loan cap) and creates the notifications. Any failure rolls
   // back the whole checkout — no manual compensation write needed.
-  const { data, error } = await supabase.rpc("checkout_loan", {
+  const { data, error } = await db(supabase).rpc("checkout_loan", {
     p_book_id: bookId,
     p_member_id: memberId,
     p_days: days,
@@ -618,7 +618,7 @@ export async function returnBook(loanId: string): Promise<Loan> {
   // marks the loan returned (a duplicate return is rejected, not
   // double-incremented) and restores availability with an atomic capped
   // increment. The availability update can no longer fail silently.
-  const { data, error } = await supabase.rpc("return_loan", {
+  const { data, error } = await db(supabase).rpc("return_loan", {
     p_loan_id: loanId,
   });
   if (error) {
@@ -632,7 +632,7 @@ export async function renewLoan(loanId: string, extraDays = 7): Promise<Loan> {
   // extension, refuses returned loans (a renew racing a return can no longer
   // resurrect it), checks the member is still active, extends the due date
   // monotonically, and creates the notification.
-  const { data, error } = await supabase.rpc("renew_loan", {
+  const { data, error } = await db(supabase).rpc("renew_loan", {
     p_loan_id: loanId,
     p_extra_days: extraDays,
   });

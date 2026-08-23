@@ -16,9 +16,15 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "TRAC — Library Management System with Notification",
+  title: "TRAC Library — Library Management System",
   description:
-    "Institute of Agricultural Sciences (TRAC, Bongao, Tawi-Tawi) library management system with loan notifications and circulation tracking.",
+    "TRAC Library Management System — Institute of Agricultural Sciences, Bongao, Tawi-Tawi. Catalog search, circulation, holds, fines, notifications, and an interactive 3D bookshelf.",
+  openGraph: {
+    title: "TRAC Library",
+    description:
+      "TRAC Library Management System — Institute of Agricultural Sciences, Bongao, Tawi-Tawi.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

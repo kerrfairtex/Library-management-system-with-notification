@@ -29,13 +29,7 @@ function createSupabaseClient(): SupabaseClient {
     );
   }
 
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    global: {
-      // Route unqualified RPC calls into the trac_library schema (PostgREST
-      // resolves rpc("fn") against the Accept-Profile schema).
-      headers: { "Accept-Profile": "trac_library" },
-    },
-  });
+  return createClient(supabaseUrl, supabaseServiceKey);
 }
 
 /** Lazily initialized so builds succeed without env vars present. */

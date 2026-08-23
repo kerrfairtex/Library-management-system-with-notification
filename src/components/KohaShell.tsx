@@ -27,6 +27,7 @@ const primaryNav: { href: string; label: string; icon?: string; capability: stri
 
 /* "More" dropdown — mirrors Koha's overflow modules */
 const moreNav = [
+  { href: "/about", label: "About & Privacy" },
   { href: "/books/new", label: "Cataloging" },
   { href: "/notifications", label: "Notifications" },
   { href: "/staff", label: "Administration" },
@@ -170,7 +171,32 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
       <main className="koha-main">{children}</main>
 
       <footer className="koha-footer">
-        TRAC Library Management · SMARTCAMP-K12 · Layout inspired by Koha (GPL)
+        <p className="koha-footer-brand">
+          TRAC Library — Library Management System · Institute of Agricultural
+          Sciences, Bongao, Tawi-Tawi
+        </p>
+        <nav className="koha-footer-links" aria-label="About and privacy">
+          <Link href="/about">About</Link>
+          <span aria-hidden>·</span>
+          <Link href="/about#privacy">Privacy Policy</Link>
+          <span aria-hidden>·</span>
+          <a href="https://www.facebook.com/share/1EMjsmK2Cu/" target="_blank" rel="noreferrer noopener">
+            Kerr Fairtex
+          </a>
+          <span aria-hidden>·</span>
+          <a href="https://www.tiktok.com/@kerrsmatters?_r=1&_t=ZS-997ZGDLtD9t" target="_blank" rel="noreferrer noopener">
+            TikTok: Kerr&apos;s Matter
+          </a>
+          <span aria-hidden>·</span>
+          <a href="tel:+639637130812">0963 713 0812</a>
+        </nav>
+        <p className="koha-footer-fine">
+          © {new Date().getFullYear()} TRAC Library. Developed by{" "}
+          <a href="https://www.facebook.com/share/1EMjsmK2Cu/" target="_blank" rel="noreferrer noopener">
+            Kerr Fairtex
+          </a>
+          . 3D bookshelf powered by Three.js.
+        </p>
       </footer>
     </div>
   );
