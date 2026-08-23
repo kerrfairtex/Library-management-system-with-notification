@@ -51,7 +51,14 @@ function CallbackInner() {
           await supabaseBrowser.auth.exchangeCodeForSession(code);
         if (cancelled) return;
         if (exchangeError || !data.session) {
-          setError(exchangeError?.message ?? "Could not complete Google sign-in.");
+          // Missing/expired PKCE verifier (stale tab, cross-device finish,
+          // cleared storage). Send the user back to sign in fresh instead of
+          // showing a raw SDK error.
+          setError(
+            "This sign-in link expired or was opened in another browser. " +
+              "Please try signing in again."
+          );
+          setTimeout(() => router.replace("/login"), 3500);
           return;
         }
         accessToken = data.session.access_token;
