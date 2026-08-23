@@ -5,6 +5,8 @@ const PUBLIC_PATHS = [
   "/login",
   "/auth/callback",
   "/api/auth/login",
+  // Public read-only feed for the 3D bookshelf app (copy counts only).
+  "/api/shelf-availability",
   "/api/auth/logout",
   "/api/auth/google",
   // Scheduled invocations carry no session cookie. These routes authenticate
