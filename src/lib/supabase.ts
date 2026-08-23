@@ -1,5 +1,16 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+// All tables live in the dedicated `trac_library` schema on the shared
+// Supabase cluster (public belongs to another app). db.table(...) prefixes
+// every query; RPC calls use the schema-qualified function name.
+const SCHEMA = "trac_library";
+
+function db(supabaseClient: SupabaseClient) {
+  return supabaseClient.schema(SCHEMA);
+}
+
+export { db };
+
 let client: SupabaseClient | null = null;
 
 function createSupabaseClient(): SupabaseClient {

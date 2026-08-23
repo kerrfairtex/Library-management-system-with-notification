@@ -598,3 +598,373 @@ a {
     transform: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Koha-style staff chrome (lookalike of Koha intranet, structure
+   referenced from GPL templates; styles written fresh)
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --koha-green: #408540;
+  --koha-green-dark: #357035;
+  --koha-green-light: #4d9c4d;
+  --koha-header-h: 46px;
+}
+
+.koha-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f3f4f4;
+  color: #212529;
+  font-family: Poppins, var(--font-body), "Segoe UI", sans-serif;
+}
+
+/* ── Top navbar ── */
+.koha-topbar {
+  background: var(--koha-green);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.koha-topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  height: var(--koha-header-h);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.koha-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fff;
+  font-size: 1rem;
+}
+.koha-brand-sub { opacity: 0.85; font-weight: 300; }
+.koha-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  flex: 1;
+}
+.koha-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.9rem;
+  height: var(--koha-header-h);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.92rem;
+  border-bottom: 3px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.koha-nav-link:hover,
+.koha-nav-link.active {
+  background: var(--koha-green-dark);
+  border-bottom-color: #fff;
+}
+.koha-nav-icon { font-style: normal; }
+
+.koha-dropdown-wrap { position: relative; display: inline-flex; }
+.koha-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  color: #212529;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 0.35rem;
+  z-index: 60;
+}
+.koha-dropdown-dark { background: #343a40; color: #fff; }
+.koha-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.koha-dropdown-item:hover { background: rgba(64, 133, 64, 0.14); }
+.koha-dropdown-dark .koha-dropdown-item:hover { background: rgba(255, 255, 255, 0.1); }
+.koha-dropdown-item.koha-danger { color: #b02a37; }
+.koha-dropdown-wide { min-width: 320px; }
+.koha-notif {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.koha-notif.unread { background: rgba(64, 133, 64, 0.07); }
+.koha-notif p { margin: 0.15rem 0 0; opacity: 0.8; }
+.koha-dropdown-item.all { text-align: center; color: var(--koha-green); font-weight: 600; }
+
+.koha-topbar-right { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+.koha-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #fff;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.koha-account-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.koha-avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--koha-green);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.koha-bell {
+  position: relative;
+  color: #fff;
+  font-size: 1.05rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+.koha-bell:hover { background: var(--koha-green-dark); }
+.koha-badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  min-width: 17px; height: 17px;
+  border-radius: 999px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 0.68rem;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+}
+.koha-burger { display: none; }
+
+/* ── Sub-header breadcrumbs ── */
+.koha-subheader {
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.koha-breadcrumbs {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.45rem 1rem;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #6c757d;
+}
+.koha-breadcrumbs li:not(:last-child)::after { content: "›"; margin-left: 0.35rem; opacity: 0.6; }
+.koha-breadcrumbs a:hover { color: var(--koha-green); }
+.koha-breadcrumbs li:last-child { color: #212529; font-weight: 500; }
+
+.koha-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.koha-footer {
+  background: transparent;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8a938f;
+  padding: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .koha-nav {
+    display: none;
+    position: absolute;
+    top: var(--koha-header-h);
+    left: 0; right: 0;
+    background: var(--koha-green-dark);
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.4rem;
+  }
+  .koha-nav.open { display: flex; }
+  .koha-nav-link { height: auto; padding: 0.65rem 0.9rem; border-radius: 6px; }
+  .koha-nav-link.active { border-bottom-color: transparent; }
+  .koha-dropdown { position: static; box-shadow: none; }
+  .koha-burger { display: block; color: #fff; padding: 0.3rem 0.6rem; }
+}
+
+/* ── Circulation home (Koha circulation-home.tt look) ── */
+.circ-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.1rem;
+}
+.circ-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 1.1rem;
+}
+.circ-card h3 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--koha-green);
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(64, 133, 64, 0.25);
+}
+.circ-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+.circ-button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: var(--koha-green);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.circ-button:hover { background: var(--koha-green-dark); }
+.circ-button.alt { background: #5d9efe; }
+.circ-button.alt:hover { background: #468ade; }
+.circ-button.warn { background: #fd7e14; }
+.circ-button.warn:hover { background: #e56f0a; }
+.circ-links li { list-style: none; }
+.circ-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.circ-links a {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.circ-links a:hover { background: rgba(64, 133, 64, 0.09); }
+.circ-count { font-weight: 700; color: var(--koha-green); }
+
+/* ── Koha tables ── */
+.koha-table-wrap {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+table.koha-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.koha-table thead th {
+  background: var(--koha-green);
+  color: #fff;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+.koha-table tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  vertical-align: top;
+}
+.koha-table tbody tr:nth-child(even) { background: #f8f9fa; }
+.koha-table tbody tr:hover { background: rgba(93, 158, 254, 0.07); }
+
+/* Status chips (Koha authorized-value colors) */
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip-available { background: #d7efe4; color: #16603f; }
+.chip-on_loan { background: #dbeafe; color: #1e4e8c; }
+.chip-overdue { background: #f5d9d9; color: #8c1d1d; }
+.chip-damaged, .chip-lost, .chip-withdrawn { background: #eee; color: #555; text-decoration: line-through; }
+.chip-not_for_loan { background: #f5e8c8; color: #7a5510; }
+.chip-in_transit { background: #ede0f7; color: #5b2d86; }
+.chip-pending { background: #f5e8c8; color: #7a5510; }
+.chip-ready { background: #d7efe4; color: #16603f; }
+.chip-fulfilled, .chip-returned { background: #eee; color: #555; }
+
+/* Page title row with actions (Koha toolbar) */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+.page-title { font-size: 1.35rem; font-weight: 700; color: #212529; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.btn-koha {
+  background: var(--koha-green);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn-koha:hover { background: var(--koha-green-dark); }
+.btn-koha.secondary {
+  background: #fff;
+  color: var(--koha-green);
+  border: 1px solid var(--koha-green);
+}
+.btn-koha.secondary:hover { background: rgba(64, 133, 64, 0.08); }
+
+/* Scan bar (checkout/checkin) */
+.scan-bar {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 5px solid var(--koha-green);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+.scan-input {
+  flex: 1;
+  min-width: 240px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.scan-input:focus {
+  outline: 2px solid var(--koha-green-light);
+  outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koha-nav-link, .circ-button, .btn-koha { transition: none !important; }
+}

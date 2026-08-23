@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase, db } from "@/lib/supabase";
 import { describeSupabaseError } from "@/lib/store";
 import {
   googleAccessDeniedMessage,
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     // Prefer the real Google display name; never invent a personal name.
     const name = (metaName && metaName.trim()) || email;
 
-    const { data: existing, error: findError } = await supabase
+    const { data: existing, error: findError } = await db(supabase)
       .from("users")
       .select("id")
       .ilike("email", email)
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         status: isAllowlistConfigured() ? "active" : "pending",
         created_at: new Date().toISOString(),
       };
-      const { data: inserted, error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await db(supabase)
         .from("users")
         .insert(row)
         .select("id")

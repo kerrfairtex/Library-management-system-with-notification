@@ -1,9 +1,9 @@
-import { AppShell } from "@/components/AppShell";
+import { KohaShell } from "@/components/KohaShell";
 
 export default function DeskLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  return <KohaShell>{children}</KohaShell>;
 }

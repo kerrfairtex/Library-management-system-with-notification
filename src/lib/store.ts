@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { supabase } from "./supabase";
+import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
 import type {
@@ -218,7 +218,7 @@ async function insertNotification(
     created_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("notifications")
     .insert(row)
     .select("*")
@@ -246,7 +246,7 @@ export type LoanSweepResult = {
  * impossible even if Vercel fires the cron twice.
  */
 export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
-  const { data, error } = await supabase.rpc("sweep_loan_statuses");
+  const { data, error } = await supabase.rpc("trac_library.sweep_loan_statuses");
   if (error) {
     throw new Error(error.message || "Loan sweep failed.");
   }
@@ -261,11 +261,11 @@ export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
 export async function getLibraryData(): Promise<LibraryData> {
   const [booksRes, membersRes, loansRes, notificationsRes, usersRes] =
     await Promise.all([
-      supabase.from("books").select("*").order("created_at", { ascending: false }),
-      supabase.from("members").select("*").order("joined_at", { ascending: false }),
-      supabase.from("loans").select("*").order("borrowed_at", { ascending: false }),
-      supabase.from("notifications").select("*").order("created_at", { ascending: false }),
-      supabase.from("users").select("*").order("created_at", { ascending: false }),
+      db(supabase).from("books").select("*").order("created_at", { ascending: false }),
+      db(supabase).from("members").select("*").order("joined_at", { ascending: false }),
+      db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }),
+      db(supabase).from("notifications").select("*").order("created_at", { ascending: false }),
+      db(supabase).from("users").select("*").order("created_at", { ascending: false }),
     ]);
 
   throwIfError(booksRes.error, "Failed to load books.");
@@ -311,7 +311,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
  * table just to list books or members.
  */
 export async function listBooks(): Promise<Book[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("books")
     .select("*")
     .order("created_at", { ascending: false });
@@ -320,7 +320,7 @@ export async function listBooks(): Promise<Book[]> {
 }
 
 export async function listMembers(): Promise<Member[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("members")
     .select("*")
     .order("joined_at", { ascending: false });
@@ -334,9 +334,9 @@ export async function getLoansData(): Promise<{
   members: Member[];
 }> {
   const [loansRes, booksRes, membersRes] = await Promise.all([
-    supabase.from("loans").select("*").order("borrowed_at", { ascending: false }),
-    supabase.from("books").select("*"),
-    supabase.from("members").select("*"),
+    db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }),
+    db(supabase).from("books").select("*"),
+    db(supabase).from("members").select("*"),
   ]);
   throwIfError(loansRes.error, "Failed to load loans.");
   throwIfError(booksRes.error, "Failed to load books.");
@@ -349,7 +349,7 @@ export async function getLoansData(): Promise<{
 }
 
 export async function getNotificationsData(): Promise<Notification[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("notifications")
     .select("*")
     .order("created_at", { ascending: false });
@@ -375,7 +375,7 @@ export async function createBook(
     created_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase.from("books").insert(row).select("*").single();
+  const { data, error } = await db(supabase).from("books").insert(row).select("*").single();
   throwIfError(error, "Failed to create book.");
 
   const book = mapBook(data as BookRow);
@@ -392,7 +392,7 @@ export async function updateBook(
   id: string,
   updates: Partial<Omit<Book, "id" | "createdAt">>
 ): Promise<Book | null> {
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db(supabase)
     .from("books")
     .select("*")
     .eq("id", id)
@@ -422,7 +422,7 @@ export async function updateBook(
     patch.call_number = updates.callNumber?.trim() || null;
   if (updates.publishedYear !== undefined) patch.published_year = updates.publishedYear;
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("books")
     .update(patch)
     .eq("id", id)
@@ -465,14 +465,14 @@ function assertNoLoanHistory(
 }
 
 export async function deleteBook(id: string): Promise<boolean> {
-  const { data: loans, error: loanError } = await supabase
+  const { data: loans, error: loanError } = await db(supabase)
     .from("loans")
     .select("status")
     .eq("book_id", id);
   throwIfError(loanError, "Failed to check book loans.");
   assertNoLoanHistory(loans as Pick<LoanRow, "status">[] | null, "book");
 
-  const { data, error } = await supabase.from("books").delete().eq("id", id).select("id");
+  const { data, error } = await db(supabase).from("books").delete().eq("id", id).select("id");
   throwIfError(error, "Failed to delete book.");
   return Boolean(data && data.length > 0);
 }
@@ -499,7 +499,7 @@ export async function createMember(
     active: true,
   };
 
-  const { data, error } = await supabase.from("members").insert(row).select("*").single();
+  const { data, error } = await db(supabase).from("members").insert(row).select("*").single();
   throwIfError(error, "Failed to create member.");
 
   const member = mapMember(data as MemberRow);
@@ -520,7 +520,7 @@ export async function updateMember(
   id: string,
   updates: Partial<Omit<Member, "id" | "joinedAt">>
 ): Promise<Member | null> {
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db(supabase)
     .from("members")
     .select("*")
     .eq("id", id)
@@ -569,7 +569,7 @@ export async function updateMember(
     patch.grade = resolvedGrade;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("members")
     .update(patch)
     .eq("id", id)
@@ -580,14 +580,14 @@ export async function updateMember(
 }
 
 export async function deleteMember(id: string): Promise<boolean> {
-  const { data: loans, error: loanError } = await supabase
+  const { data: loans, error: loanError } = await db(supabase)
     .from("loans")
     .select("status")
     .eq("member_id", id);
   throwIfError(loanError, "Failed to check member loans.");
   assertNoLoanHistory(loans as Pick<LoanRow, "status">[] | null, "member");
 
-  const { data, error } = await supabase.from("members").delete().eq("id", id).select("id");
+  const { data, error } = await db(supabase).from("members").delete().eq("id", id).select("id");
   throwIfError(error, "Failed to delete member.");
   return Boolean(data && data.length > 0);
 }
@@ -602,7 +602,7 @@ export async function checkoutBook(
   // (the loans_capacity trigger is the final authority on copies and the
   // 5-active-loan cap) and creates the notifications. Any failure rolls
   // back the whole checkout — no manual compensation write needed.
-  const { data, error } = await supabase.rpc("checkout_loan", {
+  const { data, error } = await supabase.rpc("trac_library.checkout_loan", {
     p_book_id: bookId,
     p_member_id: memberId,
     p_days: days,
@@ -618,7 +618,7 @@ export async function returnBook(loanId: string): Promise<Loan> {
   // marks the loan returned (a duplicate return is rejected, not
   // double-incremented) and restores availability with an atomic capped
   // increment. The availability update can no longer fail silently.
-  const { data, error } = await supabase.rpc("return_loan", {
+  const { data, error } = await supabase.rpc("trac_library.return_loan", {
     p_loan_id: loanId,
   });
   if (error) {
@@ -632,7 +632,7 @@ export async function renewLoan(loanId: string, extraDays = 7): Promise<Loan> {
   // extension, refuses returned loans (a renew racing a return can no longer
   // resurrect it), checks the member is still active, extends the due date
   // monotonically, and creates the notification.
-  const { data, error } = await supabase.rpc("renew_loan", {
+  const { data, error } = await supabase.rpc("trac_library.renew_loan", {
     p_loan_id: loanId,
     p_extra_days: extraDays,
   });
@@ -643,7 +643,7 @@ export async function renewLoan(loanId: string, extraDays = 7): Promise<Loan> {
 }
 
 export async function markNotificationRead(id: string): Promise<Notification | null> {
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await db(supabase)
     .from("notifications")
     .select("*")
     .eq("id", id)
@@ -651,7 +651,7 @@ export async function markNotificationRead(id: string): Promise<Notification | n
   throwIfError(fetchError, "Failed to load notification.");
   if (!existing) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("notifications")
     .update({ read: true })
     .eq("id", id)
@@ -662,7 +662,7 @@ export async function markNotificationRead(id: string): Promise<Notification | n
 }
 
 export async function markAllNotificationsRead(): Promise<number> {
-  const { data: unread, error: fetchError } = await supabase
+  const { data: unread, error: fetchError } = await db(supabase)
     .from("notifications")
     .select("id")
     .eq("read", false);
@@ -671,7 +671,7 @@ export async function markAllNotificationsRead(): Promise<number> {
   const ids = (unread ?? []).map((n) => n.id as string);
   if (ids.length === 0) return 0;
 
-  const { error } = await supabase
+  const { error } = await db(supabase)
     .from("notifications")
     .update({ read: true })
     .in("id", ids);
@@ -683,7 +683,7 @@ export async function authenticateUser(
   email: string,
   password: string
 ): Promise<PublicUser | null> {
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("users")
     .select("*")
     .ilike("email", email.trim())
@@ -697,7 +697,7 @@ export async function authenticateUser(
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const { data, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await db(supabase).from("users").select("*").eq("id", id).maybeSingle();
   // Swallowed on purpose: this backs session validation on every request,
   // so a transient/config error here should look like "not signed in"
   // rather than crashing every page load.
@@ -711,7 +711,7 @@ export async function getPublicUserById(id: string): Promise<PublicUser | null> 
 }
 
 export async function listStaff(): Promise<PublicUser[]> {
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("users")
     .select("*")
     .order("created_at", { ascending: true });
@@ -720,7 +720,7 @@ export async function listStaff(): Promise<PublicUser[]> {
 }
 
 export async function countAdmins(): Promise<number> {
-  const { data, error } = await supabase.from("users").select("id").eq("role", "admin");
+  const { data, error } = await db(supabase).from("users").select("id").eq("role", "admin");
   throwIfError(error, "Failed to count admins.");
   return data?.length ?? 0;
 }
@@ -733,7 +733,7 @@ export async function createStaff(input: {
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
 
-  const { data: clash, error: clashError } = await supabase
+  const { data: clash, error: clashError } = await db(supabase)
     .from("users")
     .select("id")
     .ilike("email", email)
@@ -751,7 +751,7 @@ export async function createStaff(input: {
     created_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase.from("users").insert(row).select("*").single();
+  const { data, error } = await db(supabase).from("users").insert(row).select("*").single();
   throwIfError(error, "Failed to create staff account.");
   return toPublicUser(mapUser(data as UserRow));
 }
@@ -771,7 +771,7 @@ export async function updateStaff(
     return getPublicUserById(id);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("users")
     .update(patch)
     .eq("id", id)
@@ -783,7 +783,7 @@ export async function updateStaff(
 }
 
 export async function deleteStaff(id: string): Promise<boolean> {
-  const { data, error } = await supabase.from("users").delete().eq("id", id).select("id");
+  const { data, error } = await db(supabase).from("users").delete().eq("id", id).select("id");
   throwIfError(error, "Failed to delete staff account.");
   return Boolean(data && data.length > 0);
 }
@@ -805,7 +805,7 @@ export async function updateOwnProfile(
     return getUserById(id);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db(supabase)
     .from("users")
     .update(patch)
     .eq("id", id)
