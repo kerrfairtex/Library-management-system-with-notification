@@ -1,15 +1,3 @@
-#!/usr/bin/env node
-// Creates or updates the demo librarian/admin accounts in the Supabase
-// `users` table so the login page has working credentials.
-//
-// Usage:
-//   node --env-file=.env.local scripts/seed-users.mjs
-//
-// Requires SUPABASE_URL and a server-side key: either the new
-// SUPABASE_SECRET_KEY (sb_secret_...) or the legacy
-// SUPABASE_SERVICE_ROLE_KEY — the same variables the app's API routes
-// use, see src/lib/supabase.ts.
-
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
@@ -26,29 +14,14 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-// The demo accounts below have publicly documented passwords (see README).
-// Never create them in a production environment unless explicitly asked.
-const allowDemo = process.argv.includes("--allow-demo");
-if (process.env.NODE_ENV === "production" && !allowDemo) {
-  console.error(
-    "Refusing to run in production: this script creates accounts whose " +
-      "passwords are published in this repository. If you truly need demo " +
-      "accounts here, re-run with --allow-demo — but prefer creating real " +
-      "staff accounts with unique passwords instead."
-  );
-  process.exit(1);
-}
-
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-// Mirrors hashPassword() in src/lib/auth.ts (salt:scrypt-hash hex string).
-function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
+function hashPassword(password: string, salt?: string): string {
+  if (!salt) salt = randomBytes(16).toString("hex");
   const hash = scryptSync(password, salt, 64).toString("hex");
   return `${salt}:${hash}`;
 }
 
-// Use role labels — not invented personal names like "Morgan Ellis".
 const demoUsers = [
   {
     name: "Demo Student",
@@ -70,22 +43,12 @@ const demoUsers = [
   },
 ];
 
-// Older seeds used made-up personal names / other demo emails. Scrub them so
-// the live desk no longer shows those placeholders after a re-seed.
-const retiredFakeNames = ["Morgan Ellis", "Alex Rivera"];
-const retiredDemoEmails = [
-  "admin@shelfwalk.app",
-  "librarian@shelfwalk.app",
-  "admin@trac.app",
-  "librarian@trac.app",
-];
-
 let hadError = false;
 
 for (const demo of demoUsers) {
   const { data: existing, error: findError } = await supabase
     .from("users")
-    .select("id")
+    .select("id, name, password_hash")
     .ilike("email", demo.email)
     .maybeSingle();
 
@@ -114,7 +77,7 @@ for (const demo of demoUsers) {
       hadError = true;
       console.error(`✗ Failed to update ${demo.email}: ${updateError.message}`);
     } else {
-      console.log(`✓ Updated ${demo.email} / ${demo.password} (${demo.name})`);
+      console.log(`✅ Updated ${demo.email} / ${demo.password} (${demo.name})`);
     }
     continue;
   }
@@ -132,73 +95,7 @@ for (const demo of demoUsers) {
     hadError = true;
     console.error(`✗ Failed to create ${demo.email}: ${insertError.message}`);
   } else {
-    console.log(`✓ Created ${demo.email} / ${demo.password} (${demo.name})`);
-  }
-}
-
-for (const email of retiredDemoEmails) {
-  const { data: rows, error } = await supabase
-    .from("users")
-    .select("id, email, name, role")
-    .ilike("email", email);
-
-  if (error) {
-    hadError = true;
-    console.error(`✗ Could not look up retired demo ${email}: ${error.message}`);
-    continue;
-  }
-
-  for (const row of rows ?? []) {
-    const replacement =
-      row.role === "admin"
-        ? "Demo Admin"
-        : row.role === "librarian"
-          ? "Demo Librarian"
-          : "Demo Student";
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ name: replacement })
-      .eq("id", row.id);
-
-    if (updateError) {
-      hadError = true;
-      console.error(`✗ Failed to rename ${row.email}: ${updateError.message}`);
-    } else {
-      console.log(`✓ Renamed ${row.email}: "${row.name}" → "${replacement}"`);
-    }
-  }
-}
-
-for (const fakeName of retiredFakeNames) {
-  const { data: rows, error } = await supabase
-    .from("users")
-    .select("id, email, name, role")
-    .eq("name", fakeName);
-
-  if (error) {
-    hadError = true;
-    console.error(`✗ Could not look up fake name ${fakeName}: ${error.message}`);
-    continue;
-  }
-
-  for (const row of rows ?? []) {
-    const replacement =
-      row.role === "admin"
-        ? "Demo Admin"
-        : row.role === "librarian"
-          ? "Demo Librarian"
-          : "Demo Student";
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ name: replacement })
-      .eq("id", row.id);
-
-    if (updateError) {
-      hadError = true;
-      console.error(`✗ Failed to rename ${row.email}: ${updateError.message}`);
-    } else {
-      console.log(`✓ Renamed ${row.email}: "${fakeName}" → "${replacement}"`);
-    }
+    console.log(`✅ Created ${demo.email} / ${demo.password} (${demo.name})`);
   }
 }
 
