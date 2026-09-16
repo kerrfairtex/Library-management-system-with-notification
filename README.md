@@ -61,9 +61,9 @@ This inserts (and updates on re-run):
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Student | `student@gmail.com` | `studentkerr123` |
-| Librarian | `librarian@gmail.com` | `librariankerr123` |
-| Admin | `admin@gmail.com` | `adminkerr123` |
+| Student | `student@gmail.com` | `studentk123` |
+| Librarian | `librarian@gmail.com` | `librarian123` |
+| Admin | `admin@gmail.com` | `admin123` |
 
 The script is safe to re-run — it updates the password hash if the account already exists. If it fails with a "relation \"users\" does not exist" error, run `supabase/schema.sql` first. Note: the script refuses to run when `NODE_ENV=production` (the demo passwords are public in this repository); pass `--allow-demo` only if you truly want demo accounts in a production environment.
 

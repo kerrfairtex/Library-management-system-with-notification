@@ -53,19 +53,19 @@ const demoUsers = [
   {
     name: "Demo Student",
     email: "student@gmail.com",
-    password: "studentkerr123",
+    password: "studentk123",
     role: "student",
   },
   {
     name: "Demo Librarian",
     email: "librarian@gmail.com",
-    password: "librariankerr123",
+    password: "librarian123",
     role: "librarian",
   },
   {
     name: "Demo Admin",
     email: "admin@gmail.com",
-    password: "adminkerr123",
+    password: "admin123",
     role: "admin",
   },
 ];

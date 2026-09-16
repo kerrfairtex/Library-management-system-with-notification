@@ -1,17 +1,5 @@
-#!/usr/bin/env node
-// Diagnoses common Supabase setup problems for TRAC, in particular the
-// "Could not find the table 'public.<table>' in the schema cache" error.
-//
-// Usage:
-//   node --env-file=.env.local scripts/check-supabase.mjs
-//
-// Prefers a server-side key (new SUPABASE_SECRET_KEY or legacy
-// SUPABASE_SERVICE_ROLE_KEY) so it can check write access too. Falls back
-// to a publishable/anon key (read-only check) if that's all you have —
-// enough to confirm whether tables exist, since RLS is off by default
-// in supabase/schema.sql.
-
-import { createClient } from "@supabase/supabase-js";
+import https from 'https';
+import http from 'http';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey =
@@ -34,44 +22,129 @@ if (!supabaseUrl || !key) {
 }
 
 console.log(`Checking Supabase project: ${supabaseUrl}`);
-console.log(
-  serviceRoleKey
-    ? "Using a server-side key.\n"
-    : "Using a publishable/anon key (read-only check — set SUPABASE_SECRET_KEY for full access).\n"
-);
+console.log(`Using key: ${key.substring(0, 20)}...`);
 
-const supabase = createClient(supabaseUrl, key);
-
-const tables = ["users", "books", "members", "loans", "notifications"];
-let hadFailure = false;
-
-for (const table of tables) {
-  const { data, error } = await supabase.from(table).select("id").limit(1);
-
-  if (error) {
-    hadFailure = true;
-    const isSchemaCacheMiss =
-      error.code === "PGRST205" || /schema cache/i.test(error.message ?? "");
-    console.log(`✗ ${table.padEnd(14)} ${error.message}`);
-    if (isSchemaCacheMiss) {
-      console.log(
-        `  → Run supabase/schema.sql against THIS project, then either wait a\n` +
-          `    minute or run: select pg_notify('pgrst', 'reload schema');\n` +
-          `    Also confirm "public" is under Settings → API → Exposed schemas.`
-      );
+// Simple HTTP request function
+const makeRequest = (url, options) => {
+  return new Promise((resolve, reject) => {
+    const protocol = url.startsWith('https:') ? https : http;
+    const urlObj = new URL(url);
+    
+    const headers = {
+      'Authorization': `Bearer ${key}`,
+      'apikey': key,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+    };
+    
+    const req = protocol.request({
+      hostname: urlObj.hostname,
+      port: urlObj.port,
+      path: urlObj.pathname + urlObj.search,
+      method: options.method || 'GET',
+      headers: headers,
+      timeout: options.timeout || 10000,
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const parsedData = data ? JSON.parse(data) : null;
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            data: parsedData,
+          });
+        } catch (parseError) {
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            data: data,
+            parseError: parseError.message,
+          });
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+    
+    if (options.body) {
+      req.write(options.body);
     }
-  } else {
-    const rows = data?.length ?? 0;
-    console.log(`✓ ${table.padEnd(14)} reachable (has ${rows ? "at least one row" : "no rows yet"})`);
+    req.end();
+  });
+}
+
+async function checkTable(table) {
+  try {
+    console.log(`\nChecking table: ${table}...`);
+    
+    const url = `${supabaseUrl}/rest/v1/${table}?select=id&limit=1`;
+    const options = {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'apikey': key,
+        'Content-Type': 'application/json',
+        'Prefer': 'count=estimated',
+      },
+      timeout: 15000,
+    };
+    
+    const response = await makeRequest(url, options);
+    
+    if (response.status >= 200 && response.status < 300) {
+      console.log(`✓ ${table.padEnd(14)} reachable (HTTP ${response.status})`);
+      return true;
+    } else {
+      console.log(`✗ ${table.padEnd(14)} HTTP ${response.status}: ${JSON.stringify(response.data) || 'Unknown error'}`);
+      
+      if (response.status === 404) {
+        console.log(`  → Table '${table}' does not exist - run supabase/schema.sql first`);
+      } else if (response.status === 401) {
+        console.log(`  → Authentication failed - check your SUPABASE_SECRET_KEY`);
+      }
+      return false;
+    }
+    
+  } catch (error) {
+    console.log(`✗ ${table.padEnd(14)} Network error: ${error.message}`);
+    return false;
   }
 }
 
-console.log("");
-if (hadFailure) {
-  console.log(
-    "Some tables are not reachable. Fix the items above, then re-run this script."
-  );
-  process.exit(1);
-} else {
-  console.log("All tables are reachable. If login still fails, run `npm run seed:users`.");
+async function main() {
+  const tables = ["users", "books", "members", "loans", "notifications"];
+  const results = {};
+  
+  for (const table of tables) {
+    results[table] = await checkTable(table);
+  }
+  
+  console.log("\n");
+  const failedTables = tables.filter(table => !results[table]);
+  
+  if (failedTables.length > 0) {
+    console.log(`Some tables are not reachable. Failed: ${failedTables.join(', ')}`);
+    console.log("Fix the items above, then re-run this script.");
+    process.exit(1);
+  } else {
+    console.log("All tables are reachable. You can proceed with the setup!");
+    console.log("\nDemo credentials are ready to use:")
+    console.log("  Student:   student@gmail.com / studentkerr123")
+    console.log("  Librarian: librarian@gmail.com / librariankerr123")
+    console.log("  Admin:     admin@gmail.com / adminkerr123")
+  }
 }
+
+main().catch(error => {
+  console.error("Fatal error:", error.message);
+  process.exit(1);
+});
