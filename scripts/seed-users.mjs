@@ -1,4 +1,3 @@
-import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -14,11 +13,13 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
+// Create Supabase client with minimal configuration to avoid WebSocket issues
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-function hashPassword(password: string, salt?: string): string {
-  if (!salt) salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
+function hashPassword(password, salt = null) {
+  const crypto = require("crypto");
+  if (!salt) salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
   return `${salt}:${hash}`;
 }
 
@@ -26,7 +27,7 @@ const demoUsers = [
   {
     name: "Demo Student",
     email: "student@gmail.com",
-    password: "studentk123",
+    password: "student123",
     role: "student",
   },
   {
@@ -83,7 +84,7 @@ for (const demo of demoUsers) {
   }
 
   const { error: insertError } = await supabase.from("users").insert({
-    id: randomUUID(),
+    id: require("crypto").randomUUID(),
     name: demo.name,
     email: demo.email,
     password_hash: passwordHash,
@@ -97,6 +98,15 @@ for (const demo of demoUsers) {
   } else {
     console.log(`✅ Created ${demo.email} / ${demo.password} (${demo.name})`);
   }
+}
+
+if (hadError) {
+  process.exit(1);
+}
+
+console.log("\nDone. Sign in at /login with:");
+for (const demo of demoUsers) {
+  console.log(`  ${demo.role.padEnd(10)} ${demo.email} / ${demo.password}`);
 }
 
 if (hadError) {
