@@ -17,9 +17,32 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * CSP for the 3D bookshelf. The shelf uses Three.js with canvas rendering,
+ * needs `unsafe-inline` for dynamic styles, and loads models/textures from
+ * the same origin.
+ */
+const shelfCSP =
+  "default-src 'self'; " +
+  "script-src 'self' 'unsafe-inline'; " +
+  "style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; " +
+  "font-src 'self'; " +
+  "connect-src 'self'; " +
+  "worker-src 'self' blob:";
+
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      {
+        source: "/shelf(.*)",
+        headers: [
+          ...securityHeaders,
+          { key: "Content-Security-Policy", value: shelfCSP },
+        ],
+      },
+    ];
   },
 };
 
