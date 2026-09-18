@@ -18,3 +18,8 @@ services:
         value: https://cphkxgykshjeultzgzmz.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         value: sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc
+
+  # Same-origin borrow links for the integrated /shelf route.
+  # Empty means the shelf uses /borrow on the same origin.
+  - key: NEXT_PUBLIC_LIBRARY_ORIGIN
+    value: ""

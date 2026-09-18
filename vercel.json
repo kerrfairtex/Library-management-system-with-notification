@@ -15,6 +15,7 @@
     "SUPABASE_SECRET_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwaGt4Z3lrc2hqZXVsdHpnem16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4NjcyNTMsImV4cCI6MjEwMDQ0MzI1M30.C986zgU6xcqab2tLUJnU0RJ3VdNEoDi__tHjzry7uM8",
     "CRON_SECRET": "n0nzk48FcPsmCJM6Ar5wXmzvBBPeo0Ram-pw-bZmmVk",
     "NEXT_PUBLIC_SUPABASE_URL": "https://cphkxgykshjeultzgzmz.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc"
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc",
+    "NEXT_PUBLIC_LIBRARY_ORIGIN": ""
   }
 }

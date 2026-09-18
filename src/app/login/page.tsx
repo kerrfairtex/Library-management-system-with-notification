@@ -221,14 +221,12 @@ function LoginForm() {
           About &amp; Privacy
         </Link>
         <span aria-hidden>·</span>
-        <a
-          href={(process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app")}
+        <Link
+          href="/shelf"
           className="login-link"
-          target="_blank"
-          rel="noreferrer noopener"
         >
           ← Back to 3D Bookshelf
-        </a>
+        </Link>
       </div>
 
       {showForgot && (
