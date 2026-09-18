@@ -26,12 +26,9 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    PORT=10000 \
-    # Server-side env vars (set via Render dashboard or docker --env)
-    AUTH_SECRET="" \
-    SUPABASE_URL="" \
-    SUPABASE_SECRET_KEY="" \
-    CRON_SECRET=""
+    PORT=10000
+# Server-side env vars (AUTH_SECRET, SUPABASE_URL, SUPABASE_SECRET_KEY,
+# CRON_SECRET) are injected at runtime by Render from service config.
 # Render routes to $PORT (default 10000) — `next start` honors PORT.
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next

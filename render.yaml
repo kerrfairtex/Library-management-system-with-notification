@@ -6,13 +6,13 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: AUTH_SECRET
-        sync: false  # Set via Render dashboard
+        value: eHdPZD4kWFHG06R8CN2b73UtmolohYX8sVWE81OeXYc
       - key: SUPABASE_URL
         value: https://cphkxgykshjeultzgzmz.supabase.co
       - key: SUPABASE_SECRET_KEY
-        sync: false  # Set via Render dashboard
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwaGt4Z3lrc2hqZXVsdHpnem16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4NjcyNTMsImV4cCI6MjEwMDQ0MzI1M30.C986zgU6xcqab2tLUJnU0RJ3VdNEoDi__tHjzry7uM8
       - key: CRON_SECRET
-        sync: false  # Set via Render dashboard
+        value: n0nzk48FcPsmCJM6Ar5wXmzvBBPeo0Ram-pw-bZmmVk
       # Build-time vars (NEXT_PUBLIC_* are inlined at build time)
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://cphkxgykshjeultzgzmz.supabase.co
