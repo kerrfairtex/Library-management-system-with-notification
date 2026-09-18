@@ -17,10 +17,15 @@ function BookCard({ book }: { book: ShelfBook }) {
         {onShelf ? `Available (${book.available_copies})` : "On loan"}
       </span>
       <a
-        href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
+        href={onShelf
+          ? `/borrow?isbn=${encodeURIComponent(book.isbn)}`
+          : `/borrow?isbn=${encodeURIComponent(book.isbn)}&hold=1`
+        }
         className="borrow-btn"
+        target="_blank"
+        rel="noopener noreferrer"
       >
-        {onShelf ? "Borrow this book" : "Place a hold"}
+        {onShelf ? "Borrow at desk" : "Request hold"}
       </a>
     </div>
   );
@@ -185,6 +190,10 @@ export default function ShelfPage() {
       <div className="shelf-ui-overlay">
         <h1>TRAC Library — 3D Bookshelf</h1>
         <p>Browse {books.length} titles across {genreCount} genres. Drag to rotate, click a book for details.</p>
+        <p style={{ fontSize: "0.8rem", color: "#888", marginTop: "6px" }}>
+          Sign in at{" "}
+          <a href="https://library-cp22.onrender.com/login" style={{ color: "#3b82f6" }}>library desk</a> to borrow books.
+        </p>
         {loading && <p>Loading collection…</p>}
         {!loading && books.length > 0 && selected && <BookCard book={selected} />}
         {!loading && books.length > 0 && !selected && (
