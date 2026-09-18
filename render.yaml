@@ -6,7 +6,7 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: AUTH_SECRET
-        value: eHdPZD4kWFHG06R8CN2b73UtmolohYX8sVWE81OeXYc
+    value: G7xM1lmwmtPxfxno14NulfaL+sCBuhC18oZKUbKgfVc=
       - key: SUPABASE_URL
         value: https://cphkxgykshjeultzgzmz.supabase.co
       - key: SUPABASE_SECRET_KEY
