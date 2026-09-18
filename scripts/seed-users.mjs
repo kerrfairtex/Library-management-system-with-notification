@@ -5,8 +5,9 @@
  * Credentials: student:student123, librarian:librarian123, admin:admin123
  */
 
+import "./_polyfill.mjs";
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, scryptSync } from 'crypto';
 
 // Auto-detect and validate environment variables
 const CONFIG = {
@@ -42,9 +43,8 @@ const supabase = createClient(CONFIG.URL, CONFIG.KEY);
 
 // Secure password hashing with salt
 function hashPassword(password, salt = null) {
-  const crypto = require('crypto');
-  if (!salt) salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  if (!salt) salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
   return `${salt}:${hash}`;
 }
 

@@ -2,7 +2,7 @@
 
 /*
  * Reports home — lookalike of Koha's reports/reports-home.tt:
- * stat-report cards mapped to fixed dashboards over the trac_library schema.
+ * stat-report cards mapped to fixed dashboards over the public schema.
  */
 
 import Link from "next/link";

@@ -14,6 +14,7 @@
 // SUPABASE_SERVICE_ROLE_KEY) — the same variables the app's API routes use.
 // Safe to re-run: books are matched by ISBN and updated in place.
 
+import "./_polyfill.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
