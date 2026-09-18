@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: library-trac
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: AUTH_SECRET
+        sync: false  # Set via Render dashboard
+      - key: SUPABASE_URL
+        value: https://cphkxgykshjeultzgzmz.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false  # Set via Render dashboard
+      - key: CRON_SECRET
+        sync: false  # Set via Render dashboard
+      # Build-time vars (NEXT_PUBLIC_* are inlined at build time)
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://cphkxgykshjeultzgzmz.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc

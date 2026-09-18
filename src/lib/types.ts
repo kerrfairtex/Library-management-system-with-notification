@@ -1,3 +1,16 @@
+
+/** Shape returned by the public /api/shelf-availability endpoint.
+ *  Used by the standalone 3D bookshelf companion site. */
+export type ShelfBook = {
+  id: string;
+  isbn: string;
+  title: string;
+  author: string;
+  genre: string;
+  available_copies: number;
+  total_copies: number;
+};
+
 export type UserRole = "student" | "librarian" | "admin";
 
 /** Membership verification gate: self-sign-ups start 'pending' until an admin approves. */

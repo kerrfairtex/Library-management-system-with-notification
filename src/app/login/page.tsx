@@ -269,30 +269,35 @@ function LoginBrand() {
 
 export default function LoginPage() {
   return (
-    <main className="login-page">
-      <div className="login-atmosphere" aria-hidden>
-        <Image
-          src="/brand/trac-campus.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="login-campus-photo"
-        />
-        <div className="login-atmosphere-veil" />
-        <div className="login-atmosphere-grain" />
-      </div>
-
-      <section className="login-stage">
-        <LoginBrand />
-        <div className="login-panel">
-          <Suspense
-            fallback={<p className="login-form-subtitle">Loading sign-in…</p>}
-          >
-            <LoginForm />
-          </Suspense>
+    <>
+      <main className="login-page">
+        <div className="login-atmosphere" aria-hidden>
+          <Image
+            src="/brand/trac-campus.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="login-campus-photo"
+          />
+          <div className="login-atmosphere-veil" />
+          <div className="login-atmosphere-grain" />
         </div>
-      </section>
-    </main>
+
+        <section className="login-stage">
+          <LoginBrand />
+          <div className="login-panel">
+            <Suspense
+              fallback={<p className="login-form-subtitle">Loading sign-in…</p>}
+            >
+              <LoginForm />
+            </Suspense>
+          </div>
+        </section>
+      </main>
+      <footer style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.85rem", color: "#888" }}>
+        Browse the catalog in 3D: <a href="/shelf" style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a>
+      </footer>
+    </>
   );
 }
