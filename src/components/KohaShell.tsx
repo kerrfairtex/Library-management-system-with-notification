@@ -17,7 +17,7 @@ import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 
 /* Top-nav modules — mirrors Koha's header.inc nav items */
-const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app";
+const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://library-cp22.onrender.com/shelf";
 
 const primaryNav: { href: string; label: string; icon?: string; capability: string }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },

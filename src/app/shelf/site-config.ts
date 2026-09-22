@@ -14,7 +14,7 @@ export const siteConfig = {
     "TRAC Library interactive 3D bookshelf, with procedural hardcovers and one book pulled forward on a walnut shelf.",
   independentNote:
     "TRAC Library · Institute of Agricultural Sciences, Bongao, Tawi-Tawi · SMARTCAMP-K12.",
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://trac-library-bookshelf.vercel.app",
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://library-cp22.onrender.com",
 } as const;
 
 /**
