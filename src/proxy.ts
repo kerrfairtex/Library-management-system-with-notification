@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionUserId } from "@/lib/session";
 
 const PUBLIC_PATHS = [
+  "/user-guidelines",
   "/login",
   "/auth/callback",
   "/api/auth/login",
