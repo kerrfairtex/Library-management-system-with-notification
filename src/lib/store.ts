@@ -16,6 +16,7 @@ import type {
   User,
   UserRole,
   UserStatus,
+  Hold,
 } from "./types";
 
 type BookRow = {
@@ -824,4 +825,246 @@ export async function updateOwnProfile(
   throwIfError(error, "Failed to update profile.");
   if (!data) return null;
   return mapUser(data as UserRow);
+}
+
+// -- Borrow requests --
+// Reuses the existing holds table, distinguished by kind = borrow_request.
+// Lifecycle: pending -> ready (approved) -> fulfilled (loan created)
+//           pending -> rejected | cancelled
+// Students create requests for their own member record only; staff approve,
+// reject, and complete checkout through the existing checkoutBook() path.
+
+export type BorrowRequestStatus =
+  | "pending"
+  | "ready"
+  | "fulfilled"
+  | "cancelled"
+  | "expired"
+  | "approved"
+  | "rejected";
+
+type HoldRow = {
+  id: string;
+  book_id: string;
+  member_id: string;
+  kind: string;
+  status: string;
+  priority: number;
+  pickup_branch: string | null;
+  placed_at: string;
+  expires_at: string | null;
+  fulfilled_loan_id: string | null;
+  cancelled_reason: string | null;
+};
+
+function mapHold(row: HoldRow): Hold {
+  return {
+    id: row.id,
+    bookId: row.book_id,
+    memberId: row.member_id,
+    kind: row.kind as Hold["kind"],
+    status: row.status as Hold["status"],
+    priority: row.priority,
+    pickupBranch: row.pickup_branch ?? null,
+    placedAt: row.placed_at,
+    expiresAt: row.expires_at ?? null,
+    fulfilledLoanId: row.fulfilled_loan_id ?? null,
+    cancelledReason: row.cancelled_reason ?? null,
+  };
+}
+
+export async function getMemberByEmail(email: string) {
+  const { data, error } = await db(supabase)
+    .from("members")
+    .select("*")
+    .ilike("email", email.trim())
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapMember(data);
+}
+
+export async function getBorrowRequests(memberId?: string) {
+  let query = db(supabase)
+    .from("holds")
+    .select("*")
+    .eq("kind", "borrow_request")
+    .order("placed_at", { ascending: false });
+
+  if (memberId) {
+    query = query.eq("member_id", memberId);
+  } else {
+    query = query.in("status", ["pending", "ready", "approved"]);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []);
+}
+
+export async function getBorrowRequestById(id: string) {
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .select("*")
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .maybeSingle();
+  if (error || !data) return null;
+  return data;
+}
+
+export async function createBorrowRequest(bookId: string, memberId: string) {
+  const open = await db(supabase)
+    .from("holds")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("member_id", memberId)
+    .in("status", ["pending", "ready", "approved"])
+    .maybeSingle();
+
+  if (open) {
+    throw new Error("You already have a pending request for this book.");
+  }
+
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .insert({
+      book_id: bookId,
+      member_id: memberId,
+      kind: "borrow_request",
+      status: "pending",
+      priority: 1,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("You already have a pending request for this book.");
+    }
+    throw new Error(error.message || "Failed to create borrow request.");
+  }
+
+  return mapHold(data);
+}
+
+export async function approveBorrowRequest(id: string, reviewedBy: string) {
+  const pickupExpires = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .update({ status: "ready", expires_at: pickupExpires })
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .eq("status", "pending")
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message || "Failed to approve request.");
+  const hold = mapHold(data);
+
+  const [{ data: bookData, error: bookErr }, { data: memberData, error: memberErr }] = await Promise.all([
+    db(supabase).from("books").select("title").eq("id", hold.bookId).maybeSingle(),
+    db(supabase).from("members").select("name").eq("id", hold.memberId).maybeSingle(),
+  ]);
+
+  if (bookErr || memberErr) {
+    throw new Error("Failed to load book or member info.");
+  }
+
+  const title = (bookData as { title?: string }).title ?? "your requested title";
+  const memberName = (memberData as { name?: string }).name ?? "";
+
+  await db(supabase).from("notifications").insert({
+    type: "borrow_request_approved",
+    title: "Borrow request approved",
+    message: (memberName ? memberName + ": " : "") + "\"" + title + "\" has been approved. Please pick it up at the library desk within 3 days (by " + new Date(pickupExpires).toLocaleDateString("en-PH") + ").",
+    related_id: hold.id,
+    read: false,
+  });
+
+  return hold;
+}
+
+export async function rejectBorrowRequest(id: string, reviewedBy: string, reason?: string) {
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .update({ status: "rejected" })
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .eq("status", "pending")
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message || "Failed to reject request.");
+  const hold = mapHold(data);
+
+  const [{ data: bookData, error: bookErr }, { data: memberData, error: memberErr }] = await Promise.all([
+    db(supabase).from("books").select("title").eq("id", hold.bookId).maybeSingle(),
+    db(supabase).from("members").select("name").eq("id", hold.memberId).maybeSingle(),
+  ]);
+
+  if (bookErr || memberErr) {
+    throw new Error("Failed to load book or member info.");
+  }
+
+  const title = (bookData as { title?: string }).title ?? "your requested title";
+  const memberName = (memberData as { name?: string }).name ?? "";
+
+  await db(supabase).from("notifications").insert({
+    type: "borrow_request_rejected",
+    title: "Borrow request not approved",
+    message: (memberName ? memberName + ": " : "") + "\"" + title + "\" request was not approved" + (reason ? ": " + reason : "."),
+    related_id: hold.id,
+    read: false,
+  });
+
+  return hold;
+}
+
+export async function cancelBorrowRequest(id: string, memberId: string) {
+  const { error } = await db(supabase)
+    .from("holds")
+    .update({ status: "cancelled" })
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .eq("member_id", memberId)
+    .in("status", ["pending", "ready"])
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message || "Failed to cancel request.");
+  return true;
+}
+
+export async function checkoutFromBorrowRequest(id: string, days = 14): Promise<Loan> {
+  const { data: holdData, error: holdError } = await db(supabase)
+    .from("holds")
+    .select("*, books(*, isbn)")
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .eq("status", "ready")
+    .maybeSingle();
+
+  if (holdError || !holdData) {
+    throw new Error("Approved borrow request not found.");
+  }
+
+  const hold = mapHold(holdData as HoldRow);
+
+  const loan = await checkoutBook(hold.bookId, hold.memberId, days);
+
+  const { error: updateError } = await db(supabase)
+    .from("holds")
+    .update({ status: "fulfilled", fulfilled_loan_id: loan.id })
+    .eq("id", id)
+    .eq("kind", "borrow_request")
+    .eq("status", "ready")
+    .select("id")
+    .single();
+
+  if (updateError) {
+    console.error("Failed to mark borrow request fulfilled:", updateError.message);
+  }
+
+  return loan;
 }

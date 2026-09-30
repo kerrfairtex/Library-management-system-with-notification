@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Book } from "@/lib/types";
+import type { Book, UserRole } from "@/lib/types";
 import { useApi } from "@/lib/hooks";
+import { canAccess } from "@/lib/permissions";
 
 /**
  * AcademicShelvesSection — a browse-by-subject shelf carousel for the
@@ -99,7 +100,7 @@ function groupByGenre(books: Book[]): ShelfGroup[] {
     .sort((a, b) => shelfRank(a.genre) - shelfRank(b.genre) || a.genre.localeCompare(b.genre));
 }
 
-function ShelfCard({ book, color }: { book: Book; color: string }) {
+function ShelfCard({ book, color, canRequestBorrow }: { book: Book; color: string; canRequestBorrow: boolean }) {
   const out = book.availableCopies === 0;
   return (
     <article
@@ -108,7 +109,7 @@ function ShelfCard({ book, color }: { book: Book; color: string }) {
       <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
         {book.author}
       </p>
-      <div>
+      <div className="flex flex-col flex-1">
         <h3 className="font-serif text-sm font-semibold leading-snug">{book.title}</h3>
         <p className="mt-1 text-[11px] opacity-80">{book.publishedYear}</p>
         {book.callNumber && (
@@ -118,16 +119,26 @@ function ShelfCard({ book, color }: { book: Book; color: string }) {
           <p className="text-[10px] opacity-70">📍 {book.shelfLocation}</p>
         )}
       </div>
-      <span
-        className={`badge self-start ${out ? "tone-danger" : "tone-ok"} !text-[10px]`}
-      >
-        {out ? "Out" : `${book.availableCopies}/${book.totalCopies} left`}
-      </span>
+      <div className="flex flex-col gap-1.5 mt-2">
+        <span
+          className={`badge self-start ${out ? "tone-danger" : "tone-ok"} !text-[10px]`}
+        >
+          {out ? "Out" : `${book.availableCopies}/${book.totalCopies} left`}
+        </span>
+        {canRequestBorrow && !out && book.isbn && (
+          <Link
+            href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
+            className="btn btn-primary text-xs py-1.5"
+          >
+            Request to Borrow
+          </Link>
+        )}
+      </div>
     </article>
   );
 }
 
-function ShelfRow({ group }: { group: ShelfGroup }) {
+function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBorrow: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(true);
@@ -237,7 +248,7 @@ function ShelfRow({ group }: { group: ShelfGroup }) {
         style={{ scrollbarWidth: "thin" }}
       >
         {group.books.map((book) => (
-          <ShelfCard key={book.id} book={book} color={spineColor(group.genre)} />
+          <ShelfCard key={book.id} book={book} color={spineColor(group.genre)} canRequestBorrow={canRequestBorrow} />
         ))}
       </div>
     </section>
@@ -246,6 +257,8 @@ function ShelfRow({ group }: { group: ShelfGroup }) {
 
 export function AcademicShelvesSection() {
   const { data: books, loading, error } = useApi<Book[]>("/api/books");
+  const { data: me } = useApi<{ user: { role: UserRole } }>("/api/auth/me");
+  const canRequestBorrow = me?.user ? canAccess(me.user, "loans.request") : false;
 
   const shelves = useMemo(() => groupByGenre(books ?? []), [books]);
 
@@ -277,7 +290,7 @@ export function AcademicShelvesSection() {
         </p>
       </div>
       {shelves.map((group) => (
-        <ShelfRow key={group.genre} group={group} />
+        <ShelfRow key={group.genre} group={group} canRequestBorrow={canRequestBorrow} />
       ))}
     </section>
   );

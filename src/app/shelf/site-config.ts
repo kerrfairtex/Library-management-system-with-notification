@@ -2,14 +2,14 @@ export const siteConfig = {
   title: "TRAC Library — 3D Bookshelf",
   applicationName: "TRAC Library",
   description:
-    "Browse the TRAC Library collection on a tactile 3D bookshelf. Pull a book forward to see details and borrow it.",
+    "Browse the TRAC Library collection on a tactile 3D bookshelf. Pull a book forward to see details and request to borrow it.",
   wordmark: "TRAC LIBRARY",
   collectionName: "INTERACTIVE 3D BOOKSHELF",
   editionEyebrow: "LIBRARY EDITION",
   coverImprint: "TRAC LIBRARY",
   coverTagline: "SMARTCAMP-K12",
   spineMark: "TL",
-  bookLinkLabel: "Borrow this book",
+  bookLinkLabel: "Request to Borrow",
   socialImageAlt:
     "TRAC Library interactive 3D bookshelf, with procedural hardcovers and one book pulled forward on a walnut shelf.",
   independentNote:

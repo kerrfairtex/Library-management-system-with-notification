@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
+import { getBorrowRequests } from "@/lib/store";
 
 /*
  * GET /api/my-loans — self-service view for the signed-in member:
@@ -23,7 +24,7 @@ export async function GET() {
     }
     const memberId = (me as { id: string }).id;
 
-    const [loans, holds, fines] = await Promise.all([
+    const [loans, holds, borrowRequests, fines] = await Promise.all([
       db(supabase)
         .from("loans")
         .select("*, books(title, author, isbn)")
@@ -35,6 +36,7 @@ export async function GET() {
         .eq("member_id", memberId)
         .in("status", ["pending", "ready"])
         .order("placed_at", { ascending: true }),
+      getBorrowRequests(memberId),
       db(supabase)
         .from("fines")
         .select("*")
@@ -46,6 +48,7 @@ export async function GET() {
     return NextResponse.json({
       loans: loans.data ?? [],
       holds: holds.data ?? [],
+      borrowRequests: borrowRequests ?? [],
       fines: fines.data ?? [],
     });
   } catch (error) {

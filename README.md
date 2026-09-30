@@ -61,7 +61,7 @@ This inserts (and updates on re-run):
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Student | `student@gmail.com` | `studentk123` |
+| Student | `student@gmail.com` | `student123` |
 | Librarian | `librarian@gmail.com` | `librarian123` |
 | Admin | `admin@gmail.com` | `admin123` |
 

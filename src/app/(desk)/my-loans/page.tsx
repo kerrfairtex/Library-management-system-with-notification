@@ -36,6 +36,17 @@ type MyFine = {
   created_at: string;
 };
 
+type MyBorrowRequest = {
+  id: string;
+  book_id: string;
+  kind: string;
+  status: string;
+  priority: number;
+  placed_at: string;
+  expires_at: string | null;
+  books: { title: string } | null;
+};
+
 function peso(n: string | number) {
   return `₱${Number(n).toFixed(2)}`;
 }
@@ -44,11 +55,13 @@ export default function MyLoansPage() {
   const { data, loading, error } = useApi<{
     loans: MyLoan[];
     holds: MyHold[];
+    borrowRequests: MyBorrowRequest[];
     fines: MyFine[];
   }>("/api/my-loans");
 
   const loans = data?.loans ?? [];
   const holds = data?.holds ?? [];
+  const borrowRequests = data?.borrowRequests ?? [];
   const fines = data?.fines ?? [];
   const open = loans.filter((l) => !l.returned_at);
   const totalOwed = fines.reduce((s, f) => s + Number(f.amount_outstanding), 0);
@@ -83,6 +96,10 @@ export default function MyLoansPage() {
           >
             {peso(totalOwed)}
           </p>
+        </section>
+        <section className="circ-card">
+          <h3>Borrow requests</h3>
+          <p style={{ fontSize: "1.6rem", fontWeight: 700 }}>{borrowRequests.length}</p>
         </section>
       </div>
 
@@ -150,6 +167,65 @@ export default function MyLoansPage() {
                 <td>{formatDate(h.placed_at)}</td>
                 <td>#{h.priority}</td>
                 <td><span className={`chip chip-${h.status}`}>{h.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* Borrow Requests */}
+      <section className="koha-table-wrap" style={{ marginBottom: "1.25rem" }}>
+        <table className="koha-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Requested on</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {borrowRequests.length === 0 && (
+              <tr><td colSpan={4}>No borrow requests yet.</td></tr>
+            )}
+            {borrowRequests.map((r: MyBorrowRequest) => (
+              <tr key={r.id}>
+                <td><strong>{r.books?.title ?? "Unknown title"}</strong></td>
+                <td>{formatDate(r.placed_at)}</td>
+                <td>
+                  <span className={`chip chip-${
+                    r.status === "pending" ? "overdue"
+                    : r.status === "ready" ? "available"
+                    : r.status === "fulfilled" ? "available"
+                    : r.status === "rejected" ? "overdue"
+                    : "tone-info"
+                  }`}>
+                    {r.status}
+                  </span>
+                </td>
+                <td>
+                  {r.status === "pending" && (
+                    <button
+                      type="button"
+                      className="btn-koha secondary"
+                      style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
+                      onClick={async () => {
+                        try {
+                          await fetch("/api/borrow-requests", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: r.id, action: "cancel" }),
+                          });
+                          window.location.reload();
+                        } catch (e) {
+                          window.alert("Failed to cancel request.");
+                        }
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

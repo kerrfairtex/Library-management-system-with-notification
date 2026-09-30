@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, PublicUser } from "@/lib/types";
@@ -29,6 +30,7 @@ export default function BooksPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const canManageBooks = canAccess(me?.user, "books.write");
+  const canRequestBorrow = canAccess(me?.user, "loans.request");
 
   useEffect(() => {
     if (!canManageBooks) setOpen(false);
@@ -192,24 +194,34 @@ export default function BooksPage() {
                     </td>
                     <td>{book.publishedYear}</td>
                     <td>
-                      {canManageBooks && (
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => openEdit(book)}
+                      <div className="flex justify-end gap-2">
+                        {canManageBooks && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => openEdit(book)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger"
+                              onClick={() => onDelete(book.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                        {canRequestBorrow && !canManageBooks && (
+                          <Link
+                            href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
+                            className="btn btn-primary"
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-danger"
-                            onClick={() => onDelete(book.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                            Request to Borrow
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -226,14 +238,12 @@ export default function BooksPage() {
       >
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
-          {(
-            [
-              ["title", "Title"],
-              ["author", "Author"],
-              ["isbn", "ISBN"],
-              ["genre", "Genre"],
-            ] as const
-          ).map(([key, label]) => (
+          {([
+            ["title", "Title"],
+            ["author", "Author"],
+            ["isbn", "ISBN"],
+            ["genre", "Genre"],
+          ] as const).map(([key, label]) => (
             <div key={key}>
               <label className="label" htmlFor={key}>
                 {label}

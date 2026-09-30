@@ -9,11 +9,12 @@ export type AppCapability =
   | "members.read"
   | "members.write"
   | "loans.manage"
+  | "loans.request"
   | "notifications.read"
   | "staff.manage";
 
 const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
-  student: ["dashboard.read", "books.read", "notifications.read", "loans.read.own", "holds.place"],
+  student: ["dashboard.read", "books.read", "notifications.read", "loans.read.own", "holds.place", "loans.request"],
   librarian: [
     "dashboard.read",
     "books.read",

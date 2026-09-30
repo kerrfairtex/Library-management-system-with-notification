@@ -77,6 +77,22 @@ export type Loan = {
   status: LoanStatus;
 };
 
+export type Hold = {
+  id: string;
+  bookId: string;
+  memberId: string;
+  /** 'hold' = reservation; 'borrow_request' = student borrow request awaiting approval. */
+  kind: "hold" | "borrow_request";
+  status: "pending" | "ready" | "fulfilled" | "cancelled" | "expired" | "approved" | "rejected";
+  priority: number;
+  pickupBranch: string | null;
+  placedAt: string;
+  expiresAt: string | null;
+  /** Loan created when this hold/request is checked out to the patron. */
+  fulfilledLoanId: string | null;
+  cancelledReason: string | null;
+};
+
 export type NotificationType =
   | "overdue"
   | "hold_ready"
@@ -87,7 +103,10 @@ export type NotificationType =
   | "checked_out"
   | "book_added"
   | "member_added"
-  | "low_stock";
+  | "low_stock"
+  | "borrow_request_submitted"
+  | "borrow_request_approved"
+  | "borrow_request_rejected";
 
 export type Notification = {
   id: string;

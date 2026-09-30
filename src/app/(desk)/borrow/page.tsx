@@ -169,7 +169,7 @@ function BorrowInner() {
       </section>
 
       {!canManage ? (
-        <StudentHoldPanel bookId={book.id} available={available} />
+        <StudentBorrowPanel bookId={book.id} bookTitle={book.title} available={available} />
       ) : !available ? (
         <section className="circ-card">
           <p>All copies are currently checked out.</p>
@@ -246,9 +246,30 @@ export default function BorrowPage() {
 }
 
 
-function StudentHoldPanel({ bookId, available }: { bookId: string; available: boolean }) {
+function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; bookTitle: string; available: boolean }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  async function requestToBorrow() {
+    setState("busy");
+    setMessage("");
+    try {
+      const res = await fetch("/api/borrow-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Could not submit request.");
+      setState("done");
+      setMessage(
+        `Request submitted. Status: Pending librarian approval. We'll notify you when it's ready.`
+      );
+    } catch (err) {
+      setState("error");
+      setMessage(err instanceof Error ? err.message : "Could not submit request.");
+    }
+  }
 
   async function placeHold() {
     setState("busy");
@@ -283,16 +304,40 @@ function StudentHoldPanel({ bookId, available }: { bookId: string; available: bo
 
   return (
     <section className="circ-card">
-      <p>
-        {available
-          ? "A copy is on the shelf! Bring this page to the library desk to borrow it now."
-          : "All copies are out — place a hold and we'll keep your spot in the queue."}
-      </p>
-      <button type="button" className="btn-koha" onClick={placeHold} disabled={state === "busy"}>
-        {state === "busy" ? "Placing…" : "Place a hold"}
-      </button>
+      {available ? (
+        <>
+          <p>This book is currently available. Request it and a librarian will approve it for pickup.</p>
+          <button
+            type="button"
+            className="btn-koha"
+            onClick={requestToBorrow}
+            disabled={state === "busy"}
+          >
+            {state === "busy" ? "Submitting…" : "Request to Borrow"}
+          </button>
+          <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.5rem" }}>
+            Or{" "}
+            <button
+              type="button"
+              className="btn-koha secondary"
+              onClick={placeHold}
+              disabled={state === "busy"}
+              style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
+            >
+              Place a hold for later
+            </button>
+          </p>
+        </>
+      ) : (
+        <>
+          <p>All copies are out — place a hold and we'll keep your spot in the queue.</p>
+          <button type="button" className="btn-koha" onClick={placeHold} disabled={state === "busy"}>
+            {state === "busy" ? "Placing…" : "Place a hold"}
+          </button>
+        </>
+      )}
       {state === "error" && (
-        <p className="chip chip-overdue" style={{ marginLeft: "0.6rem" }}>{message}</p>
+        <p className="chip chip-overdue" style={{ marginTop: "0.5rem" }}>{message}</p>
       )}
     </section>
   );
