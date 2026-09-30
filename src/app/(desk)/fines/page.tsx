@@ -7,6 +7,7 @@
 import { useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
+import { canAccess } from "@/lib/permissions";
 
 type Fine = {
   id: string;
@@ -24,6 +25,8 @@ function peso(n: string | number) {
 }
 
 export default function FinesPage() {
+  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ fines: Fine[] }>("/api/fines");
   const { data: membersData } = useApi<{ members: { id: string; name: string }[] }>("/api/members");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -47,6 +50,19 @@ export default function FinesPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  if (!canManage) {
+    return (
+      <div>
+        <div className="page-head">
+          <h1 className="page-title">Fines desk</h1>
+        </div>
+        <section className="circ-card">
+          <p>This page is only available to librarians and admins.</p>
+        </section>
+      </div>
+    );
   }
 
   return (

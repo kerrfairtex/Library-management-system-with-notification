@@ -9,16 +9,32 @@ import Link from "next/link";
 import { useApi } from "@/lib/hooks";
 import type { Loan } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
+import { canAccess } from "@/lib/permissions";
 
 type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
 export default function CirculationHomePage() {
+  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data: loansPage, loading } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
   const loans = loansPage?.data ?? [];
   const open = loans.filter((l) => l.status !== "returned");
   const overdue = open.filter(
     (l) => deriveLoanStatus({ status: l.status, due_at: l.dueAt }) === "overdue"
   );
+
+  if (!canManage) {
+    return (
+      <div>
+        <div className="page-head">
+          <h1 className="page-title">Circulation</h1>
+        </div>
+        <section className="circ-card">
+          <p>This page is only available to librarians and admins.</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div>

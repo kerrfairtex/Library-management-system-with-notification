@@ -31,13 +31,12 @@ const primaryNav: { href: string; label: string; icon?: string; capability: stri
 const moreNav = [
   { href: "/my-loans", label: "My record" },
   { href: "/about", label: "About & Privacy" },
-  { href: "/books/new", label: "Cataloging" },
   { href: "/notifications", label: "Notifications" },
-  { href: "/holds", label: "Holds queue" },
-  { href: "/fines", label: "Fines desk" },
-  { href: "/staff", label: "Administration" },
+  { href: "/holds", label: "Holds queue", capability: "loans.manage" },
+  { href: "/fines", label: "Fines desk", capability: "loans.manage" },
+  { href: "/staff", label: "Administration", capability: "staff.manage" },
   { href: "/profile", label: "My profile" },
-] as const;
+];
 
 export function KohaShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -111,7 +110,7 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
               {moreOpen && (
                 <div className="koha-dropdown koha-dropdown-dark">
                   {moreNav.map((item) => {
-                    if (item.label === "Administration" && !can("staff.manage")) return null;
+                    if (item.capability && !can(item.capability)) return null;
                     return (
                       <Link
                         key={item.href}

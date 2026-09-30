@@ -11,8 +11,11 @@ import { useApi } from "@/lib/hooks";
 import type { Book, Loan, Member } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { formatDate } from "@/lib/utils";
+import { canAccess } from "@/lib/permissions";
 
 export default function CheckoutPage() {
+  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
   const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
@@ -85,6 +88,19 @@ export default function CheckoutPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!canManage) {
+    return (
+      <div>
+        <div className="page-head">
+          <h1 className="page-title">Check out</h1>
+        </div>
+        <section className="circ-card">
+          <p>This page is only available to librarians and admins.</p>
+        </section>
+      </div>
+    );
   }
 
   return (

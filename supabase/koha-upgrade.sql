@@ -137,3 +137,99 @@ drop trigger if exists trg_loans_sync_avail on public.loans;
 create trigger trg_loans_sync_avail
 after insert or update or delete on public.loans
 for each row execute function public.sync_book_availability();
+
+-- ══════════════════════════════════════════════════════════════════════
+-- BORROW REQUESTS (student → librarian approval → checkout workflow)
+-- Extends the existing holds table so borrow requests reuse the same
+-- table, indexes, and foreign keys but are distinguished by `kind`.
+-- Idempotent; safe to re-run.
+-- ══════════════════════════════════════════════════════════════════════
+
+-- Distinguish ordinary holds from student borrow requests.
+do $$ begin
+  alter table public.holds add column if not exists kind text not null default 'hold';
+exception when others then raise notice 'holds.kind column: %', sqlerrm;
+end $$;
+
+-- Constrain kind values.
+do $$ begin
+  alter table public.holds
+    drop constraint if exists holds_kind_check;
+  alter table public.holds
+    add constraint holds_kind_check
+    check (kind in ('hold', 'borrow_request'));
+exception when others then raise notice 'holds_kind_check: %', sqlerrm;
+end $$;
+
+-- Backfill existing rows as ordinary holds.
+update public.holds set kind = 'hold' where kind is null or kind = '';
+
+-- Extend the status vocabulary so borrow requests can be approved/rejected.
+-- Drop the inline check the koha-upgrade creates on first run, then add a
+-- named one with the expanded vocabulary so re-runs stay idempotent.
+do $$
+declare
+  v_conname text;
+begin
+  select c.conname into v_conname
+  from pg_constraint c
+  join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+  where c.conrelid = 'public.holds'::regclass
+    and c.contype = 'c'
+    and a.attname = 'status';
+  if v_conname is not null then
+    execute format('alter table public.holds drop constraint %I', v_conname);
+  end if;
+end $$;
+
+alter table public.holds add constraint holds_status_check
+  check (status in ('pending', 'ready', 'fulfilled', 'cancelled', 'expired', 'rejected'));
+
+-- Prevent a student from stacking duplicate open requests and holds for the
+-- same title. Covers: pending/ready holds (existing), pending borrow requests,
+-- and approved borrow requests (ready for pickup). Rejected/cancelled/fulfilled
+-- rows may be resubmitted if the patron wants to try again.
+drop index if exists holds_one_open_per_member;
+create unique index if not exists holds_one_open_per_member
+  on public.holds (book_id, member_id)
+  where status in ('pending', 'ready', 'approved');
+
+-- Keep the new vocabulary in sync on the shared-cluster trac_library mirror.
+do $$ begin
+  alter table trac_library.holds add column if not exists kind text not null default 'hold';
+exception when others then raise notice 'trac_library.holds.kind column: %', sqlerrm;
+end $$;
+
+do $$ begin
+  alter table trac_library.holds
+    drop constraint if exists holds_kind_check;
+  alter table trac_library.holds
+    add constraint holds_kind_check
+    check (kind in ('hold', 'borrow_request'));
+exception when others then raise notice 'trac_library.holds_kind_check: %', sqlerrm;
+end $$;
+
+update trac_library.holds set kind = 'hold' where kind is null or kind = '';
+
+do $$
+declare
+  v_conname text;
+begin
+  select c.conname into v_conname
+  from pg_constraint c
+  join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+  where c.conrelid = 'trac_library.holds'::regclass
+    and c.contype = 'c'
+    and a.attname = 'status';
+  if v_conname is not null then
+    execute format('alter table trac_library.holds drop constraint %I', v_conname);
+  end if;
+end $$;
+
+alter table trac_library.holds add constraint holds_status_check
+  check (status in ('pending', 'ready', 'fulfilled', 'cancelled', 'expired', 'rejected'));
+
+drop index if exists trac_library.holds_one_open_per_member;
+create unique index if not exists holds_one_open_per_member
+  on trac_library.holds (book_id, member_id)
+  where status in ('pending', 'ready', 'approved');

@@ -10,6 +10,7 @@ import { useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useState } from "react";
+import { canAccess } from "@/lib/permissions";
 
 type HoldRow = {
   id: string;
@@ -23,6 +24,8 @@ type HoldRow = {
 };
 
 export default function HoldsPage() {
+  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
   const requestsApi = useApi<{ requests: HoldRow[] }>("/api/borrow-requests");
   const requestsData = requestsApi?.data;
@@ -79,6 +82,19 @@ export default function HoldsPage() {
         : "chip chip-tone-info";
     }
     return `chip chip-${status}`;
+  }
+
+  if (!canManage) {
+    return (
+      <div>
+        <div className="page-head">
+          <h1 className="page-title">Holds & borrow requests</h1>
+        </div>
+        <section className="circ-card">
+          <p>This page is only available to librarians and admins.</p>
+        </section>
+      </div>
+    );
   }
 
   return (

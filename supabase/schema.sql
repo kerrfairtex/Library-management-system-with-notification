@@ -526,3 +526,31 @@ begin
   return next;
 end;
 $$;
+
+
+-- ── Holds & borrow requests ─────────────────────────────────────────────────
+-- The borrowing workflow stores both holds and borrow requests in this table,
+-- distinguished by the `kind` column ('hold' vs 'borrow_request').
+create table if not exists public.holds (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references public.books (id) on delete cascade,
+  member_id uuid not null references public.members (id) on delete cascade,
+  kind text not null default 'hold' check (kind in ('hold', 'borrow_request')),
+  status text not null default 'pending'
+    check (status in ('pending', 'ready', 'fulfilled', 'cancelled', 'expired', 'rejected')),
+  priority integer not null default 1,
+  pickup_branch text not null default 'MAIN',
+  placed_at timestamptz not null default now(),
+  expires_at timestamptz,
+  fulfilled_loan_id uuid references public.loans (id) on delete set null,
+  cancelled_reason text
+);
+
+create index if not exists holds_book_queue_idx on public.holds (book_id, priority)
+  where status in ('pending', 'ready');
+create index if not exists holds_member_idx on public.holds (member_id);
+
+-- One open hold/request per member per title.
+create unique index if not exists holds_one_open_per_member
+  on public.holds (book_id, member_id)
+  where status in ('pending', 'ready', 'approved');

@@ -765,3 +765,47 @@ alter table trac_library.holds enable row level security;
 alter table trac_library.notifications enable row level security;
 alter table trac_library.book_items enable row level security;
 -- No policies created: RLS with zero policies = deny-all for non-service roles.
+
+-- ══════════════════════════════════════════════════════════════════════
+-- BORROW REQUESTS — trac_library mirror ( mirrors koha-upgrade.sql changes
+-- for the shared-cluster deployment that uses the trac_library schema).
+-- ══════════════════════════════════════════════════════════════════════
+
+do $$ begin
+  alter table trac_library.holds add column if not exists kind text not null default 'hold';
+exception when others then raise notice 'trac_library.holds.kind column: %', sqlerrm;
+end $$;
+
+do $$ begin
+  alter table trac_library.holds
+    drop constraint if exists holds_kind_check;
+  alter table trac_library.holds
+    add constraint holds_kind_check
+    check (kind in ('hold', 'borrow_request'));
+exception when others then raise notice 'trac_library.holds_kind_check: %', sqlerrm;
+end $$;
+
+update trac_library.holds set kind = 'hold' where kind is null or kind = '';
+
+do $$
+declare
+  v_conname text;
+begin
+  select c.conname into v_conname
+  from pg_constraint c
+  join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+  where c.conrelid = 'trac_library.holds'::regclass
+    and c.contype = 'c'
+    and a.attname = 'status';
+  if v_conname is not null then
+    execute format('alter table trac_library.holds drop constraint %I', v_conname);
+  end if;
+end $$;
+
+alter table trac_library.holds add constraint holds_status_check
+  check (status in ('pending', 'ready', 'fulfilled', 'cancelled', 'expired', 'rejected'));
+
+drop index if exists trac_library.holds_one_open_per_member;
+create unique index if not exists holds_one_open_per_member
+  on trac_library.holds (book_id, member_id)
+  where status in ('pending', 'ready', 'approved');
