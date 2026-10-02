@@ -17,3 +17,4 @@ services:
   # Empty means the shelf uses /borrow on the same origin.
   - key: NEXT_PUBLIC_LIBRARY_ORIGIN
     value: ""
+# Force rebuild: 2026-10-03T07:19:32.915309
