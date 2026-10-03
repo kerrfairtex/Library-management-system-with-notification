@@ -13,6 +13,9 @@ import type { Book, Loan, Member } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type CheckinResult = {
   title: string;
   author: string;

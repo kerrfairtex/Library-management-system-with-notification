@@ -9,6 +9,9 @@ import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type Fine = {
   id: string;
   member_id: string;

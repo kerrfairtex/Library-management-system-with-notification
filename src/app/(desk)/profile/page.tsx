@@ -8,6 +8,9 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type ProfileUser = PublicUser & { createdAt: string };
 
 export default function ProfilePage() {

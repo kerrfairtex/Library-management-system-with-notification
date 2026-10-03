@@ -11,6 +11,9 @@ import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import Link from "next/link";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type MyLoan = {
   id: string;
   book_id: string;

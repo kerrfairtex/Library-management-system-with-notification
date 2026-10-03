@@ -7,6 +7,9 @@ import type { Book, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 const emptyForm = {
   title: "",
   author: "",

@@ -12,6 +12,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type HoldRow = {
   id: string;
   book_id: string;

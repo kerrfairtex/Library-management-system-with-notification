@@ -8,6 +8,9 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { daysUntil, formatDate, overdueFine } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 export default function LoansPage() {
   const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const {

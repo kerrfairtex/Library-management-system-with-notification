@@ -13,6 +13,9 @@ import { deriveLoanStatus } from "@/lib/loan-status";
 import { formatDate } from "@/lib/utils";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 export default function CheckoutPage() {
   const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;

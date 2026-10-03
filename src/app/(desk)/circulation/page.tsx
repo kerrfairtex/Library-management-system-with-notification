@@ -11,6 +11,9 @@ import type { Loan } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
 export default function CirculationHomePage() {

@@ -10,6 +10,9 @@ import { useApi } from "@/lib/hooks";
 import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess } from "@/lib/permissions";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 export default function ReportsPage() {
   const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;

@@ -7,6 +7,9 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 const emptyForm = {
   name: "",
   email: "",
