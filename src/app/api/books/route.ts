@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     const books = await listBooks();
-    return NextResponse.json(books);
+    return NextResponse.json({ books });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load books." },
