@@ -16,6 +16,9 @@ import type { Book, Loan, Member, PublicUser } from "@/lib/types";
 import { canAccess, type AppCapability } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 
+// Force dynamic rendering - this page needs session and database access
+export const dynamic = "force-dynamic";
+
 function BorrowInner() {
   const searchParams = useSearchParams();
   const isbn = searchParams.get("isbn") ?? "";
