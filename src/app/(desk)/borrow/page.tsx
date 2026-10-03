@@ -17,6 +17,7 @@ import { canAccess, type AppCapability } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 
 // Force dynamic rendering - this page needs session and database access
+// DEPLOY TRIGGER: 2026-10-03T15:30:00
 export const dynamic = "force-dynamic";
 
 function BorrowInner() {
