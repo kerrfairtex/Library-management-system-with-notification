@@ -1,3 +1,4 @@
+// Force rebuild: 2026-10-03T09:02:55.455202
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { supabase } from "@/lib/supabase";
