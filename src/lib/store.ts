@@ -918,6 +918,7 @@ export async function createBorrowRequest(bookId: string, memberId: string) {
     .select("id")
     .eq("book_id", bookId)
     .eq("member_id", memberId)
+    .eq("kind", "borrow_request")
     .in("status", ["pending", "ready", "approved"])
     .maybeSingle();
 
