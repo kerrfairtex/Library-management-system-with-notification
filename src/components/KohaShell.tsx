@@ -19,9 +19,19 @@ import { apiJson, useApi } from "@/lib/hooks";
 /* Top-nav modules — mirrors Koha's header.inc nav items */
 const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://library-cp22.onrender.com/shelf";
 
-const primaryNav: { href: string; label: string; icon?: string; capability: string }[] = [
+const primaryNav: { href: string; label: string; icon?: string; capability: string; children?: { href: string; label: string; capability: string }[] }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },
-  { href: "/circulation", label: "Circulation", icon: "⇄", capability: "loans.manage" },
+  { 
+    href: "/circulation", 
+    label: "Circulation", 
+    icon: "⇄", 
+    capability: "loans.manage",
+    children: [
+      { href: "/circulation", label: "Overview", capability: "loans.manage" },
+      { href: "/circulation/checkout", label: "Check out", capability: "loans.manage" },
+      { href: "/circulation/checkin", label: "Check in", capability: "loans.manage" },
+    ]
+  },
   { href: "/books", label: "Search", icon: "🔍", capability: "books.read" },
   { href: "/members", label: "Patrons", icon: "👤", capability: "members.read" },
   { href: "/reports", label: "Reports", icon: "📊", capability: "dashboard.read" },
@@ -75,22 +85,51 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
           <nav className={`koha-nav ${mobileOpen ? "open" : ""}`}>
             {primaryNav.map((item) => {
               if (!can(item.capability)) return null;
-              const active =
-                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const hasChildren = item.children && item.children.length > 0;
+              const isActive = hasChildren
+                ? pathname.startsWith(item.href)
+                : item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+              const [isSubOpen, setSubOpen] = useState(false);
+              
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`koha-nav-link ${active ? "active" : ""}`}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item.icon && (
-                    <span className="koha-nav-icon" aria-hidden>
-                      {item.icon}
-                    </span>
+                <div key={item.href} className="koha-nav-item">
+                  <Link
+                    href={hasChildren ? item.href : item.href}
+                    className={`koha-nav-link ${isActive ? "active" : ""}`}
+                    onClick={() => {
+                      if (!hasChildren) setMobileOpen(false);
+                      setSubOpen(!isSubOpen);
+                    }}
+                  >
+                    {item.icon && (
+                      <span className="koha-nav-icon" aria-hidden>
+                        {item.icon}
+                      </span>
+                    )}
+                    {item.label}
+                    {hasChildren && <span className="koha-nav-chevron">{isSubOpen ? "▲" : "▼"}</span>}
+                  </Link>
+                  {hasChildren && isSubOpen && (
+                    <div className="koha-submenu">
+                      {item.children!.map((child) => {
+                        if (!can(child.capability)) return null;
+                        const childActive = pathname === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`koha-submenu-item ${childActive ? "active" : ""}`}
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                  {item.label}
-                </Link>
+                </div>
               );
             })}
 
