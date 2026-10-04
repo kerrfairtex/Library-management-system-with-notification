@@ -652,7 +652,7 @@ export default function UserGuidelinesPage() {
           <p style={{ lineHeight: 1.7 }}>
             <strong>Route:</strong> <Link href="/about" style={{ color: "#1f7a5c" }}>/about</Link>
           </p>
-          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Contains: system description, feature list, who can use it, circulation rules at a glance, contact details (Kerr Fairtex, phone: 0963 713 0812, Facebook, TikTok), and the full privacy policy (8 sections: information collected, use, what we do NOT do, cookies, data sharing, retention &amp; rights, security, changes &amp; contact).</p>
+          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Contains: system description, feature list, who can use it, circulation rules at a glance, contact details (phone: 0963 713 0812), and the full privacy policy (8 sections: information collected, use, what we do NOT do, cookies, data sharing, retention & rights, security, changes & contact).</p>
         </section>
 
         {/* ─ Section 27: Troubleshooting ─ */}
@@ -710,11 +710,21 @@ export default function UserGuidelinesPage() {
           </div>
           <div>
             <p style={{ fontWeight: 700, color: "#fff", margin: "0 0 0.5rem" }}>Contact</p>
-            <p style={{ margin: 0 }}>Kerr Fairtex — developer<br />0963 713 0812</p>
+            <p style={{ margin: 0 }}>0963 713 0812</p>
           </div>
         </div>
         <div style={{ maxWidth: 1200, margin: "1.5rem auto 0", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1rem", textAlign: "center" }}>
-          <p style={{ margin: 0 }}>© {new Date().getFullYear()} TRAC Library. Source: <Link href="/docs/USER_GUIDE.md" style={{ color: "#1f7a5c" }}>docs/USER_GUIDE.md</Link></p>
+          <p style={{ margin: "0 0 0.5rem" }}>
+            <strong>Developers</strong>
+          </p>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1rem" }}>
+            <li>Aisha W. Daluddin</li>
+            <li>Analyn L. Husain</li>
+            <li>Lowza A. Abdul</li>
+            <li>Dainel M. Al-basri</li>
+            <li>Adzlina A. Sahidjuan</li>
+          </ul>
+          <p style={{ margin: "1rem 0 0 0" }}>© {new Date().getFullYear()} TRAC Library. Source: <Link href="/docs/USER_GUIDE.md" style={{ color: "#1f7a5c" }}>docs/USER_GUIDE.md</Link></p>
         </div>
       </footer>
     </div>

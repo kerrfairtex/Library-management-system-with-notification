@@ -88,15 +88,19 @@ export default function AboutPage() {
         </dl>
       </Section>
 
-      <Section title="Contact & developer">
-        <p>
-          Developed and maintained by{" "}
-          <a href={FB} target="_blank" rel="noreferrer noopener"><strong>Kerr Fairtex</strong></a>.
-        </p>
+      <Section title="Contact & developers">
         <ul>
           <li>Contact number: <a href={`tel:${PHONE}`}>0963 713 0812</a></li>
-          <li>Facebook: <a href={FB} target="_blank" rel="noreferrer noopener">Kerr Fairtex</a></li>
-          <li>TikTok: <a href={TIKTOK} target="_blank" rel="noreferrer noopener">@kerrsmatters (Kerr&apos;s Matter)</a></li>
+        </ul>
+        <p style={{ marginTop: "0.75rem" }}>
+          <strong>Developers</strong>
+        </p>
+        <ul>
+          <li>Aisha W. Daluddin</li>
+          <li>Analyn L. Husain</li>
+          <li>Lowza A. Abdul</li>
+          <li>Dainel M. Al-basri</li>
+          <li>Adzlina A. Sahidjuan</li>
         </ul>
         <p style={{ marginTop: "0.75rem" }}>
           Ready to explore? <Link href="/books">Search the catalog →</Link>
@@ -186,10 +190,17 @@ export default function AboutPage() {
           concerns:
         </p>
         <ul>
-          <li>Kerr Fairtex — developer</li>
           <li>Phone: <a href={`tel:${PHONE}`}>0963 713 0812</a></li>
-          <li>Facebook: <a href={FB} target="_blank" rel="noreferrer noopener">facebook.com/share/1EMjsmK2Cu/</a></li>
-          <li>TikTok: <a href={TIKTOK} target="_blank" rel="noreferrer noopener">@kerrsmatters</a></li>
+        </ul>
+        <p style={{ marginTop: "0.75rem" }}>
+          <strong>Developers</strong>
+        </p>
+        <ul>
+          <li>Aisha W. Daluddin</li>
+          <li>Analyn L. Husain</li>
+          <li>Lowza A. Abdul</li>
+          <li>Dainel M. Al-basri</li>
+          <li>Adzlina A. Sahidjuan</li>
         </ul>
       </Section>
 

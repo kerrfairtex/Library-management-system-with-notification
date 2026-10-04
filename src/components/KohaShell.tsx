@@ -189,27 +189,25 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
           Sciences, Bongao, Tawi-Tawi
         </p>
         <nav className="koha-footer-links" aria-label="About and privacy">
-          <Link href="/about">About</Link>
-          <span aria-hidden>·</span>
-          <Link href="/about#privacy">Privacy Policy</Link>
-          <span aria-hidden>·</span>
-          <a href="https://www.facebook.com/share/1EMjsmK2Cu/" target="_blank" rel="noreferrer noopener">
-            Kerr Fairtex
-          </a>
-          <span aria-hidden>·</span>
-          <a href="https://www.tiktok.com/@kerrsmatters?_r=1&_t=ZS-997ZGDLtD9t" target="_blank" rel="noreferrer noopener">
-            TikTok: Kerr&apos;s Matter
-          </a>
-          <span aria-hidden>·</span>
-          <a href="tel:+639637130812">0963 713 0812</a>
-        </nav>
-        <p className="koha-footer-fine">
-          © {new Date().getFullYear()} TRAC Library. Developed by{" "}
-          <a href="https://www.facebook.com/share/1EMjsmK2Cu/" target="_blank" rel="noreferrer noopener">
-            Kerr Fairtex
-          </a>
-          . 3D bookshelf powered by Three.js.
-        </p>
+                  <Link href="/about">About</Link>
+                  <span aria-hidden>·</span>
+                  <Link href="/about#privacy">Privacy Policy</Link>
+                  <span aria-hidden>·</span>
+                  <a href="tel:+639****0812">0963 713 0812</a>
+                </nav>
+                <div className="koha-footer-developers">
+                  <p className="koha-footer-dev-title">Developers</p>
+                  <ul>
+                    <li>Aisha W. Daluddin</li>
+                    <li>Analyn L. Husain</li>
+                    <li>Lowza A. Abdul</li>
+                    <li>Dainel M. Al-basri</li>
+                    <li>Adzlina A. Sahidjuan</li>
+                  </ul>
+                </div>
+                <p className="koha-footer-fine">
+                  © {new Date().getFullYear()} TRAC Library. 3D bookshelf powered by Three.js.
+                </p>
       </footer>
     </div>
   );
