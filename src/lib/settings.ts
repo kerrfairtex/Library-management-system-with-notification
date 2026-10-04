@@ -102,8 +102,8 @@ export async function getCirculationSettings(
   };
   
   const result: CirculationSettings = { ...defaults };
-  for (const [settingKey, value] of Object.entries(settings)) {
-    const settingKey = settingKey.replace("circulation.", "");
+  for (const [key, value] of Object.entries(settings)) {
+    const settingKey = key.replace("circulation.", "");
     if (settingKey in defaults) {
       if (Array.isArray(value)) {
         (result as Record<string, unknown>)[settingKey] = value;
