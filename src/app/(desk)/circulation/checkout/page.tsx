@@ -13,25 +13,30 @@ import { deriveLoanStatus } from "@/lib/loan-status";
 import { formatDate } from "@/lib/utils";
 import { canAccess } from "@/lib/permissions";
 
-// Force dynamic rendering - this page needs session and database access
-export const dynamic = "force-dynamic";
-
 export default function CheckoutPage() {
   const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
   const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
+  const { data: settingsData } = useApi<{
+    max_active_loans_per_member: number;
+    loan_period_days: number;
+    loan_period_options: number[];
+    max_loan_days: number;
+  }>("/api/settings/circulation");
 
   const [query, setQuery] = useState("");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [days, setDays] = useState(14);
+  const [days, setDays] = useState(settingsData?.loan_period_days ?? 14);
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const books = booksData?.books ?? [];
   const members = membersData?.members ?? [];
   const loans = loansData?.data ?? [];
+  const loanCap = settingsData?.max_active_loans_per_member ?? 3;
+  const loanPeriodOptions = settingsData?.loan_period_options ?? [7, 14, 21, 30];
 
   const bookMatches = useMemo(() => {
     if (query.trim().length < 2) return [];
@@ -62,7 +67,6 @@ export default function CheckoutPage() {
   const memberLoans = loans.filter(
     (l) => selectedMember && l.memberId === selectedMember.id && l.status !== "returned"
   );
-  const loanCap = 3;
 
   async function checkout(bookId: string) {
     if (!selectedMember) return;
@@ -141,7 +145,7 @@ export default function CheckoutPage() {
           onChange={(e) => setDays(Number(e.target.value))}
           style={{ padding: "0.45rem", borderRadius: 6 }}
         >
-          {[7, 14, 21, 30].map((d) => (
+          {loanPeriodOptions.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
@@ -182,7 +186,7 @@ export default function CheckoutPage() {
               {memberMatches.map((m) => (
                 <tr key={m.id}>
                   <td>
-                    <strong>{m.name}</strong>{" "}
+                    <strong>{m.name}</strong> {" "}
                     <span style={{ opacity: 0.7 }}>· {m.studentId ?? m.email}</span>
                   </td>
                   <td>{m.memberType}</td>
@@ -203,7 +207,7 @@ export default function CheckoutPage() {
         <>
           <section className="circ-card" style={{ marginBottom: "1rem" }}>
             <h3>
-              {selectedMember.name} · {selectedMember.memberType} ·{" "}
+              {selectedMember.name} · {selectedMember.memberType} · {" "}
               {memberLoans.length}/{loanCap} loans
             </h3>
           </section>

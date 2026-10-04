@@ -554,3 +554,45 @@ create index if not exists holds_member_idx on public.holds (member_id);
 create unique index if not exists holds_one_open_per_member
   on public.holds (book_id, member_id)
   where status in ('pending', 'ready', 'approved');
+
+-- ── Admin Settings ─────────────────────────────────────────────────────────
+-- Key-value store for admin-configurable library policies.
+-- All values stored as JSON for type flexibility.
+create table if not exists public.settings (
+  key text primary key,
+  value jsonb not null,
+  description text,
+  category text not null,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.users (id)
+);
+
+-- Default circulation settings (match current hardcoded values)
+insert into public.settings (key, value, description, category) values
+  ('circulation.max_active_loans_per_member', '3', 'Maximum active loans per member', 'circulation'),
+  ('circulation.loan_period_days', '14', 'Default loan period in days', 'circulation'),
+  ('circulation.loan_period_options', '[7, 14, 21, 30]', 'Available loan period options (JSON array)', 'circulation'),
+  ('circulation.max_loan_days', '60', 'Maximum loan period in days', 'circulation'),
+  ('circulation.overdue_fine_per_day', '5', 'Overdue fine per day in pesos', 'circulation'),
+  ('circulation.pickup_window_days', '3', 'Days to pick up approved borrow request', 'circulation'),
+  ('circulation.overdue_alert_cooldown_days', '4', 'Days before duplicate overdue alerts', 'circulation'),
+  ('circulation.due_soon_window_days', '3', 'Days before due date to send reminder', 'circulation'),
+  ('circulation.max_renewal_days', '60', 'Maximum renewal period in days', 'circulation')
+on conflict (key) do nothing;
+
+-- Enable RLS for settings (admins only)
+alter table public.settings enable row level security;
+
+create policy "Admins can read settings"
+  on public.settings for select
+  using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+create policy "Admins can update settings"
+  on public.settings for update
+  using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+create policy "Admins can insert settings"
+  on public.settings for insert
+  with check (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+-- ── Holds & borrow requests ─────────────────────────────────────────────────
