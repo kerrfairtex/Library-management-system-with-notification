@@ -76,6 +76,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Staff: validate that the target member exists and is active
+    if (user.role !== "student") {
+      const { data: targetMember, error: memberError } = await db(supabase)
+        .from("members")
+        .select("id, active")
+        .eq("id", memberId)
+        .maybeSingle();
+      if (memberError) throw new Error(memberError.message);
+      if (!targetMember) {
+        return NextResponse.json(
+          { error: "Target member not found." },
+          { status: 400 }
+        );
+      }
+      if (!targetMember.active) {
+        return NextResponse.json(
+          { error: "Target member is inactive." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Priority = end of the pending queue.
     const { count } = await db(supabase)
       .from("holds")

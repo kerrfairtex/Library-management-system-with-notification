@@ -8,7 +8,7 @@ import {
   mayProvisionGoogleAccount,
 } from "@/lib/google-access";
 import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from "@/lib/session";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimitAsync as rateLimit } from "@/lib/rate-limit";
 
 const GOOGLE_MAX_PER_IP = 20;
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing access token." }, { status: 400 });
     }
 
-    const ipLimit = rateLimit(`google:ip:${clientIp(request)}`, GOOGLE_MAX_PER_IP);
+    const ipLimit = await rateLimit(`google:ip:${clientIp(request)}`, GOOGLE_MAX_PER_IP);
     if (!ipLimit.allowed) {
       return NextResponse.json(
         { error: "Too many sign-in attempts. Try again later." },

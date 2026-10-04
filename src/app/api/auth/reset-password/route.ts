@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
 import { db, supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimitAsync as rateLimit } from "@/lib/rate-limit";
 
 const RESET_MAX_PER_IP = 10;
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const ipLimit = rateLimit(`reset:ip:${clientIp(request)}`, RESET_MAX_PER_IP);
+  const ipLimit = await rateLimit(`reset:ip:${clientIp(request)}`, RESET_MAX_PER_IP);
   if (!ipLimit.allowed) {
     return NextResponse.json(
       { error: "Too many attempts. Try again later." },

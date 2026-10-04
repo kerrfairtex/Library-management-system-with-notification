@@ -4,7 +4,7 @@ import {
   createSessionToken,
   sessionCookieOptions,
 } from "@/lib/auth";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimitAsync as rateLimit } from "@/lib/rate-limit";
 import { authenticateUser, isAccountPending } from "@/lib/store";
 
 const LOGIN_MAX_PER_IP = 40;
@@ -36,14 +36,14 @@ export async function POST(request: Request) {
     // In-memory fixed-window throttling (per lambda instance — see
     // src/lib/rate-limit.ts for the documented limitation).
     const ip = clientIp(request);
-    const ipLimit = rateLimit(`login:ip:${ip}`, LOGIN_MAX_PER_IP);
+    const ipLimit = await rateLimit(`login:ip:${ip}`, LOGIN_MAX_PER_IP);
     if (!ipLimit.allowed) {
       return NextResponse.json(
         { error: "Too many login attempts. Try again later." },
         { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSeconds) } }
       );
     }
-    const emailLimit = rateLimit(
+    const emailLimit = await rateLimit(
       `login:email:${email.toLowerCase()}`,
       LOGIN_MAX_PER_EMAIL
     );

@@ -1,39 +1,42 @@
 /**
- * Minimal in-memory fixed-window rate limiter. No dependencies.
+ * Rate limiter with Redis (Upstash) backend and in-memory fallback.
  *
- * Deliberate limitation (documented, not hidden): the counters live in
- * process memory, so on a serverless platform (Vercel) each lambda instance
- * keeps its own window. This stops single-instance brute force, scripted
- * runs, and most abuse; for a hard guarantee across instances, replace with
- * an external store (Vercel KV / Upstash / Cloudflare Rate Limiting) behind
- * the same interface.
+ * Priority: UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+ *           → ioredis (REDIS_URL)
+ *           → in-memory (process local)
+ *
+ * All implementations share the same interface: rateLimit(key, max, windowMs)
+ * and clientIp(request).
  */
 
-type Entry = { count: number; resetAt: number };
-
-const buckets = new Map<string, Entry>();
+import { clientIp } from "./rate-limit-ip.ts";
 
 const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
 
-/** Keeps the map from growing forever under many distinct keys. */
-function prune(now: number): void {
-  if (buckets.size < 10_000) return;
-  for (const [key, entry] of buckets) {
-    if (now >= entry.resetAt) buckets.delete(key);
+// ──────────────────────────────────────────────────────────────────────────
+// In-memory fallback (original implementation, kept for zero-dep operation)
+// ──────────────────────────────────────────────────────────────────────────
+type MemEntry = { count: number; resetAt: number };
+const memBuckets = new Map<string, MemEntry>();
+
+function memPrune(now: number): void {
+  if (memBuckets.size < 10_000) return;
+  for (const [key, entry] of memBuckets) {
+    if (now >= entry.resetAt) memBuckets.delete(key);
   }
 }
 
-export function rateLimit(
+function memRateLimit(
   key: string,
   max: number,
   windowMs: number = DEFAULT_WINDOW_MS
 ): { allowed: boolean; retryAfterSeconds: number } {
   const now = Date.now();
-  prune(now);
+  memPrune(now);
 
-  const entry = buckets.get(key);
+  const entry = memBuckets.get(key);
   if (!entry || now >= entry.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    memBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
@@ -48,11 +51,194 @@ export function rateLimit(
   return { allowed: true, retryAfterSeconds: 0 };
 }
 
-/** Best-effort client identifier from proxy headers; never trusted, only throttled. */
-export function clientIp(request: Request): string {
-  return (
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
-    "unknown"
-  );
+// ──────────────────────────────────────────────────────────────────────────
+// Upstash Redis REST API implementation
+// ──────────────────────────────────────────────────────────────────────────
+let upstashClient: UpstashClient | null = null;
+
+interface UpstashClient {
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
+  eval(script: string, keys: string[], args: (string | number)[]): Promise<number>;
 }
+
+function getUpstashClient(): UpstashClient | null {
+  if (upstashClient) return upstashClient;
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) return null;
+
+  upstashClient = {
+    async incr(key: string) {
+      const res = await fetch(`${url}/incr/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Upstash INCR failed: ${res.status}`);
+      const data = await res.json();
+      return data.result as number;
+    },
+    async expire(key: string, seconds: number) {
+      const res = await fetch(`${url}/expire/${encodeURIComponent(key)}/${seconds}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`Upstash EXPIRE failed: ${res.status}`);
+      const data = await res.json();
+      return data.result as number;
+    },
+    async eval(script: string, keys: string[], args: (string | number)[]) {
+      const res = await fetch(`${url}/eval/${encodeURIComponent(script)}/${keys.length}`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        method: "POST",
+        body: JSON.stringify({ keys, args }),
+      });
+      if (!res.ok) throw new Error(`Upstash EVAL failed: ${res.status}`);
+      const data = await res.json();
+      return data.result as number;
+    },
+  };
+
+  return upstashClient;
+}
+
+// Lua script for atomic fixed-window rate limit with TTL
+const RATE_LIMIT_SCRIPT = `
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+  redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return current
+`;
+
+async function upstashRateLimit(
+  key: string,
+  max: number,
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const client = getUpstashClient();
+  if (!client) throw new Error("Upstash not configured");
+
+  const windowSec = Math.ceil(windowMs / 1000);
+  const count = await client.eval(RATE_LIMIT_SCRIPT, [key], [windowSec]);
+
+  if (count > max) {
+    // Get TTL to compute retry-after
+    const ttlRes = await fetch(
+      `${process.env.UPSTASH_REDIS_REST_URL}/ttl/${encodeURIComponent(key)}`,
+      { headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } }
+    );
+    const ttlData = await ttlRes.json();
+    const ttl = ttlData.result as number;
+    return { allowed: false, retryAfterSeconds: Math.max(1, ttl) };
+  }
+
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ioredis implementation (for standard Redis) — optional dependency
+// ──────────────────────────────────────────────────────────────────────────
+let redisClient: RedisClient | null = null;
+let redisModule: typeof import("ioredis") | null = null;
+let redisImportFailed = false;
+
+interface RedisClient {
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
+  eval(script: string, numKeys: number, ...keysAndArgs: (string | number)[]): Promise<number>;
+  ttl(key: string): Promise<number>;
+}
+
+async function getRedisClient(): Promise<RedisClient | null> {
+  if (redisClient) return redisClient;
+
+  const url = process.env.REDIS_URL;
+  if (!url || redisImportFailed) return null;
+
+  if (!redisModule) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mod = await import("ioredis");
+      redisModule = mod;
+    } catch {
+      redisImportFailed = true;
+      return null;
+    }
+  }
+
+  const Redis = redisModule.default;
+  redisClient = new Redis(url, {
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 2000)),
+    lazyConnect: true,
+  });
+
+  redisClient.on("error", () => {}); // Suppress unhandled error events
+
+  return redisClient;
+}
+
+async function redisRateLimit(
+  key: string,
+  max: number,
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const client = getRedisClient();
+  if (!client) throw new Error("Redis not configured");
+
+  const windowSec = Math.ceil(windowMs / 1000);
+  const count = await client.eval(RATE_LIMIT_SCRIPT, 1, key, windowSec);
+
+  if (count > max) {
+    const ttl = await client.ttl(key);
+    return { allowed: false, retryAfterSeconds: Math.max(1, ttl) };
+  }
+
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Public API — auto-selects best available backend
+// ──────────────────────────────────────────────────────────────────────────
+
+export function rateLimit(
+  key: string,
+  max: number,
+  windowMs: number = DEFAULT_WINDOW_MS
+): { allowed: boolean; retryAfterSeconds: number } {
+  // Synchronous in-memory fallback (default, zero-dep)
+  return memRateLimit(key, max, windowMs);
+}
+
+// Async version for Redis backends (used when env vars configured)
+export async function rateLimitAsync(
+  key: string,
+  max: number,
+  windowMs: number = DEFAULT_WINDOW_MS
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  // Try Upstash first (serverless-native, no connection pooling issues)
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    try {
+      return await upstashRateLimit(key, max, windowMs);
+    } catch (e) {
+      console.warn("[rate-limit] Upstash failed, falling back:", e);
+    }
+  }
+
+  // Try standard Redis
+  if (process.env.REDIS_URL) {
+    try {
+      return await redisRateLimit(key, max, windowMs);
+    } catch (e) {
+      console.warn("[rate-limit] Redis failed, falling back:", e);
+    }
+  }
+
+  // In-memory fallback
+  return memRateLimit(key, max, windowMs);
+}
+
+// Re-export clientIp helper
+export { clientIp } from "./rate-limit-ip.ts";

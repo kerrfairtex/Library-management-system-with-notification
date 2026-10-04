@@ -133,7 +133,7 @@ create table if not exists public.members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null,
-  phone text not null,
+  phone text,
   member_type text not null default 'student' check (member_type in ('student', 'staff', 'community')),
   student_id text,
   grade text,

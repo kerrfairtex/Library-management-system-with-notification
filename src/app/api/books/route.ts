@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireCapability } from "@/lib/authz";
+import { requireSession, requireCapability } from "@/lib/authz";
 import { createBook, listBooks } from "@/lib/store";
 
 export async function GET() {
-  const { user, response } = await requireCapability(
-    "books.read",
-    "Only signed-in users can view the catalog."
-  );
+  const { user, response } = await requireSession();
   if (!user) return response;
 
   try {

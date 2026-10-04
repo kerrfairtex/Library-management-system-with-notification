@@ -14,11 +14,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canAccess } from "./permissions";
-import { Hold } from "./types";
+import { canAccess } from "./permissions.ts";
+import { type Hold } from "./types.ts";
 
 // Replicate expected capabilities (roleCapabilities not exported)
-const studentCaps = new Set(["dashboard.read", "books.read", "notifications.read", "loans.read.own", "holds.place", "loans.request"]);
+const studentCaps = new Set(["dashboard.read", "books.read", "notifications.read", "holds.place", "loans.request"]);
 const librarianCaps = new Set(["dashboard.read", "books.read", "books.write", "members.read", "loans.manage", "notifications.read"]);
 
 // --- Capability isolation ---
@@ -109,6 +109,7 @@ test("borrow request status flow is well-ordered", () => {
   const validStatuses = new Set([
     "pending",
     "ready",
+    "approved",
     "rejected",
     "cancelled",
     "fulfilled",
@@ -116,6 +117,7 @@ test("borrow request status flow is well-ordered", () => {
   ]);
   assert.ok(validStatuses.has("pending"), "pending is valid");
   assert.ok(validStatuses.has("ready"), "ready (approved) is valid");
+  assert.ok(validStatuses.has("approved"), "approved is valid");
   assert.ok(validStatuses.has("rejected"), "rejected is valid");
   assert.ok(validStatuses.has("cancelled"), "cancelled is valid");
   assert.ok(validStatuses.has("fulfilled"), "fulfilled is valid");

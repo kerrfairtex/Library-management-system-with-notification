@@ -31,7 +31,6 @@ export async function GET() {
             n.title === "Overdue loan" || n.title === "Book checked out" ||
             n.title === "Book returned" || n.title === "Loan renewed")
       );
-      notifications = notifications.filter((n) => n.message.includes(myName));
     }
     return NextResponse.json(sortNotifications(notifications));
   } catch (error) {
