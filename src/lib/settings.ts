@@ -102,18 +102,18 @@ export async function getCirculationSettings(
   };
   
   const result: CirculationSettings = { ...defaults };
-  for (const [key, value] of Object.entries(settings)) {
-    const key = key.replace("circulation.", "");
-    if (key in defaults) {
+  for (const [settingKey, value] of Object.entries(settings)) {
+    const settingKey = settingKey.replace("circulation.", "");
+    if (settingKey in defaults) {
       if (Array.isArray(value)) {
-        (result as Record<string, unknown>)[key] = value;
+        (result as Record<string, unknown>)[settingKey] = value;
       } else if (typeof value === "number") {
-        (result as Record<string, unknown>)[key] = value;
+        (result as Record<string, unknown>)[settingKey] = value;
       } else if (typeof value === "string" && !isNaN(Number(value))) {
-        (result as Record<string, unknown>)[key] = Number(value);
+        (result as Record<string, unknown>)[settingKey] = Number(value);
       } else if (typeof value === "string" && value.startsWith("[")) {
         try {
-          (result as Record<string, unknown>)[key] = JSON.parse(value);
+          (result as Record<string, unknown>)[settingKey] = JSON.parse(value);
         } catch {
           // keep default
         }
@@ -192,10 +192,6 @@ export async function getDefaultLoanPeriodDays(supabase: SupabaseClient): Promis
 
 export async function getLoanPeriodOptions(supabase: SupabaseClient): Promise<number[]> {
   return getSetting(supabase, "circulation.loan_period_options", [7, 14, 21, 30]);
-}
-
-export async function getMaxLoanDays(supabase: SupabaseClient): Promise<number> {
-  return getSetting(supabase, "circulation.max_loan_days", 60);
 }
 
 export async function getPickupWindowDays(supabase: SupabaseClient): Promise<number> {
