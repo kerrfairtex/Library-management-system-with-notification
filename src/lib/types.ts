@@ -1,4 +1,3 @@
-
 /** Shape returned by the public /api/shelf-availability endpoint.
  *  Used by the standalone 3D bookshelf companion site. */
 export type ShelfBook = {
@@ -24,6 +23,7 @@ export type User = {
   role: UserRole;
   status: UserStatus;
   createdAt: string;
+  authUserId: string | null;       // FK to auth.users
 };
 
 export type PublicUser = {
@@ -49,6 +49,28 @@ export type Book = {
   createdAt: string;
 };
 
+export type BookItemStatus = 
+  | "available" 
+  | "on_loan" 
+  | "not_for_loan" 
+  | "damaged" 
+  | "lost" 
+  | "withdrawn" 
+  | "in_transit";
+
+export type BookItem = {
+  id: string;
+  bookId: string;
+  barcode: string;
+  status: BookItemStatus;
+  callNumber: string | null;
+  shelfLocation: string | null;
+  homeBranch: string;
+  holdingBranch: string;
+  notes: string | null;            // private, staff-only via RPC
+  createdAt: string;
+};
+
 export type MemberType = "student" | "staff" | "community";
 
 export type Member = {
@@ -63,6 +85,7 @@ export type Member = {
   grade: string | null;
   joinedAt: string;
   active: boolean;
+  userId: string | null;           // FK to users
 };
 
 export type LoanStatus = "active" | "returned" | "overdue";
@@ -71,10 +94,13 @@ export type Loan = {
   id: string;
   bookId: string;
   memberId: string;
+  itemId: string | null;           // FK to book_items
   borrowedAt: string;
   dueAt: string;
   returnedAt: string | null;
   status: LoanStatus;
+  renewalsCount: number;           // number of times renewed
+  issuedBy: string | null;         // staff user who checked out
 };
 
 export type Hold = {
@@ -91,6 +117,37 @@ export type Hold = {
   /** Loan created when this hold/request is checked out to the patron. */
   fulfilledLoanId: string | null;
   cancelledReason: string | null;
+};
+
+export type FineType = 
+  | "overdue" 
+  | "lost" 
+  | "damaged" 
+  | "manual_invoice" 
+  | "credit" 
+  | "forgive";
+
+export type Fine = {
+  id: string;
+  memberId: string;
+  loanId: string | null;
+  type: FineType;
+  amount: number;
+  amountOutstanding: number;
+  description: string | null;
+  issuedBy: string | null;         // staff user who issued
+  createdAt: string;
+  paidAt: string | null;
+};
+
+export type CirculationRule = {
+  id: string;
+  memberType: MemberType;
+  loanDays: number;
+  renewalDays: number;
+  maxRenewals: number;
+  maxLoans: number;
+  finePerDay: number;
 };
 
 export type NotificationType =
@@ -121,12 +178,18 @@ export type Notification = {
 export type LibraryData = {
   users: User[];
   books: Book[];
+  bookItems: BookItem[];
   members: Member[];
   loans: Loan[];
+  holds: Hold[];
+  fines: Fine[];
+  circulationRules: CirculationRule[];
   notifications: Notification[];
 };
 
 export type DashboardStats = {
+  outstandingFines: number;
+  overdueFinesCount: number;
   totalBooks: number;
   availableBooks: number;
   totalMembers: number;

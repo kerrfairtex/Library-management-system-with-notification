@@ -80,6 +80,7 @@ export default function DashboardPage() {
                 { label: "Active members", value: stats.totalMembers, hint: "Students & patrons" },
                 { label: "Open loans", value: stats.activeLoans, hint: `${stats.overdueLoans} overdue` },
                 { label: "Unread alerts", value: stats.unreadNotifications, hint: "Needs review" },
+                { label: "Outstanding fines", value: stats.outstandingFines > 0 ? `₱${stats.outstandingFines.toLocaleString()}` : "₱0", hint: `${stats.overdueFinesCount} members with fines` },
               ]
         ).map((item, i) => (
           <article

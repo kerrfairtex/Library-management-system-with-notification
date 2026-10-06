@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     if (!Number.isInteger(loanDays) || loanDays < 1 || loanDays > 60) {
       return NextResponse.json({ error: "days must be an integer between 1 and 60." }, { status: 400 });
     }
-    const loan = await checkoutBook(bookId, memberId, loanDays);
+    const loan = await checkoutBook(bookId, memberId, loanDays, user.id);
     return NextResponse.json(loan, { status: 201 });
   } catch (error) {
     return NextResponse.json(

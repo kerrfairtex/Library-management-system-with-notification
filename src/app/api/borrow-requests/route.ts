@@ -213,7 +213,7 @@ export async function PATCH(request: NextRequest) {
           { status: 400 }
         );
       }
-      const loan = await checkoutFromBorrowRequest(id, days);
+      const loan = await checkoutFromBorrowRequest(id, days, staff.id);
       return NextResponse.json({ loan }, { status: 201 });
     }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
-import type { Book, PublicUser } from "@/lib/types";
+import type { Book, BookItem, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
@@ -22,15 +22,31 @@ const emptyForm = {
   publishedYear: new Date().getFullYear(),
 };
 
+const emptyItemForm = {
+  bookId: "",
+  barcode: "",
+  status: "available",
+  callNumber: "",
+  shelfLocation: "",
+  homeBranch: "MAIN",
+  holdingBranch: "MAIN",
+  notes: "",
+};
+
 export default function BooksPage() {
   const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
   const { data, loading, error, reload } = useApi<Book[]>("/api/books");
+  const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>("/api/book-items");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [itemsTab, setItemsTab] = useState<string | null>(null);
+  const [itemForm, setItemForm] = useState(emptyItemForm);
+  const [itemBusy, setItemBusy] = useState(false);
+  const [itemError, setItemError] = useState<string | null>(null);
 
   const canManageBooks = canAccess(me?.user, "books.write");
   const canRequestBorrow = canAccess(me?.user, "loans.request");
@@ -48,6 +64,8 @@ export default function BooksPage() {
       );
     });
   }, [data, query]);
+
+  const bookItems = itemsData?.bookItems ?? [];
 
   function openCreate() {
     if (!canManageBooks) return;
@@ -73,6 +91,13 @@ export default function BooksPage() {
     });
     setFormError(null);
     setOpen(true);
+  }
+
+  function openItemsTab(bookId: string) {
+    setItemsTab(itemsTab === bookId ? null : bookId);
+    if (itemsTab !== bookId) {
+      setItemForm({ ...emptyItemForm, bookId });
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -110,6 +135,40 @@ export default function BooksPage() {
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Delete failed");
     }
+  }
+
+  async function createItem(e: FormEvent) {
+    e.preventDefault();
+    if (!canManageBooks) return;
+    setItemBusy(true);
+    setItemError(null);
+    try {
+      await apiJson("/api/book-items", {
+        method: "POST",
+        body: JSON.stringify(itemForm),
+      });
+      setItemForm({ ...emptyItemForm, bookId: itemForm.bookId });
+      await reloadItems();
+    } catch (err) {
+      setItemError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setItemBusy(false);
+    }
+  }
+
+  async function deleteItem(id: string) {
+    if (!canManageBooks) return;
+    if (!window.confirm("Delete this physical copy?")) return;
+    try {
+      await apiJson(`/api/book-items/${id}`, { method: "DELETE" });
+      await reloadItems();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  function getItemsForBook(bookId: string): BookItem[] {
+    return bookItems.filter((item) => item.bookId === bookId);
   }
 
   return (
@@ -160,74 +219,271 @@ export default function BooksPage() {
                   <th>Category</th>
                   <th>Shelf / Call no.</th>
                   <th>Copies</th>
+                  <th>Items</th>
                   <th>Year</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {books.map((book) => (
-                  <tr key={book.id}>
-                    <td>
-                      <p className="font-semibold">{book.title}</p>
-                      <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
-                        {book.isbn}
-                      </p>
-                    </td>
-                    <td>{book.author}</td>
-                    <td>
-                      <span className="badge tone-info">{book.category}</span>
-                      <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
-                        {book.genre}
-                      </p>
-                    </td>
-                    <td>
-                      <p>{book.shelfLocation || "—"}</p>
-                      <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
-                        {book.callNumber || ""}
-                      </p>
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          book.availableCopies === 0 ? "tone-danger" : "tone-ok"
-                        }`}
-                      >
-                        {book.availableCopies}/{book.totalCopies}
-                      </span>
-                    </td>
-                    <td>{book.publishedYear}</td>
-                    <td>
-                      <div className="flex justify-end gap-2">
-                        {canManageBooks && (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => openEdit(book)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-danger"
-                              onClick={() => onDelete(book.id)}
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                        {canRequestBorrow && !canManageBooks && (
-                          <Link
-                            href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
-                            className="btn btn-primary"
+                {books.map((book) => {
+                  const items = getItemsForBook(book.id);
+                  const availableItems = items.filter((i) => i.status === "available").length;
+                  const totalItems = items.length;
+                  return (
+                    <React.Fragment key={book.id}>
+                      <tr>
+                        <td>
+                          <p className="font-semibold">{book.title}</p>
+                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                            {book.isbn}
+                          </p>
+                        </td>
+                        <td>{book.author}</td>
+                        <td>
+                          <span className="badge tone-info">{book.category}</span>
+                          <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                            {book.genre}
+                          </p>
+                        </td>
+                        <td>
+                          <p>{book.shelfLocation || "—"}</p>
+                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                            {book.callNumber || ""}
+                          </p>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              book.availableCopies === 0 ? "tone-danger" : "tone-ok"
+                            }`}
                           >
-                            Request to Borrow
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                            {book.availableCopies}/{book.totalCopies}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`btn btn-ghost ${itemsTab === book.id ? "btn-primary" : ""}`}
+                            onClick={() => openItemsTab(book.id)}
+                          >
+                            {totalItems > 0 ? `${totalItems} items (${availableItems} avail)` : "No items"}
+                          </button>
+                        </td>
+                        <td>{book.publishedYear}</td>
+                        <td>
+                          <div className="flex justify-end gap-2">
+                            {canManageBooks && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  onClick={() => openEdit(book)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-danger"
+                                  onClick={() => onDelete(book.id)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                            {canRequestBorrow && !canManageBooks && (
+                              <Link
+                                href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
+                                className="btn btn-primary"
+                              >
+                                Request to Borrow
+                              </Link>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {itemsTab === book.id && (
+                        <tr className="bg-[color-mix(in_srgb,var(--surface)_80%,transparent)]">
+                          <td colSpan={8}>
+                            <div className="p-4 border-t border-[var(--line)]">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4>Physical copies for "{book.title}"</h4>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  onClick={() => {
+                                    setItemForm({ ...emptyItemForm, bookId: book.id });
+                                  }}
+                                >
+                                  Add copy
+                                </button>
+                              </div>
+                              
+                              {items.length === 0 ? (
+                                <p className="text-sm text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+                                  No physical copies recorded yet.
+                                </p>
+                              ) : (
+                                <div className="table-wrap" style={{ maxHeight: "200px", overflow: "auto" }}>
+                                  <table className="data-table" style={{ minWidth: "600px" }}>
+                                    <thead>
+                                      <tr>
+                                        <th>Barcode</th>
+                                        <th>Status</th>
+                                        <th>Call Number</th>
+                                        <th>Shelf Location</th>
+                                        <th>Home Branch</th>
+                                        <th>Holding Branch</th>
+                                        <th>Notes</th>
+                                        <th></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {items.map((item) => (
+                                        <tr key={item.id}>
+                                          <td className="font-mono">{item.barcode}</td>
+                                          <td>
+                                            <span className={`badge ${
+                                              item.status === "available" ? "tone-ok" :
+                                              item.status === "on_loan" ? "tone-info" :
+                                              item.status === "lost" || item.status === "damaged" ? "tone-danger" :
+                                              "tone-warn"
+                                            }`}>
+                                              {item.status.replace("_", " ")}
+                                            </span>
+                                          </td>
+                                          <td>{item.callNumber || "—"}</td>
+                                          <td>{item.shelfLocation || "—"}</td>
+                                          <td>{item.homeBranch}</td>
+                                          <td>{item.holdingBranch}</td>
+                                          <td>{item.notes || "—"}</td>
+                                          <td>
+                                            <div className="flex gap-1">
+                                              <button
+                                                type="button"
+                                                className="btn btn-ghost btn-sm"
+                                                onClick={() => {
+                                                  // Edit item - simplified
+                                                }}
+                                              >
+                                                Edit
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="btn btn-danger btn-sm"
+                                                onClick={() => deleteItem(item.id)}
+                                              >
+                                                Delete
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              <form onSubmit={createItem} className="mt-4 space-y-3">
+                                {itemError && <ErrorBanner message={itemError} />}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                  <input type="hidden" name="bookId" value={itemForm.bookId} />
+                                  <div>
+                                    <label className="label" htmlFor="barcode">Barcode *</label>
+                                    <input
+                                      id="barcode"
+                                      className="field"
+                                      required
+                                      value={itemForm.barcode}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, barcode: e.target.value }))}
+                                      placeholder="Scan or enter barcode"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="label" htmlFor="status">Status *</label>
+                                    <select
+                                      id="status"
+                                      className="field"
+                                      value={itemForm.status}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, status: e.target.value }))}
+                                    >
+                                      <option value="available">Available</option>
+                                      <option value="on_loan">On Loan</option>
+                                      <option value="not_for_loan">Not for Loan</option>
+                                      <option value="damaged">Damaged</option>
+                                      <option value="lost">Lost</option>
+                                      <option value="withdrawn">Withdrawn</option>
+                                      <option value="in_transit">In Transit</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="label" htmlFor="homeBranch">Home Branch *</label>
+                                    <input
+                                      id="homeBranch"
+                                      className="field"
+                                      required
+                                      value={itemForm.homeBranch}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, homeBranch: e.target.value }))}
+                                      placeholder="MAIN"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="label" htmlFor="holdingBranch">Holding Branch *</label>
+                                    <input
+                                      id="holdingBranch"
+                                      className="field"
+                                      required
+                                      value={itemForm.holdingBranch}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, holdingBranch: e.target.value }))}
+                                      placeholder="MAIN"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <label className="label" htmlFor="callNumber">Call Number</label>
+                                    <input
+                                      id="callNumber"
+                                      className="field"
+                                      value={itemForm.callNumber}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, callNumber: e.target.value }))}
+                                      placeholder="e.g. 630 S12i"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <label className="label" htmlFor="shelfLocation">Shelf Location</label>
+                                    <input
+                                      id="shelfLocation"
+                                      className="field"
+                                      value={itemForm.shelfLocation}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, shelfLocation: e.target.value }))}
+                                      placeholder="e.g. Shelf A-3, Row 2"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-4">
+                                    <label className="label" htmlFor="notes">Notes (staff only)</label>
+                                    <input
+                                      id="notes"
+                                      className="field"
+                                      value={itemForm.notes}
+                                      onChange={(e) => setItemForm((f) => ({ ...f, notes: e.target.value }))}
+                                      placeholder="Internal notes, condition details, etc."
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex justify-end gap-2 pt-2">
+                                  <button type="button" className="btn btn-ghost" onClick={() => setItemsTab(null)}>
+                                    Close
+                                  </button>
+                                  <button type="submit" className="btn btn-primary" disabled={itemBusy}>
+                                    {itemBusy ? "Adding…" : "Add copy"}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

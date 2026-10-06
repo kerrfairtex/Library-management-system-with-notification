@@ -25,6 +25,8 @@ export async function GET() {
         activeLoans: 0,
         overdueLoans: 0,
         unreadNotifications: notifications.filter((n) => !n.read).length,
+        outstandingFines: 0,
+        overdueFinesCount: 0,
       };
       return NextResponse.json({
         user,
