@@ -166,14 +166,7 @@ export async function rateLimitAsync(
     }
   }
 
-  // Try standard Redis - disabled (ioredis not installed)
-  // if (process.env.REDIS_URL) {
-  //   try {
-  //     return await redisRateLimit(key, max, windowMs);
-  //   } catch (e) {
-  //     console.warn("[rate-limit] Redis failed, falling back:", e);
-  //   }
-  // }
+  
 
   // In-memory fallback
   return memRateLimit(key, max, windowMs);
