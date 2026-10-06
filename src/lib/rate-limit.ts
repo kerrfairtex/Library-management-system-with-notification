@@ -138,67 +138,6 @@ async function upstashRateLimit(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// ioredis implementation (for standard Redis) — optional dependency
-// ──────────────────────────────────────────────────────────────────────────
-let redisClient: RedisClient | null = null;
-let redisModule: typeof import("ioredis") | null = null;
-let redisImportFailed = false;
-
-interface RedisClient {
-  incr(key: string): Promise<number>;
-  expire(key: string, seconds: number): Promise<number>;
-  eval(script: string, numKeys: number, ...keysAndArgs: (string | number)[]): Promise<number>;
-  ttl(key: string): Promise<number>;
-}
-
-async function getRedisClient(): Promise<RedisClient | null> {
-  if (redisClient) return redisClient;
-
-  const url = process.env.REDIS_URL;
-  if (!url || redisImportFailed) return null;
-
-  if (!redisModule) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = await import("ioredis");
-      redisModule = mod;
-    } catch {
-      redisImportFailed = true;
-      return null;
-    }
-  }
-
-  const Redis = redisModule.default;
-  redisClient = new Redis(url, {
-    maxRetriesPerRequest: 3,
-    retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 2000)),
-    lazyConnect: true,
-  });
-
-  redisClient.on("error", () => {}); // Suppress unhandled error events
-
-  return redisClient;
-}
-
-async function redisRateLimit(
-  key: string,
-  max: number,
-  windowMs: number
-): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
-  const client = getRedisClient();
-  if (!client) throw new Error("Redis not configured");
-
-  const windowSec = Math.ceil(windowMs / 1000);
-  const count = await client.eval(RATE_LIMIT_SCRIPT, 1, key, windowSec);
-
-  if (count > max) {
-    const ttl = await client.ttl(key);
-    return { allowed: false, retryAfterSeconds: Math.max(1, ttl) };
-  }
-
-  return { allowed: true, retryAfterSeconds: 0 };
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // Public API — auto-selects best available backend
 // ──────────────────────────────────────────────────────────────────────────
@@ -227,14 +166,14 @@ export async function rateLimitAsync(
     }
   }
 
-  // Try standard Redis
-  if (process.env.REDIS_URL) {
-    try {
-      return await redisRateLimit(key, max, windowMs);
-    } catch (e) {
-      console.warn("[rate-limit] Redis failed, falling back:", e);
-    }
-  }
+  // Try standard Redis - disabled (ioredis not installed)
+  // if (process.env.REDIS_URL) {
+  //   try {
+  //     return await redisRateLimit(key, max, windowMs);
+  //   } catch (e) {
+  //     console.warn("[rate-limit] Redis failed, falling back:", e);
+  //   }
+  // }
 
   // In-memory fallback
   return memRateLimit(key, max, windowMs);

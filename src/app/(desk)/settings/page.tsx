@@ -150,7 +150,7 @@ export default function SettingsPage() {
     try {
       await apiJson("/api/circulation-rules", {
         method: editingRule ? "PATCH" : "POST",
-        body: JSON.stringify({ memberType: ruleForm.memberType, ...ruleForm }),
+        body: JSON.stringify({ ...ruleForm }),
       });
       setRuleModalOpen(false);
       await reloadRules();

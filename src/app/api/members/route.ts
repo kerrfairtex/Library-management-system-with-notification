@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           : String(studentId).trim() || null,
       grade:
         grade === undefined || grade === null ? null : String(grade).trim() || null,
+      userId: null,
     });
     return NextResponse.json(member, { status: 201 });
   } catch (error) {

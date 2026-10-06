@@ -56,7 +56,7 @@ export default function FinesPage() {
   if (!canManage) {
     return (
       <div>
-        <PageHeader title="Fines desk" />
+        <PageHeader title="Fines desk" subtitle="Manage and track library fines" />
         <section className="panel p-5">
           <p>This page is only available to librarians and admins.</p>
         </section>
@@ -68,6 +68,7 @@ export default function FinesPage() {
     <div>
       <PageHeader
         title="Fines desk"
+        subtitle="All fines and payments"
         action={
           <label style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <input

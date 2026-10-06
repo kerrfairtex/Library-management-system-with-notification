@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const fine = await createFine({
       memberId: String(memberId).trim(),
       loanId: loanId ? String(loanId).trim() : null,
-      type: String(type),
+      type: String(type) as import("@/lib/types").FineType,
       amount: Number(amount),
       amountOutstanding: Number(amountOutstanding),
       description: description ? String(description).trim() : null,

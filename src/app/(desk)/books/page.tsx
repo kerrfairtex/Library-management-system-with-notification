@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import React, { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, BookItem, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
@@ -230,7 +230,7 @@ export default function BooksPage() {
                   const availableItems = items.filter((i) => i.status === "available").length;
                   const totalItems = items.length;
                   return (
-                    <React.Fragment key={book.id}>
+                    <>
                       <tr>
                         <td>
                           <p className="font-semibold">{book.title}</p>
@@ -481,7 +481,7 @@ export default function BooksPage() {
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </>
                   );
                 })}
               </tbody>

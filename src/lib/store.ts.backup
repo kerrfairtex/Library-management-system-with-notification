@@ -820,6 +820,36 @@ export type BorrowRequestStatus =
   | "approved"
   | "rejected";
 
+type HoldRow = {
+  id: string;
+  book_id: string;
+  member_id: string;
+  kind: string;
+  status: string;
+  priority: number;
+  pickup_branch: string | null;
+  placed_at: string;
+  expires_at: string | null;
+  fulfilled_loan_id: string | null;
+  cancelled_reason: string | null;
+};
+
+function mapHold(row: HoldRow): Hold {
+  return {
+    id: row.id,
+    bookId: row.book_id,
+    memberId: row.member_id,
+    kind: row.kind as Hold["kind"],
+    status: row.status as Hold["status"],
+    priority: row.priority,
+    pickupBranch: row.pickup_branch ?? null,
+    placedAt: row.placed_at,
+    expiresAt: row.expires_at ?? null,
+    fulfilledLoanId: row.fulfilled_loan_id ?? null,
+    cancelledReason: row.cancelled_reason ?? null,
+  };
+}
+
 export async function getMemberByEmail(email: string) {
   const { data, error } = await db(supabase)
     .from("members")
@@ -1327,180 +1357,3 @@ export function computeDashboardStats(data: LibraryData): DashboardStats {
   };
 }
 
-
-// -- Book Items -- (additions)
-
-export async function updateBookItem(
-  id: string,
-  updates: Partial<Omit<BookItem, "id" | "createdAt">>
-): Promise<BookItem | null> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("book_items")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to load book item.");
-  if (!existing) return null;
-
-  const patch: Partial<BookItemRow> = {};
-  if (updates.barcode !== undefined) patch.barcode = updates.barcode;
-  if (updates.status !== undefined) patch.status = updates.status;
-  if (updates.callNumber !== undefined) patch.call_number = updates.callNumber;
-  if (updates.shelfLocation !== undefined) patch.shelf_location = updates.shelfLocation;
-  if (updates.homeBranch !== undefined) patch.home_branch = updates.homeBranch;
-  if (updates.holdingBranch !== undefined) patch.holding_branch = updates.holdingBranch;
-  if (updates.notes !== undefined) patch.notes = updates.notes;
-
-  const { data, error } = await db(supabase)
-    .from("book_items")
-    .update(patch)
-    .eq("id", id)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to update book item.");
-  return mapBookItem(data as BookItemRow);
-}
-
-export async function getBookItemNotes(barcode: string): Promise<string | null> {
-  const { data, error } = await db(supabase)
-    .from("book_items")
-    .select("notes")
-    .eq("barcode", barcode)
-    .maybeSingle();
-  throwIfError(error, "Failed to load book item notes.");
-  return data?.notes ?? null;
-}
-
-// -- Circulation Rules -- (additions)
-
-export async function upsertCirculationRule(
-  input: Omit<CirculationRule, "id">
-): Promise<CirculationRule> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("circulation_rules")
-    .select("*")
-    .eq("member_type", input.memberType)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to check existing circulation rule.");
-
-  const row = {
-    member_type: input.memberType,
-    loan_days: input.loanDays,
-    renewal_days: input.renewalDays,
-    max_renewals: input.maxRenewals,
-    max_loans: input.maxLoans,
-    fine_per_day: input.finePerDay,
-  };
-
-  if (existing) {
-    const { data, error } = await db(supabase)
-      .from("circulation_rules")
-      .update(row)
-      .eq("member_type", input.memberType)
-      .select("*")
-      .single();
-    throwIfError(error, "Failed to update circulation rule.");
-    return mapCirculationRule(data as CirculationRuleRow);
-  } else {
-    const { data, error } = await db(supabase)
-      .from("circulation_rules")
-      .insert(row)
-      .select("*")
-      .single();
-    throwIfError(error, "Failed to create circulation rule.");
-    return mapCirculationRule(data as CirculationRuleRow);
-  }
-}
-
-export async function deleteCirculationRule(memberType: MemberType): Promise<boolean> {
-  const { data, error } = await db(supabase)
-    .from("circulation_rules")
-    .delete()
-    .eq("member_type", memberType)
-    .select("id");
-  throwIfError(error, "Failed to delete circulation rule.");
-  return Boolean(data && data.length > 0);
-}
-
-// -- Fines -- (additions)
-
-export async function updateFine(
-  id: string,
-  updates: Partial<Omit<Fine, "id" | "createdAt">>
-): Promise<Fine | null> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("fines")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to load fine.");
-  if (!existing) return null;
-
-  const patch: Partial<FineRow> = {};
-  if (updates.type !== undefined) patch.type = updates.type;
-  if (updates.amount !== undefined) patch.amount = updates.amount;
-  if (updates.amountOutstanding !== undefined) patch.amount_outstanding = updates.amountOutstanding;
-  if (updates.description !== undefined) patch.description = updates.description;
-  if (updates.issuedBy !== undefined) patch.issued_by = updates.issuedBy;
-  if (updates.paidAt !== undefined) patch.paid_at = updates.paidAt;
-
-  const { data, error } = await db(supabase)
-    .from("fines")
-    .update(patch)
-    .eq("id", id)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to update fine.");
-  return mapFine(data as FineRow);
-}
-
-export async function payFine(id: string, amount: number): Promise<Fine | null> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("fines")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to load fine.");
-  if (!existing) return null;
-
-  const newOutstanding = Math.max(0, (existing as FineRow).amount_outstanding - amount);
-  const paidAt = newOutstanding === 0 ? new Date().toISOString() : null;
-
-  const { data, error } = await db(supabase)
-    .from("fines")
-    .update({ amount_outstanding: newOutstanding, paid_at: paidAt })
-    .eq("id", id)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to pay fine.");
-  return mapFine(data as FineRow);
-}
-
-export async function forgiveFine(id: string): Promise<Fine | null> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("fines")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to load fine.");
-  if (!existing) return null;
-
-  const { data, error } = await db(supabase)
-    .from("fines")
-    .update({ amount_outstanding: 0, paid_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("*")
-    .single();
-  throwIfError(error, "Failed to forgive fine.");
-  return mapFine(data as FineRow);
-}
-
-export async function deleteFine(id: string): Promise<boolean> {
-  const { data, error } = await db(supabase)
-    .from("fines")
-    .delete()
-    .eq("id", id)
-    .select("id");
-  throwIfError(error, "Failed to delete fine.");
-  return Boolean(data && data.length > 0);
-}
