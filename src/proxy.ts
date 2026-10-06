@@ -66,9 +66,14 @@ export async function proxy(request: NextRequest) {
   }
 
   // CSRF double-submit cookie validation for mutating API requests
+  // Exempt login/logout/google endpoints - they need to work without prior CSRF token
+  const csrfExemptPaths = ["/api/auth/login", "/api/auth/logout", "/api/auth/google"];
+  const isCsrfExempt = csrfExemptPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+
   if (
     MUTATING_METHODS.has(request.method) &&
-    pathname.startsWith("/api/")
+    pathname.startsWith("/api/") &&
+    !isCsrfExempt
   ) {
     const token = getCsrfToken(request);
     if (!token) {
