@@ -877,7 +877,7 @@ export async function createBorrowRequest(bookId: string, memberId: string) {
     .maybeSingle();
 
   if (open) {
-    throw new Error("You already have a pending request for this book.");
+    throw new Error("You already have a pending request for this book (found by SELECT).");
   }
 
   const { data, error } = await db(supabase)
@@ -894,9 +894,9 @@ export async function createBorrowRequest(bookId: string, memberId: string) {
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("You already have a pending request for this book.");
+      throw new Error("You already have a pending request for this book (unique constraint violation on insert).");
     }
-    throw new Error(error.message || "Failed to create borrow request.");
+    throw new Error(`Insert failed: ${error.code} - ${error.message}`);
   }
 
   return mapHold(data);
