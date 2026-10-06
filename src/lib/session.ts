@@ -79,8 +79,8 @@ export async function readSessionUserId(
 export function sessionCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 7) {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none" as const,  // Allow cross-origin cookie for Vercel → Render
+    secure: true,               // Required for SameSite=none
     path: "/",
     maxAge: maxAgeSeconds,
   };
