@@ -192,14 +192,22 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
               </button>
               {accountOpen && (
                 <div className="koha-dropdown">
-                  <Link href="/profile" className="koha-dropdown-item">
-                    My profile
-                  </Link>
-                  <form action="/api/auth/logout" method="post">
-                    <button type="submit" className="koha-dropdown-item koha-danger">
-                      Log out
-                    </button>
-                  </form>
+                  {user ? (
+                    <>
+                      <Link href="/profile" className="koha-dropdown-item">
+                        My profile
+                      </Link>
+                      <form action="/api/auth/logout" method="post">
+                        <button type="submit" className="koha-dropdown-item koha-danger">
+                          Log out
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <Link href="/login" className="koha-dropdown-item">
+                      Sign in
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
