@@ -686,7 +686,12 @@ export async function authenticateUser(
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const { data, error } = await db(supabase).from("users").select("*").eq("id", id).maybeSingle();
+  // Select safe columns only — password_hash excluded by RLS policy
+  const { data, error } = await db(supabase)
+    .from("users")
+    .select("id,name,email,password_hash,role,status,created_at,auth_user_id")
+    .eq("id", id)
+    .maybeSingle();
   // Swallowed on purpose: this backs session validation on every request,
   // so a transient/config error here should look like "not signed in"
   // rather than crashing every page load.
@@ -700,9 +705,10 @@ export async function getPublicUserById(id: string): Promise<PublicUser | null> 
 }
 
 export async function listStaff(): Promise<PublicUser[]> {
+  // Select safe columns only — password_hash excluded by RLS policy
   const { data, error } = await db(supabase)
     .from("users")
-    .select("*")
+    .select("id,name,email,password_hash,role,status,created_at,auth_user_id")
     .order("created_at", { ascending: true });
   throwIfError(error, "Failed to load staff accounts.");
   return ((data as UserRow[] | null) ?? []).map((row) => toPublicUser(mapUser(row)));
