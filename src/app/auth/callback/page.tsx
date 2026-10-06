@@ -79,8 +79,9 @@ function CallbackInner() {
         });
         await supabaseBrowser.auth.signOut();
         if (cancelled) return;
-        router.replace(nextPath);
-        router.refresh();
+        // Full page navigation so the proxy middleware runs server-side and
+        // reads the freshly-set session cookie.
+        window.location.assign(nextPath);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Google sign-in failed.");

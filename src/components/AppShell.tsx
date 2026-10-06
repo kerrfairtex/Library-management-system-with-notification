@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { canAccess, roleLabel, type AppCapability } from "@/lib/permissions";
 import type { Notification, PublicUser } from "@/lib/types";
@@ -96,14 +96,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function UserFooter() {
-  const router = useRouter();
   const { data } = useApi<{ user: PublicUser }>("/api/auth/me");
   const user = data?.user;
 
   async function logout() {
     await apiJson("/api/auth/logout", { method: "POST" });
-    router.replace("/login");
-    router.refresh();
+    // Full page navigation so the proxy middleware runs server-side and
+    // clears the session state properly.
+    window.location.assign("/login");
   }
 
   return (

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useId, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -32,7 +32,6 @@ function GoogleIcon() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
   const errorId = useId();
@@ -54,8 +53,9 @@ function LoginForm() {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      router.replace(nextPath.startsWith("/") ? nextPath : "/");
-      router.refresh();
+      // Full page navigation (not client-side router.replace + refresh) so the
+      // proxy middleware runs server-side and reads the freshly-set session cookie.
+      window.location.assign(nextPath.startsWith("/") ? nextPath : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed. Check your email and password.");
     } finally {
