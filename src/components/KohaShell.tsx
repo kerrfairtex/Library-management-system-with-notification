@@ -53,6 +53,7 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const { data: session } = useApi<{ user: PublicUser }>("/api/auth/me");
   const user = session?.user;
   const moreRef = useRef<HTMLDivElement>(null);
@@ -91,8 +92,7 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
                 : item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
-              const [isSubOpen, setSubOpen] = useState(false);
-              
+
               return (
                 <div key={item.href} className="koha-nav-item">
                   <Link
@@ -100,7 +100,7 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
                     className={`koha-nav-link ${isActive ? "active" : ""}`}
                     onClick={() => {
                       if (!hasChildren) setMobileOpen(false);
-                      setSubOpen(!isSubOpen);
+                      setOpenSubmenu(openSubmenu === item.href ? null : item.href);
                     }}
                   >
                     {item.icon && (
@@ -109,9 +109,9 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
                       </span>
                     )}
                     {item.label}
-                    {hasChildren && <span className="koha-nav-chevron">{isSubOpen ? "▲" : "▼"}</span>}
+                    {hasChildren && <span className="koha-nav-chevron">{openSubmenu === item.href ? "▲" : "▼"}</span>}
                   </Link>
-                  {hasChildren && isSubOpen && (
+                  {hasChildren && openSubmenu === item.href && (
                     <div className="koha-submenu">
                       {item.children!.map((child) => {
                         if (!can(child.capability)) return null;
