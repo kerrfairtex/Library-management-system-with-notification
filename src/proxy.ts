@@ -49,7 +49,7 @@ function generateCsrfToken(): string {
 
 function setCsrfCookie(response: NextResponse, token: string) {
   response.cookies.set(CSRF_COOKIE, token, {
-    httpOnly: true,
+    httpOnly: false,  // Allow JavaScript to read CSRF token for API calls
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
