@@ -50,6 +50,9 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.grade !== undefined) {
       updates.grade = body.grade === null ? null : String(body.grade).trim() || null;
     }
+    if (body.userId !== undefined) {
+      updates.userId = body.userId === null ? null : String(body.userId).trim() || null;
+    }
 
     const member = await updateMember(id, updates);
     if (!member) {

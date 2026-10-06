@@ -16,7 +16,7 @@ export function useApi<T>(url: string | null, refreshKey = 0) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { credentials: "include", cache: "no-store" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Request failed");
@@ -64,7 +64,7 @@ export async function apiJson<T>(
     }
   }
 
-  const res = await fetch(url, {
+  const res = await fetch(url, { credentials: "include",
     ...options,
     headers,
   });
