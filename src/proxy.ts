@@ -25,7 +25,14 @@ function sameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true; // non-browser clients (curl, cron) send no Origin
   try {
-    return new URL(origin).host === request.headers.get("host");
+    const host = request.headers.get("host");
+    const originHost = new URL(origin).host;
+    // Allow same-origin OR the Vercel frontend domain
+    const allowedOrigins = [
+      "trac-library-bookshelf.vercel.app",
+      "trac-library-bookshelf-e9plqp108-kerros.vercel.app"
+    ];
+    return originHost === host || allowedOrigins.includes(originHost);
   } catch {
     return false;
   }
