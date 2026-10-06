@@ -539,6 +539,7 @@ export async function updateMember(
   if (updates.email !== undefined) patch.email = updates.email;
   if (updates.phone !== undefined) patch.phone = updates.phone;
   if (updates.active !== undefined) patch.active = updates.active;
+  if (updates.userId !== undefined) patch.user_id = updates.userId;
   if (touchingIdentity) {
     patch.member_type = nextType;
     patch.student_id = resolvedStudentId;
