@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Pass a null url to hold off until the caller knows what to request. */
 export function useApi<T>(
@@ -11,6 +11,7 @@ export function useApi<T>(
   const [data, setData] = useState<T | null>(initialData);
   const [loading, setLoading] = useState(Boolean(url) && initialData === null);
   const [error, setError] = useState<string | null>(null);
+  const isInitialMount = useRef(true);
 
   const reload = useCallback(async () => {
     if (!url) {
@@ -34,6 +35,14 @@ export function useApi<T>(
   }, [url]);
 
   useEffect(() => {
+    // Skip initial fetch if we already have initialData (hydration)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (initialData !== null) {
+        // Data already provided by server, don't fetch again on mount
+        return;
+      }
+    }
     void reload();
   }, [reload, refreshKey]);
 

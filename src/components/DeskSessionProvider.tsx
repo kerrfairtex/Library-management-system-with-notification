@@ -25,14 +25,21 @@ export function DeskSessionProvider({
   children: React.ReactNode;
   initialSession: Session;
 }) {
+  // Use the initialSession directly on server and during hydration
+  // Don't trigger a fetch if we already have initialSession
   const { data, loading, error, reload } = useApi<{ user: PublicUser }>(
-    "/api/auth/me",
+    initialSession ? null : "/api/auth/me",  // Skip fetch if we have initial data
     0,
     initialSession
   );
 
   return (
-    <DeskSessionContext.Provider value={{ session: data, loading, error, reload }}>
+    <DeskSessionContext.Provider value={{ 
+      session: data, 
+      loading: initialSession ? false : loading,  // Not loading if we have initial data
+      error, 
+      reload 
+    }}>
       {children}
     </DeskSessionContext.Provider>
   );
