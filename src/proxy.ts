@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   // Scheduled invocations carry no session cookie. These routes authenticate
   // themselves with CRON_SECRET instead.
   "/api/cron",
+  "/api/debug-holds",
 ];
 
 // Mutating requests must originate from our own site (CSRF defense).
