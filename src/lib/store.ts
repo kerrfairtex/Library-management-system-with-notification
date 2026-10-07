@@ -840,7 +840,7 @@ export async function getMemberByEmail(email: string) {
 export async function getBorrowRequests(memberId?: string) {
   let query = db(supabase)
     .from("holds")
-    .select("*")
+    .select("*, books!inner(id, isbn, title, author), members!inner(id, name, email)")
     .eq("kind", "borrow_request")
     .order("placed_at", { ascending: false });
 
@@ -852,7 +852,22 @@ export async function getBorrowRequests(memberId?: string) {
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []);
+  return (data ?? []).map((h) => ({
+    id: h.id,
+    bookId: h.book_id,
+    memberId: h.member_id,
+    kind: h.kind,
+    status: h.status,
+    priority: h.priority,
+    placedAt: h.placed_at,
+    expiresAt: h.expires_at ?? null,
+    fulfilledLoanId: h.fulfilled_loan_id ?? null,
+    isbn: h.books?.isbn ?? null,
+    bookTitle: h.books?.title ?? "Unknown title",
+    bookAuthor: h.books?.author ?? null,
+    memberName: h.members?.name ?? "Unknown",
+    memberEmail: h.members?.email ?? null,
+  }));
 }
 
 export async function getBorrowRequestById(id: string) {

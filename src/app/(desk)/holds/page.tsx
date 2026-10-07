@@ -16,6 +16,22 @@ import { canAccess } from "@/lib/permissions";
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
 
+type BorrowRequestRow = {
+  id: string;
+  bookId: string;
+  memberId: string;
+  status: string;
+  priority: number;
+  placedAt: string;
+  kind?: string;
+  expiresAt?: string;
+  isbn: string | null;
+  bookTitle: string;
+  bookAuthor: string | null;
+  memberName: string;
+  memberEmail: string | null;
+};
+
 type HoldRow = {
   id: string;
   book_id: string;
@@ -31,7 +47,7 @@ export default function HoldsPage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
-  const requestsApi = useApi<{ requests: HoldRow[] }>("/api/borrow-requests");
+  const requestsApi = useApi<{ requests: BorrowRequestRow[] }>("/api/borrow-requests");
   const requestsData = requestsApi?.data;
   const reqLoading = requestsApi?.loading ?? false;
   const { data: booksData } = useApi<{ books: { id: string; title: string }[] }>("/api/books");
@@ -172,9 +188,9 @@ export default function HoldsPage() {
               return (
                 <tr key={r.id} style={{ borderTop: "1px dashed #ccc" }}>
                   <td>#{r.priority}</td>
-                  <td><strong>{books.find((b) => b.id === r.book_id)?.title ?? r.book_id}</strong></td>
-                  <td>{members.find((m) => m.id === r.member_id)?.name ?? r.member_id}</td>
-                  <td>{formatDate(r.placed_at)}</td>
+                  <td><strong>{books.find((b) => b.id === r.bookId)?.title ?? r.bookId}</strong></td>
+                  <td>{members.find((m) => m.id === r.memberId)?.name ?? r.memberId}</td>
+                  <td>{formatDate(r.placedAt)}</td>
                   <td><span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Request</span></td>
                   <td><span className={chipClass(r.status, r.kind)}>{r.status}</span></td>
                   <td>

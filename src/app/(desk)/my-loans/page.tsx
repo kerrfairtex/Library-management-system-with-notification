@@ -41,13 +41,18 @@ type MyFine = {
 
 type MyBorrowRequest = {
   id: string;
-  book_id: string;
+  bookId: string;
+  memberId: string;
   kind: string;
   status: string;
   priority: number;
-  placed_at: string;
-  expires_at: string | null;
-  books: { title: string } | null;
+  placedAt: string;
+  expiresAt: string | null;
+  isbn: string | null;
+  bookTitle: string;
+  bookAuthor: string | null;
+  memberName: string;
+  memberEmail: string | null;
 };
 
 function peso(n: string | number) {
@@ -193,8 +198,8 @@ export default function MyLoansPage() {
             )}
             {borrowRequests.map((r: MyBorrowRequest) => (
               <tr key={r.id}>
-                <td><strong>{r.books?.title ?? "Unknown title"}</strong></td>
-                <td>{formatDate(r.placed_at)}</td>
+                <td><strong>{r.bookTitle ?? "Unknown title"}</strong></td>
+                <td>{formatDate(r.placedAt)}</td>
                 <td>
                   <span className={`chip chip-${
                     r.status === "pending" ? "overdue"
