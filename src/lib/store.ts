@@ -946,8 +946,7 @@ export async function approveBorrowRequest(id: string, reviewedBy: string) {
 
   await db(supabase).from("notifications").insert({
     type: "borrow_request_approved",
-    title: "Borrow request approved",
-    message: (memberName ? memberName + ": " : "") + "\"" + title + "\" has been approved. Please pick it up at the library desk within 3 days (by " + new Date(pickupExpires).toLocaleDateString("en-PH") + ").",
+    message: "Your book is approved, just go to the library",
     related_id: hold.id,
     read: false,
   });
