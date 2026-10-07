@@ -90,7 +90,7 @@ export default function AboutPage() {
 
       <Section title="Contact & developers">
         <ul>
-          <li>Contact number: <a href={`tel:${PHONE}`}>0963 713 0812</a></li>
+          <li>Contact number: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
         </ul>
         <p style={{ marginTop: "0.75rem" }}>
           <strong>Developers</strong>
@@ -190,7 +190,7 @@ export default function AboutPage() {
           concerns:
         </p>
         <ul>
-          <li>Phone: <a href={`tel:${PHONE}`}>0963 713 0812</a></li>
+          <li>Phone: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
         </ul>
         <p style={{ marginTop: "0.75rem" }}>
           <strong>Developers</strong>

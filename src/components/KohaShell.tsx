@@ -245,7 +245,7 @@ export function KohaShell({ children }: {
                   <span aria-hidden>·</span>
                   <Link href="/about#privacy">Privacy Policy</Link>
                   <span aria-hidden>·</span>
-                  <a href="tel:+639****0812">0963 713 0812</a>
+                  <a href="tel:+63-XXX-XXX-XXXX">[REDACTED]</a>
                 </nav>
                 <div className="koha-footer-developers">
                   <p className="koha-footer-dev-title">Developers</p>

@@ -233,7 +233,7 @@ function LoginForm() {
         <div className="login-forgot" role="note">
           <p>
             Password resets are handled at the library desk for security.
-            Visit us or call <a href="tel:+639637130812">0963 713 0812</a> and
+            Visit us or call <a href="tel:+639637130812">[REDACTED]</a> and
             a librarian will set a temporary password for you.
           </p>
         </div>

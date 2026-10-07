@@ -267,7 +267,7 @@ export default function MyLoansPage() {
         </table>
         {fines.length > 0 && (
           <p style={{ padding: "0.6rem 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
-            Settle fines at the library desk. Contact 0963 713 0812 for questions.
+            Settle fines at the library desk. Contact [REDACTED] for questions.
           </p>
         )}
       </section>

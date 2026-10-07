@@ -652,7 +652,7 @@ export default function UserGuidelinesPage() {
           <p style={{ lineHeight: 1.7 }}>
             <strong>Route:</strong> <Link href="/about" style={{ color: "#1f7a5c" }}>/about</Link>
           </p>
-          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Contains: system description, feature list, who can use it, circulation rules at a glance, contact details (phone: 0963 713 0812), and the full privacy policy (8 sections: information collected, use, what we do NOT do, cookies, data sharing, retention & rights, security, changes & contact).</p>
+          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Contains: system description, feature list, who can use it, circulation rules at a glance, contact details (phone: [REDACTED]), and the full privacy policy (8 sections: information collected, use, what we do NOT do, cookies, data sharing, retention & rights, security, changes & contact).</p>
         </section>
 
         {/* ─ Section 27: Troubleshooting ─ */}
@@ -668,7 +668,7 @@ export default function UserGuidelinesPage() {
           <p style={{ lineHeight: 1.7 }}>Click <strong>Try again</strong> to re-render. If it persists, use <strong>Back to dashboard</strong> or navigate to <Link href="/about" style={{ color: "#1f7a5c" }}>/about</Link> to contact the developer. No error ID is displayed — describe the problem in your message.</p>
 
           <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Login fails repeatedly</h3>
-          <p style={{ lineHeight: 1.7 }}>Wait a few minutes — the rate limiter resets. If you have a pending Google account, visit the library desk or call 0963 713 0812.</p>
+          <p style={{ lineHeight: 1.7 }}>Wait a few minutes — the rate limiter resets. If you have a pending Google account, visit the library desk or call [REDACTED].</p>
 
           <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Cannot check out — "maximum of 3 active loans"</h3>
           <p style={{ lineHeight: 1.7 }}>Return one of the existing loans first, then check out the new one.</p>
@@ -710,7 +710,7 @@ export default function UserGuidelinesPage() {
           </div>
           <div>
             <p style={{ fontWeight: 700, color: "#fff", margin: "0 0 0.5rem" }}>Contact</p>
-            <p style={{ margin: 0 }}>0963 713 0812</p>
+            <p style={{ margin: 0 }}>[REDACTED]</p>
           </div>
         </div>
         <div style={{ maxWidth: 1200, margin: "1.5rem auto 0", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1rem", textAlign: "center" }}>
