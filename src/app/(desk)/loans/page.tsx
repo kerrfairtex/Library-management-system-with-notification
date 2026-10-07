@@ -5,6 +5,7 @@ import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, Member, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { daysUntil, formatDate, overdueFine } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
@@ -12,7 +13,7 @@ import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default function LoansPage() {
-  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const {
     data: loansPage,
     loading,

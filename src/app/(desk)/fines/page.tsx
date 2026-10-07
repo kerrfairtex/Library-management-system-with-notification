@@ -5,6 +5,7 @@
  */
 
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
@@ -19,7 +20,7 @@ function peso(n: number) {
 }
 
 export default function FinesPage() {
-  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ fines: Fine[]; members: Member[] }>("/api/fines");
   const [busyId, setBusyId] = useState<string | null>(null);

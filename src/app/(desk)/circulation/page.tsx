@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Loan } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { canAccess } from "@/lib/permissions";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
 export default function CirculationHomePage() {
-  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data: loansPage, loading } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
   const loans = loansPage?.data ?? [];

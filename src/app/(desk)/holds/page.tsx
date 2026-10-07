@@ -7,6 +7,7 @@
  */
 
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useState } from "react";
@@ -27,7 +28,7 @@ type HoldRow = {
 };
 
 export default function HoldsPage() {
-  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
   const requestsApi = useApi<{ requests: HoldRow[] }>("/api/borrow-requests");

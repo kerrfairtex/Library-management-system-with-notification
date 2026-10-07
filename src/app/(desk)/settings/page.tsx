@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { apiJson } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, PageHeader, Modal } from "@/components/ui";
 import type { CirculationRule, MemberType } from "@/lib/types";
@@ -42,7 +43,7 @@ const emptyRuleForm = {
 };
 
 export default function SettingsPage() {
-  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const isAdmin = me?.user?.role === "admin";
 
   const { data, loading, error, reload } = useApi<CirculationSettings>("/api/settings/circulation");

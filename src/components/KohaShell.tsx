@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { canAccess, type AppCapability } from "@/lib/permissions";
 import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { useDeskSession } from "./DeskSessionProvider";
 
 /* Top-nav modules — mirrors Koha's header.inc nav items */
 const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://library-cp22.onrender.com/shelf";
@@ -48,18 +49,17 @@ const moreNav = [
   { href: "/profile", label: "My profile" },
 ];
 
-export function KohaShell({ children, initialUser }: {
+export function KohaShell({ children }: {
   children: React.ReactNode;
-  initialUser?: PublicUser | null;
 }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const { data: sessionData } = useApi<{ user: PublicUser }>("/api/auth/me");
-  // Seed with server-side session to avoid hydration mismatch
-  const session = sessionData ?? (initialUser ? { user: initialUser } : null);
+  // Use the shared session context (seeded with server-side session)
+  const { session: sessionData, loading: sessionLoading } = useDeskSession();
+  const session = sessionData;
   const user = session?.user;
   const moreRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);

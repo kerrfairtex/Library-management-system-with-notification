@@ -1,4 +1,5 @@
 import { KohaShell } from "@/components/KohaShell";
+import { DeskSessionProvider } from "@/components/DeskSessionProvider";
 import { requireSession } from "@/lib/authz";
 import type { PublicUser } from "@/lib/types";
 
@@ -11,10 +12,10 @@ export default async function DeskLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch the session server-side so KohaShell can pass it as initialUser
-  // to avoid hydration mismatch (client-side useApi starts with null, then
-  // loads the user — the mismatch triggers the error boundary on /borrow
-  // and other desks pages for some roles).
+  // Fetch the session server-side so KohaShell and desk pages can use it
+  // as initial data, avoiding hydration mismatch (client-side useApi starts
+  // with null, then loads the user — the mismatch triggers the error boundary
+  // on /borrow and other desk pages).
   let initialUser: PublicUser | null = null;
   try {
     const { user } = await requireSession();
@@ -24,5 +25,11 @@ export default async function DeskLayout({
     initialUser = null;
   }
 
-  return <KohaShell initialUser={initialUser}>{children}</KohaShell>;
+  const initialSession = initialUser ? { user: initialUser } : null;
+
+  return (
+    <DeskSessionProvider initialSession={initialSession}>
+      <KohaShell>{children}</KohaShell>
+    </DeskSessionProvider>
+  );
 }

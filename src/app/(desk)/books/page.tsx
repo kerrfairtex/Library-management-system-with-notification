@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, BookItem, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
@@ -34,7 +35,7 @@ const emptyItemForm = {
 };
 
 export default function BooksPage() {
-  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const { data, loading, error, reload } = useApi<Book[]>("/api/books");
   const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>("/api/book-items");
   const [query, setQuery] = useState("");

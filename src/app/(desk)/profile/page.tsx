@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { roleLabel } from "@/lib/permissions";
 import type { PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
@@ -14,8 +15,8 @@ export const dynamic = "force-dynamic";
 type ProfileUser = PublicUser & { createdAt: string };
 
 export default function ProfilePage() {
-  const { data, reload } = useApi<{ user: ProfileUser }>("/api/auth/me");
-  const user = data?.user;
+  const { session: data, reload } = useDeskSession();
+  const user = data?.user as ProfileUser | undefined;
 
   const [nameForm, setNameForm] = useState({ name: "", busy: false, error: null as string | null, success: false });
   const [pwForm, setPwForm] = useState({ password: "", confirm: "", busy: false, error: null as string | null, success: false });

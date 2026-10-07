@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 /** Pass a null url to hold off until the caller knows what to request. */
-export function useApi<T>(url: string | null, refreshKey = 0) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(Boolean(url));
+export function useApi<T>(
+  url: string | null,
+  refreshKey = 0,
+  initialData: T | null = null
+) {
+  const [data, setData] = useState<T | null>(initialData);
+  const [loading, setLoading] = useState(Boolean(url) && initialData === null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {

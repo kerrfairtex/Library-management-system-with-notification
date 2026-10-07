@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess } from "@/lib/permissions";
 
@@ -14,7 +15,7 @@ import { canAccess } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 export default function ReportsPage() {
-  const { data: me } = useApi<{ user: { role: string } }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");

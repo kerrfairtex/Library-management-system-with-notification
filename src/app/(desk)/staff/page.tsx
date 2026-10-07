@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { roleLabel } from "@/lib/permissions";
 import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
@@ -28,7 +29,7 @@ function roleBlurb(role: UserRole): string {
 }
 
 export default function StaffPage() {
-  const { data: me } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const { session: me } = useDeskSession();
   const isAdmin = me?.user?.role === "admin";
 
   const { data, loading, error, reload } = useApi<PublicUser[]>(

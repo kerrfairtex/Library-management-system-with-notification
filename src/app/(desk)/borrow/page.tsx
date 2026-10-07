@@ -12,6 +12,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useApi } from "@/lib/hooks";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member, PublicUser } from "@/lib/types";
 import { canAccess, type AppCapability } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
@@ -27,7 +28,7 @@ function BorrowInner() {
   const { data: booksData, loading: booksLoading } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
   const { data: loansData, reload } = useApi<{ loans: Loan[] }>("/api/loans");
-  const { data: session } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const { session } = useDeskSession();
 
   const [memberId, setMemberId] = useState("");
   const [days, setDays] = useState(14);
