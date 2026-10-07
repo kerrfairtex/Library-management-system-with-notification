@@ -876,7 +876,7 @@ export async function createBorrowRequest(bookId: string, memberId: string) {
     .in("status", ["pending", "ready", "approved"])
     .maybeSingle();
 
-  if (open) {
+  if (open?.data) {
     throw new Error("You already have a pending request for this book (found by SELECT).");
   }
 

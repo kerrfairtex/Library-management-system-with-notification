@@ -1,6 +1,6 @@
 # TRAC Library — production container for Render (runtime: docker).
 # Multi-stage: install deps -> build -> slim runtime image.
-ARG CACHEBUST=2026-10-03T07:44:13.944203
+ARG CACHEBUST=2026-10-07T10:00:54.530881Z
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
