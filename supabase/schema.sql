@@ -550,9 +550,9 @@ create index if not exists holds_book_queue_idx on public.holds (book_id, priori
   where status in ('pending', 'ready');
 create index if not exists holds_member_idx on public.holds (member_id);
 
--- One open hold/request per member per title.
+-- One open hold/request per member per title per kind.
 create unique index if not exists holds_one_open_per_member
-  on public.holds (book_id, member_id)
+  on public.holds (book_id, member_id, kind)
   where status in ('pending', 'ready', 'approved');
 
 -- ── Admin Settings ─────────────────────────────────────────────────────────

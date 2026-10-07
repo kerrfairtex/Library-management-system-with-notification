@@ -17,8 +17,8 @@ const CONFIG = {
 
 // Exact credentials as requested
 const DEMO_USERS = [
-  { name: "Demo Student",   email: "student@gmail.com",   password: "student123",   role: "admin" },
-  { name: "Demo Librarian", email: "librarian@gmail.com", password: "librarian123",  role: "admin" },
+  { name: "Demo Student",   email: "student@gmail.com",   password: "student123",   role: "student" },
+  { name: "Demo Librarian", email: "librarian@gmail.com", password: "librarian123",  role: "librarian" },
   { name: "Demo Admin",     email: "admin@gmail.com",     password: "admin123",     role: "admin" }
 ];
 

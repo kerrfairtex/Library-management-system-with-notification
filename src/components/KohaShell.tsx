@@ -48,13 +48,18 @@ const moreNav = [
   { href: "/profile", label: "My profile" },
 ];
 
-export function KohaShell({ children }: { children: React.ReactNode }) {
+export function KohaShell({ children, initialUser }: {
+  children: React.ReactNode;
+  initialUser?: PublicUser | null;
+}) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const { data: session } = useApi<{ user: PublicUser }>("/api/auth/me");
+  const { data: sessionData } = useApi<{ user: PublicUser }>("/api/auth/me");
+  // Seed with server-side session to avoid hydration mismatch
+  const session = sessionData ?? (initialUser ? { user: initialUser } : null);
   const user = session?.user;
   const moreRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
