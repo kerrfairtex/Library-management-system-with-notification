@@ -132,7 +132,7 @@ export function ProgressLibrary() {
             Placed top-left so it never collides with the Borrow flow. */}
         <a
           className="signin-chip"
-          href={`${libraryOrigin}/login`}
+          href={`${libraryOrigin}/login?next=/my-loans`}
           aria-label="Sign in to TRAC Library desk"
         >
           <span aria-hidden>👤</span> Sign in
