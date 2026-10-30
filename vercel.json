@@ -10,6 +10,6 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_LIBRARY_ORIGIN": "https://trac-library-bookshelf.vercel.app"
+    "NEXT_PUBLIC_LIBRARY_ORIGIN": "https://library-cp22.onrender.com"
   }
 }
