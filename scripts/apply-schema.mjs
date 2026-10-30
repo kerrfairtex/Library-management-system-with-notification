@@ -13,7 +13,7 @@
 //     node scripts/apply-schema.mjs
 //
 // The project ref is the subdomain in your project URL, e.g. for
-// https://cphkxgykshjeultzgzmz.supabase.co it's "cphkxgykshjeultzgzmz".
+// https://wapnzuawqhekgkqpgphj.supabase.co it's "wapnzuawqhekgkqpgphj".
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -29,7 +29,7 @@ if (!projectRef || !accessToken) {
       "your project's SUPABASE_SECRET_KEY / anon key. Create one at:\n" +
       "  https://supabase.com/dashboard/account/tokens\n\n" +
       "SUPABASE_PROJECT_REF is the subdomain in your project URL, e.g. for\n" +
-      "https://cphkxgykshjeultzgzmz.supabase.co it's cphkxgykshjeultzgzmz.\n\n" +
+      "https://wapnzuawqhekgkqpgphj.supabase.co it's wapnzuawqhekgkqpgphj.\n\n" +
       "Then run:\n" +
       "  SUPABASE_PROJECT_REF=your-project-ref SUPABASE_ACCESS_TOKEN=sbp_xxx \\\n" +
       "    node scripts/apply-schema.mjs"

@@ -1,12 +1,7 @@
 // borrowUrl: links to the TRAC desk app for borrowing.
 // Uses NEXT_PUBLIC_LIBRARY_ORIGIN env var (set to the Vercel URL in vercel.json),
 // falls back to same-origin /borrow path.
-function borrowUrl(isbn: string): string {
-  const origin = (process.env.NEXT_PUBLIC_LIBRARY_ORIGIN || "").replace(/\/$/, "");
-  return origin
-    ? `${origin}/borrow?isbn=${encodeURIComponent(isbn)}`
-    : `/borrow?isbn=${encodeURIComponent(isbn)}`;
-}
+import { borrowUrl } from "./site-config";
 
 export type BookMotif =
   | "lattice"
@@ -59,7 +54,7 @@ export type CatalogBook = {
 
 /**
  * TRAC Library catalog — generated from trac_library.books
- * (Supabase project cphkxgykshjeultzgzmz).
+ * (Supabase project wapnzuawqhekgkqpgphj).
  * Availability is a build-time snapshot; the shelf refreshes it live.
  * Borrow URLs resolve against NEXT_PUBLIC_LIBRARY_ORIGIN at runtime
  * (see borrowUrl helper in site-config).

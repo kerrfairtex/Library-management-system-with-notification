@@ -8,11 +8,5 @@
       "path": "/api/cron/refresh-loans",
       "schedule": "0 2 * * *"
     }
-  ],
-  "env": {
-    "SUPABASE_URL": "https://cphkxgykshjeultzgzmz.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://cphkxgykshjeultzgzmz.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc",
-    "NEXT_PUBLIC_LIBRARY_ORIGIN": "https://library-cp22.onrender.com"
-  }
+  ]
 }

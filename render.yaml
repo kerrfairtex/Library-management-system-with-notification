@@ -6,10 +6,10 @@ services:
     dockerfilePath: ./Dockerfile
     envVars:
       - key: SUPABASE_URL
-        value: https://cphkxgykshjeultzgzmz.supabase.co
+        value: https://wapnzuawqhekgkqpgphj.supabase.co
       # Build-time vars (NEXT_PUBLIC_* are inlined at build time)
       - key: NEXT_PUBLIC_SUPABASE_URL
-        value: https://cphkxgykshjeultzgzmz.supabase.co
+        value: https://wapnzuawqhekgkqpgphj.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         value: sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc
 

@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 
 // Configuration with your exact project details
 const CONFIG = {
-  SUPABASE_URL: process.env.SUPABASE_URL || 'https://cphkxgykshjeultzgzmz.supabase.co',
+  SUPABASE_URL: process.env.SUPABASE_URL || 'https://wapnzuawqhekgkqpgphj.supabase.co',
   // Use whichever key is available (prefer service role)
   SERVICE_KEY: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 };

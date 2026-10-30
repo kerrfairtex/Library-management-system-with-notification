@@ -23,7 +23,7 @@ Brand assets live in `public/brand/` (`trac-logo.png` seal, `trac-campus.jpg` ca
 
 ## Developing with Cursor
 
-This repo includes `.cursor/mcp.json`, which configures the [Supabase MCP server](https://supabase.com/docs/guides/getting-started/mcp) for this project (`project_ref=cphkxgykshjeultzgzmz`). Opening this repo in Cursor lets you (after authenticating once) ask the AI to inspect tables, run SQL, and check logs directly against this Supabase project — handy for diagnosing issues like the schema-cache error covered below.
+This repo includes `.cursor/mcp.json`, which configures the [Supabase MCP server](https://supabase.com/docs/guides/getting-started/mcp) for this project (`project_ref=wapnzuawqhekgkqpgphj`). Opening this repo in Cursor lets you (after authenticating once) ask the AI to inspect tables, run SQL, and check logs directly against this Supabase project — handy for diagnosing issues like the schema-cache error covered below.
 
 ## Getting started
 
@@ -83,7 +83,7 @@ Staff accounts live in the Supabase `users` table (`password_hash` is a `salt:sc
 
 1. In the Supabase dashboard, enable the **Google** provider under Authentication → Providers and add your Google OAuth client ID/secret.
 2. In **Google Cloud** → OAuth client → Authorized redirect URIs, add **only** Supabase's callback (not the Vercel app URL):
-   `https://cphkxgykshjeultzgzmz.supabase.co/auth/v1/callback`
+   `https://wapnzuawqhekgkqpgphj.supabase.co/auth/v1/callback`
 3. In Supabase → Authentication → URL Configuration, set Site URL to your app origin and add Redirect URL:
    `https://library-management-system-with-notification-kerros.vercel.app/auth/callback`
 4. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`) so the browser can start the OAuth handshake.
@@ -213,7 +213,7 @@ This is a PostgREST error meaning the Supabase Data API can't see the table — 
 
 **Option A — run it by hand (fastest, no extra credentials):**
 
-1. Open the SQL editor for your project (for this app's project: [SQL editor](https://supabase.com/dashboard/project/cphkxgykshjeultzgzmz/sql/new)).
+1. Open the SQL editor for your project (for this app's project: [SQL editor](https://supabase.com/dashboard/project/wapnzuawqhekgkqpgphj/sql/new)).
 2. Paste the entire contents of `supabase/schema.sql` and click **Run**. It's safe to re-run.
 
 **Option B — apply it via script (no dashboard click-through):**
@@ -222,7 +222,7 @@ This is a PostgREST error meaning the Supabase Data API can't see the table — 
 SUPABASE_PROJECT_REF=your-project-ref SUPABASE_ACCESS_TOKEN=sbp_xxx npm run db:apply-schema
 ```
 
-`SUPABASE_ACCESS_TOKEN` is a **Personal Access Token** — an account-level credential, different from your project's API keys — created at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). `SUPABASE_PROJECT_REF` is the subdomain of your project URL (e.g. `cphkxgykshjeultzgzmz` for `https://cphkxgykshjeultzgzmz.supabase.co`). This calls Supabase's Management API to run the SQL directly — no dashboard visit needed.
+`SUPABASE_ACCESS_TOKEN` is a **Personal Access Token** — an account-level credential, different from your project's API keys — created at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens). `SUPABASE_PROJECT_REF` is the subdomain of your project URL (e.g. `wapnzuawqhekgkqpgphj` for `https://wapnzuawqhekgkqpgphj.supabase.co`). This calls Supabase's Management API to run the SQL directly — no dashboard visit needed.
 
 **Then verify and seed:**
 
