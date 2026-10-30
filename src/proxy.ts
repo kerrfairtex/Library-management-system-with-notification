@@ -6,6 +6,9 @@ const PUBLIC_PATHS = [
   "/user-guidelines",
   "/login",
   "/auth/callback",
+  // The 3D bookshelf must be publicly browsable — only the desk (login,
+  // /api/*) requires authentication.
+  "/shelf",
   "/api/auth/login",
   // Public read-only feed for the 3D bookshelf app (copy counts only).
   "/api/shelf-availability",
