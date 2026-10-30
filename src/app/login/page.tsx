@@ -222,10 +222,10 @@ function LoginForm() {
         </Link>
         <span aria-hidden>·</span>
         <Link
-          href="https://library-cp22.onrender.com/shelf"
+          href="https://trac-library-bookshelf.vercel.app/shelf"
           className="login-link"
         >
-          ← Back to Koha 3D Bookshelf
+          ← Back to 3D Bookshelf
         </Link>
       </div>
 
@@ -294,7 +294,7 @@ export default function LoginPage() {
         </section>
       </main>
       <footer style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.85rem", color: "#888" }}>
-        Browse the catalog in 3D: <a href="https://library-cp22.onrender.com/shelf" style={{ color: "#3b82f6", textDecoration: "underline" }}>Koha 3D Bookshelf</a>
+        Browse the catalog in 3D: <a href="https://trac-library-bookshelf.vercel.app/shelf" style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a>
       </footer>
     </>
   );
