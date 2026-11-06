@@ -304,11 +304,14 @@ a {
   animation: sealIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.login-seal-image {
+  .login-seal-image {
   width: 100%;
   height: auto;
   display: block;
+  border-radius: 50%;
+  overflow: hidden;
   filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.4));
+}
 }
 
 .login-brand {
