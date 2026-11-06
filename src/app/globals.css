@@ -312,7 +312,6 @@ a {
   overflow: hidden;
   filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.4));
 }
-}
 
 .login-brand {
   font-size: clamp(3rem, 8vw, 4.75rem);
