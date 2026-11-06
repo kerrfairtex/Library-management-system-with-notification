@@ -35,7 +35,7 @@ const primaryNav: { href: string; label: string; icon?: string; capability: stri
   },
   { href: "/books", label: "Search", icon: "🔍", capability: "books.read" },
   { href: "/members", label: "Patrons", icon: "👤", capability: "members.read" },
-  { href: "/reports", label: "Reports", icon: "📊", capability: "dashboard.read" },
+  { href: "/reports", label: "Reports", icon: "📊", capability: "loans.manage" },
 ] as const;
 
 /* "More" dropdown — mirrors Koha's overflow modules */
@@ -47,6 +47,30 @@ const moreNav = [
   { href: "/fines", label: "Fines desk", capability: "loans.manage" },
   { href: "/staff", label: "Administration", capability: "staff.manage" },
   { href: "/profile", label: "My profile" },
+];
+
+type ShellNavItem = {
+  href: string;
+  label: string;
+  icon?: string;
+  capability: string;
+  children?: readonly { href: string; label: string; capability: string }[];
+};
+
+/* Student menu: self-service only, no staff modules */
+const studentNav: readonly ShellNavItem[] = [
+  { href: "/", label: "Home", icon: "🏠", capability: "dashboard.read" },
+  { href: "/books", label: "Search Catalog", icon: "🔍", capability: "books.read" },
+  { href: "/my-loans", label: "My Loans", icon: "📚", capability: "dashboard.read" },
+  { href: "/holds", label: "My Holds", icon: "⏳", capability: "dashboard.read" },
+  { href: "/fines", label: "My Fines", icon: "💳", capability: "dashboard.read" },
+  { href: "/notifications", label: "Notifications", icon: "🔔", capability: "notifications.read" },
+  { href: "/profile", label: "My Profile", icon: "👤", capability: "dashboard.read" },
+];
+
+const studentMore: readonly { href: string; label: string; capability?: string }[] = [
+  { href: "/user-guidelines", label: "User guidelines" },
+  { href: "/about", label: "About & Privacy" },
 ];
 
 export function KohaShell({ children }: {
@@ -75,6 +99,10 @@ export function KohaShell({ children }: {
 
   const can = (cap: string) =>
     canAccess(user, cap as AppCapability);
+  const isStudent = user?.role === "student";
+  const navItems: readonly ShellNavItem[] = isStudent ? studentNav : primaryNav;
+  const moreItems: readonly { href: string; label: string; capability?: string }[] =
+    isStudent ? studentMore : moreNav;
 
   return (
     <div className="koha-shell">
@@ -89,7 +117,7 @@ export function KohaShell({ children }: {
           </Link>
 
           <nav className={`koha-nav ${mobileOpen ? "open" : ""}`}>
-            {primaryNav.map((item) => {
+            {navItems.map((item) => {
               if (!can(item.capability)) return null;
               const hasChildren = item.children && item.children.length > 0;
               const isActive = hasChildren
@@ -153,7 +181,7 @@ export function KohaShell({ children }: {
               </button>
               {moreOpen && (
                 <div className="koha-dropdown koha-dropdown-dark">
-                  {moreNav.map((item) => {
+                  {moreItems.map((item) => {
                     if (item.capability && !can(item.capability)) return null;
                     return (
                       <Link
