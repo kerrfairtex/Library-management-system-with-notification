@@ -453,6 +453,20 @@ export async function deleteBook(id: string): Promise<boolean> {
   return Boolean(data && data.length > 0);
 }
 
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+async function findUserIdByEmail(email: string): Promise<string | null> {
+  const { data } = await db(supabase)
+    .from("users")
+    .select("id")
+    .ilike("email", escapeLike(email.trim()))
+    .limit(1)
+    .maybeSingle();
+  return data ? (data as { id: string }).id : null;
+}
+
 export async function createMember(
   input: Omit<Member, "id" | "joinedAt" | "active">
 ): Promise<Member> {
@@ -466,16 +480,20 @@ export async function createMember(
   const row = {
     id: randomUUID(),
     name: input.name,
-    email: input.email,
+    email: input.email.trim().toLowerCase(),
     phone: input.phone,
     member_type: memberType,
     student_id: studentId,
     grade,
     joined_at: new Date().toISOString(),
     active: true,
+    user_id: await findUserIdByEmail(input.email),
   };
 
   const { data, error } = await db(supabase).from("members").insert(row).select("*").single();
+  if (error && error.code === "23505") {
+    throw new Error("A member with this email already exists.");
+  }
   throwIfError(error, "Failed to create member.");
 
   const member = mapMember(data as MemberRow);
@@ -731,7 +749,7 @@ export async function createStaff(input: {
   const { data: clash, error: clashError } = await db(supabase)
     .from("users")
     .select("id")
-    .ilike("email", email)
+    .ilike("email", escapeLike(email))
     .maybeSingle();
   throwIfError(clashError, "Failed to check existing accounts.");
   if (clash) throw new Error("An account with that email already exists.");
@@ -748,7 +766,43 @@ export async function createStaff(input: {
 
   const { data, error } = await db(supabase).from("users").insert(row).select("*").single();
   throwIfError(error, "Failed to create staff account.");
-  return toPublicUser(mapUser(data as UserRow));
+  const created = toPublicUser(mapUser(data as UserRow));
+
+  if (input.role === "student") {
+    const existing = await getMemberByEmail(email);
+    let memberError: unknown = null;
+    if (existing) {
+      const { error: linkError } = await db(supabase)
+        .from("members")
+        .update({ user_id: row.id })
+        .eq("id", existing.id)
+        .is("user_id", null);
+      memberError = linkError;
+    } else {
+      const { error: insertError } = await db(supabase).from("members").insert({
+        id: randomUUID(),
+        name: row.name,
+        email,
+        phone: null,
+        member_type: "student",
+        student_id: null,
+        grade: null,
+        joined_at: new Date().toISOString(),
+        active: true,
+        user_id: row.id,
+      });
+      memberError = insertError;
+    }
+    if (memberError) {
+      const { error: undoError } = await db(supabase).from("users").delete().eq("id", row.id);
+      throw new Error(
+        undoError
+          ? "The account was created but its library membership could not be, and the account could not be removed. Delete it and try again."
+          : "Could not create the library membership for this student, so the account was not created."
+      );
+    }
+  }
+  return created;
 }
 
 export async function updateStaff(
@@ -831,10 +885,31 @@ export async function getMemberByEmail(email: string) {
   const { data, error } = await db(supabase)
     .from("members")
     .select("*")
-    .ilike("email", email.trim())
+    .ilike("email", escapeLike(email.trim()))
+    .limit(1)
     .maybeSingle();
   if (error || !data) return null;
   return mapMember(data);
+}
+
+export async function getMemberByUser(user: { id: string; email: string }) {
+  const { data: byUser } = await db(supabase)
+    .from("members")
+    .select("*")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+  if (byUser) return mapMember(byUser);
+
+  const byEmail = await getMemberByEmail(user.email);
+  if (!byEmail) return null;
+  // Heal older accounts: remember the link (best effort, never overwrites).
+  await db(supabase)
+    .from("members")
+    .update({ user_id: user.id })
+    .eq("id", byEmail.id)
+    .is("user_id", null);
+  return byEmail;
 }
 
 export async function getBorrowRequests(memberId?: string) {

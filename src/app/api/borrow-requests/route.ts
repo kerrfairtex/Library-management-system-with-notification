@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { supabase } from "@/lib/supabase";
 import {
-  getMemberByEmail,
+  getMemberByUser,
   getBorrowRequests,
   createBorrowRequest,
   approveBorrowRequest,
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     // Resolve the patron record for this student. Never trust a memberId
     // supplied by the caller — derive it from the authenticated session.
-    const member = await getMemberByEmail(user.email);
+    const member = await getMemberByUser(user);
     if (!member) {
       return NextResponse.json(
         { error: "No library membership found for your account." },
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
   try {
     if (user.role === "student") {
       // Students see only their own requests.
-      const member = await getMemberByEmail(user.email);
+      const member = await getMemberByUser(user);
       const requests = member ? await getBorrowRequests(member.id) : [];
       return NextResponse.json({ requests });
     }
@@ -170,7 +170,7 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
-      const member = await getMemberByEmail(user.email);
+      const member = await getMemberByUser(user);
       if (!member) {
         return NextResponse.json(
           { error: "No library membership found for your account." },
