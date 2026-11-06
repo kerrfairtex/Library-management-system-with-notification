@@ -255,8 +255,8 @@ function LoginBrand() {
           className="login-seal-image"
         />
       </div>
-      <p className="brand login-brand">TRAC</p>
-      <p className="login-institute">Institute of Agricultural Sciences</p>
+      <p className="brand login-brand">TRAC LIBRARY</p>
+      <p className="login-institute">Tawi-Tawi Regional Agricultural College</p>
       <h1 className="display login-headline">Library desk access</h1>
       <p className="login-support">
         Catalog, circulation, and due-date alerts for Bongao, Tawi-Tawi.

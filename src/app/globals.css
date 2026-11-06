@@ -1171,3 +1171,35 @@ table.koha-table {
   background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
 }
+
+@media (max-width: 640px) {
+  .login-building-banner {
+    width: 100%;
+    object-fit: cover;
+    object-position: center;
+    height: auto;
+    max-height: none; /* natural 960/722 ratio */
+    margin-bottom: 1rem;
+  }
+  
+  .login-building-banner.faded {
+    /* Fade bottom edge into dark background */
+    background: linear-gradient(top, rgba(10,20,10,0), rgba(10,20,10,0.8));
+  }
+  
+  .login-copy {
+    padding: 1rem;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  
+  .login-brand {
+    font-size: clamp(2rem, 7vw, 3.5rem);
+    margin-bottom: 0.5rem;
+  }
+  
+  .login-institute {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+  }
+}

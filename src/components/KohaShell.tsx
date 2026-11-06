@@ -82,7 +82,7 @@ export function KohaShell({ children }: {
       <header className="koha-topbar">
         <div className="koha-topbar-inner">
           <Link href="/" className="koha-brand">
-            <Image src="/brand/trac-logo.png" alt="" width={30} height={30} priority />
+            <Image src="/branding/trac-library-seal.jpg" alt="" width={30} height={30} priority />
             <span>
               <strong>TRAC</strong> <span className="koha-brand-sub">Library</span>
             </span>

@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mb-6 flex items-center justify-between gap-3">
             <Link href="/" className="brand-mark" aria-label="TRAC home">
               <Image
-                src="/brand/trac-logo.png"
+                src="/branding/trac-library-seal.jpg"
                 alt=""
                 width={48}
                 height={48}
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <p className="mb-5 hidden text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)] md:block">
-            Institute of Agricultural Sciences · Bongao, Tawi-Tawi
+            Tawi-Tawi Regional Agricultural College · Bongao, Tawi-Tawi
           </p>
           <nav className={`${menuOpen ? "block" : "hidden"} space-y-1 md:block`}>
             {visibleNav.map((item) => {

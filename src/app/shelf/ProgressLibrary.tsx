@@ -117,7 +117,7 @@ export function ProgressLibrary() {
         >
           {/* TRAC seal — same logo as the library desk app */}
           <img
-            src="/trac-logo-192.png"
+            src="/branding/seal-192.png"
             alt=""
             width={34}
             height={34}
