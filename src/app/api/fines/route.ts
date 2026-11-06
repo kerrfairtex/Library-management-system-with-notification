@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
-import { listFines, getFinesData, createFine } from "@/lib/store";
+import { listFines, getFinesData, createFine, getMemberByEmail } from "@/lib/store";
 
 export async function GET(request: Request) {
   const { user, response } = await requireSession();
@@ -11,20 +11,14 @@ export async function GET(request: Request) {
   const memberId = url.searchParams.get("memberId");
 
   try {
-    if (memberId && canAccess(user, "loans.manage")) {
-      // Staff can view fines for specific member
-      const fines = await listFines(memberId);
-      return NextResponse.json({ fines });
-    } else if (canAccess(user, "loans.manage")) {
-      // Staff can view all fines with member info
-      const data = await getFinesData();
-      return NextResponse.json(data);
-    } else if (memberId && user.role === "student") {
-      // Students can only view their own fines
-      // We need to get their member ID first
-      // For now, just return the memberId they requested if it matches
-      const fines = await listFines(memberId);
-      return NextResponse.json({ fines });
+    if (canAccess(user, "loans.manage")) {
+      if (memberId) return NextResponse.json({ fines: await listFines(memberId) });
+      return NextResponse.json(await getFinesData());
+    }
+    if (user.role === "student") {
+      const me = await getMemberByEmail(user.email);
+      if (!me) return NextResponse.json({ fines: [] });
+      return NextResponse.json({ fines: await listFines(me.id) });
     }
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   } catch (error) {

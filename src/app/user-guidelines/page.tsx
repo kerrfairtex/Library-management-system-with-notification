@@ -42,7 +42,7 @@ export default function UserGuidelinesPage() {
             User Guidelines
           </h1>
           <p style={{ fontSize: "1.05rem", opacity: 0.88, maxWidth: 56, margin: "0 0 1.25rem", lineHeight: 1.5 }}>
-            Step-by-step instructions for students, librarians, and administrators of the Institute of Agricultural Sciences library in Bongao, Tawi-Tawi.
+            Step-by-step instructions for students, librarians, and administrators of the Tawi-Tawi Regional Agricultural College library in Bongao, Tawi-Tawi.
           </p>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             <Link href="/login" style={{ background: "#fff", color: "#165a44", padding: "0.55rem 1.25rem", borderRadius: 10, fontWeight: 700, fontSize: "0.92rem", textDecoration: "none" }}>
@@ -93,7 +93,7 @@ export default function UserGuidelinesPage() {
             1. About TRAC Library
           </h2>
           <p style={{ lineHeight: 1.7, margin: "0.75rem 0" }}>
-            <strong>TRAC Library</strong> is the web-based Library Management System of the <strong>Institute of Agricultural Sciences</strong>, Bongao, Tawi-Tawi, Philippines. It digitizes cataloging, circulation, reservations, fines, and patron notifications, and includes an interactive 3D bookshelf.
+            <strong>TRAC Library</strong> is the web-based Library Management System of the <strong>Tawi-Tawi Regional Agricultural College</strong>, Bongao, Tawi-Tawi, Philippines. It digitizes cataloging, circulation, reservations, fines, and patron notifications, and includes an interactive 3D bookshelf.
           </p>
           <div style={{ background: "#f3f7f4", borderRadius: 12, padding: "1rem 1.25rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
             {[
@@ -698,7 +698,7 @@ export default function UserGuidelinesPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.5rem" }}>
           <div>
             <p style={{ fontWeight: 700, color: "#fff", margin: "0 0 0.5rem" }}>TRAC Library</p>
-            <p style={{ margin: 0 }}>Institute of Agricultural Sciences<br />Bongao, Tawi-Tawi, Philippines</p>
+            <p style={{ margin: 0 }}>Tawi-Tawi Regional Agricultural College<br />Bongao, Tawi-Tawi, Philippines</p>
           </div>
           <div>
             <p style={{ fontWeight: 700, color: "#fff", margin: "0 0 0.5rem" }}>Quick links</p>

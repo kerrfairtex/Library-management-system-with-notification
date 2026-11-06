@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About & Privacy — TRAC Library",
   description:
-    "About the TRAC Library Management System and its privacy policy. Institute of Agricultural Sciences, Bongao, Tawi-Tawi.",
+    "About the TRAC Library Management System and its privacy policy. Tawi-Tawi Regional Agricultural College, Bongao, Tawi-Tawi.",
 };
 
 const FB = "https://www.facebook.com/share/1EMjsmK2Cu/";
@@ -38,7 +38,7 @@ export default function AboutPage() {
       <Section title="What is TRAC Library?">
         <p>
           <strong>TRAC Library</strong> is the web-based Library Management
-          System of the <strong>Institute of Agricultural Sciences</strong> in
+          System of the <strong>Tawi-Tawi Regional Agricultural College</strong> in
           Bongao, Tawi-Tawi, Philippines. It digitizes the library&apos;s day-to-day
           work — cataloging, circulation, reservations, fines, and patron
           notifications — and gives students a modern way to discover and borrow

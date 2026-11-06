@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "TRAC Library — Library Management System",
     short_name: "TRAC Library",
     description:
-      "TRAC Library Management System — Institute of Agricultural Sciences, Bongao, Tawi-Tawi.",
+      "TRAC Library Management System — Tawi-Tawi Regional Agricultural College, Bongao, Tawi-Tawi.",
     start_url: "/",
     display: "standalone",
     background_color: "#f3f4f4",
