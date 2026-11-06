@@ -55,11 +55,43 @@ export default function FinesPage() {
   }
 
   if (!canManage) {
+    const mine = data?.fines ?? [];
+    const owed = mine.reduce((sum, f) => sum + f.amountOutstanding, 0);
     return (
       <div>
-        <PageHeader title="Fines desk" subtitle="Manage and track library fines" />
+        <PageHeader title="My fines" subtitle="Your charges and payments" />
+        <section className="panel p-5" style={{ marginBottom: "1.1rem" }}>
+          <h3>Total you owe</h3>
+          <p style={{ fontSize: "1.6rem", fontWeight: 700, color: owed > 0 ? "#8c1d1d" : "inherit" }}>
+            {peso(owed)}
+          </p>
+        </section>
         <section className="panel p-5">
-          <p>This page is only available to librarians and admins.</p>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Type</th><th>Description</th><th>Date</th><th>Amount</th><th>Outstanding</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {loading && <tr><td colSpan={6}>Loading…</td></tr>}
+                {!loading && mine.length === 0 && <tr><td colSpan={6}>You have no fines.</td></tr>}
+                {mine.map((f) => (
+                  <tr key={f.id}>
+                    <td><span className="badge tone-info">{f.type}</span></td>
+                    <td>{f.description ?? "—"}</td>
+                    <td>{formatDate(f.createdAt)}</td>
+                    <td>{peso(f.amount)}</td>
+                    <td style={{ fontWeight: 700 }}>{peso(f.amountOutstanding)}</td>
+                    <td>
+                      {f.paidAt
+                        ? <span className="badge tone-ok">Paid {formatDate(f.paidAt)}</span>
+                        : <span className="badge tone-warn">Outstanding</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     );
