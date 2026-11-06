@@ -22,25 +22,6 @@ const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-libra
 
 const primaryNav: { href: string; label: string; icon?: string; capability: string; children?: { href: string; label: string; capability: string }[] }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },
-  { href: "/circulation", label: "Circulation", capability: "loans.manage" },
-  { href: "/books", label: "Search", icon: "🔍", capability: "books.read" },
-  { href: "/members", label: "Patrolns", capability: "members.read" },
-  { href: "/reports", label: "Reports", capability: "dashboard.read" },
-]
-
-const studentNav: { href: string; label: string }[] = [
-  { href: "/", label: "Home" },
-  { href: "/books", label: "Search Catalog" },
-  { href: "/shelf", label: "3D Bookshelf" },
-  { href: "/my-loans", label: "My Loans" },
-  { href: "/borrow", label: "Borrow Requests" },
-  { href: "/holds", label: "Holds queue" },
-  { href: "/fines", label: "Fines desk" },
-  { href: "/profile", label: "My profile" },
-  { href: "/user-guidelines", label: "User Guidelines" },
-  { href: "/about", label: "About" },
-];
-  { href: "/", label: "Home", capability: "dashboard.read" },
   { 
     href: "/circulation", 
     label: "Circulation", 
