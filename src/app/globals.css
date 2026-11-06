@@ -1203,3 +1203,99 @@ table.koha-table {
     letter-spacing: 0.1em;
   }
 }
+
+
+/* Login page building banner */
+.login-building-banner {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  object-position: center;
+}
+
+.login-brand {
+  font-size: clamp(3rem, 8vw, 4.75rem);
+  line-height: 0.92;
+  color: var(--login-ink-on-photo);
+  margin: 0 0 0.4rem;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.4);
+}
+
+.login-institute {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(244, 250, 246, 0.86);
+  margin: 0 0 1rem;
+}
+
+.login-headline {
+  font-size: clamp(1.55rem, 3.2vw, 2.15rem);
+  line-height: 1.2;
+  color: rgba(244, 250, 246, 0.96);
+  max-width: 14ch;
+  margin: 0;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* ═══ Login background v2: layered photo (overrides earlier rules) ═══ */
+.login-atmosphere { overflow: hidden; }
+
+.login-bg-blur {
+  object-fit: cover;
+  filter: blur(22px);
+  transform: scale(1.15);
+}
+
+.login-bg-photo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 960 / 722;
+  -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+}
+
+.login-bg-img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.login-atmosphere-veil {
+  background: linear-gradient(
+    to bottom,
+    rgba(8, 22, 17, 0.05) 0,
+    rgba(8, 22, 17, 0.12) 75vw,
+    rgba(8, 22, 17, 0.62) 85vw,
+    rgba(8, 22, 17, 0.72) 100%
+  );
+  animation: none;
+}
+
+/* Phone/tablet: building on top, sign-in content starts below it */
+@media (max-width: 899px) {
+  .login-page {
+    align-items: flex-start;
+    padding-top: calc(75.2vw + 1rem);
+  }
+}
+
+/* Desktop: full-screen photo, light veil, text on the left */
+@media (min-width: 900px) {
+  .login-bg-photo {
+    height: 100%;
+    aspect-ratio: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .login-bg-img { object-position: center 40%; }
+  .login-atmosphere-veil {
+    background: linear-gradient(
+      to right,
+      rgba(8, 22, 17, 0.6) 0%,
+      rgba(8, 22, 17, 0.25) 55%,
+      rgba(8, 22, 17, 0.1) 100%
+    );
+  }
+}

@@ -270,14 +270,10 @@ export default function LoginPage() {
     <>
       <main className="login-page">
         <div className="login-atmosphere" aria-hidden>
-          <Image
-            src="/branding/trac-library-building.jpg"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="login-campus-photo"
-          />
+          <Image src="/branding/trac-library-building.jpg" alt="" fill priority sizes="100vw" className="login-bg-blur" />
+          <div className="login-bg-photo">
+            <Image src="/branding/trac-library-building.jpg" alt="" fill priority sizes="100vw" className="login-bg-img" />
+          </div>
           <div className="login-atmosphere-veil" />
           <div className="login-atmosphere-grain" />
         </div>
