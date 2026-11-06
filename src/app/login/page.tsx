@@ -247,8 +247,8 @@ function LoginBrand() {
     <div className="login-copy">
       <div className="login-seal">
         <Image
-          src="/brand/trac-logo.png"
-          alt="Institute of Agricultural Sciences — TRAC, Bongao, Tawi-Tawi"
+          src="/branding/trac-library-seal.jpg"
+          alt="Tawi-Tawi Regional Agricultural College Library seal"
           width={180}
           height={180}
           priority
@@ -271,7 +271,7 @@ export default function LoginPage() {
       <main className="login-page">
         <div className="login-atmosphere" aria-hidden>
           <Image
-            src="/brand/trac-campus.jpg"
+            src="/branding/trac-library-building.jpg"
             alt=""
             fill
             priority

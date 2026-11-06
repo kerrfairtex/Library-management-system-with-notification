@@ -99,7 +99,7 @@ function CallbackInner() {
     <main className="login-page">
       <div className="login-atmosphere" aria-hidden>
         <Image
-          src="/brand/trac-campus.jpg"
+          src="/branding/trac-library-building.jpg"
           alt=""
           fill
           priority
@@ -114,8 +114,8 @@ function CallbackInner() {
           <div className="mb-4 flex justify-center">
             <div className="login-seal" style={{ width: "5.5rem", marginBottom: 0 }}>
               <Image
-                src="/brand/trac-logo.png"
-                alt="TRAC"
+                src="/branding/trac-library-seal.jpg"
+                alt="Tawi-Tawi Regional Agricultural College Library seal"
                 width={88}
                 height={88}
                 className="login-seal-image"
