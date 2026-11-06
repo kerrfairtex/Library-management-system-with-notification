@@ -681,7 +681,7 @@ export async function isAccountPending(email: string): Promise<boolean> {
   const { data } = await db(supabase)
     .from("users")
     .select("status")
-    .ilike("email", email.trim())
+    .ilike("email", escapeLike(email.trim()))
     .maybeSingle();
   return (data as { status?: string } | null)?.status === "pending";
 }
@@ -693,7 +693,7 @@ export async function authenticateUser(
   const { data, error } = await db(supabase)
     .from("users")
     .select("*")
-    .ilike("email", email.trim())
+    .ilike("email", escapeLike(email.trim()))
     .maybeSingle();
 
   throwIfError(error, "Failed to look up user in Supabase.");

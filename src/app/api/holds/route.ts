@@ -1,3 +1,4 @@
+import { getMemberByUser } from "@/lib/store";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
@@ -22,11 +23,7 @@ export async function GET(request: NextRequest) {
       .order("placed_at", { ascending: true });
 
     if (user.role === "student") {
-      const { data: me } = await db(supabase)
-        .from("members")
-        .select("id")
-        .ilike("email", user.email)
-        .maybeSingle();
+      const me = await getMemberByUser(user);
       if (!me) return NextResponse.json({ holds: [] });
       query = query.eq("member_id", (me as { id: string }).id);
     }
@@ -54,11 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve the patron row for this user (students hold for themselves).
-    const { data: me } = await db(supabase)
-      .from("members")
-      .select("id")
-      .ilike("email", user.email)
-      .maybeSingle();
+    const me = await getMemberByUser(user);
     if (!me && user.role === "student") {
       return NextResponse.json(
         { error: "No library membership found for your account." },
@@ -156,11 +149,7 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
-      const { data: me } = await db(supabase)
-        .from("members")
-        .select("id")
-        .ilike("email", user.email)
-        .maybeSingle();
+      const me = await getMemberByUser(user);
       if (!me) throw new Error("No library membership found.");
       const memberId = (me as { id: string }).id;
       const { error } = await db(supabase)
