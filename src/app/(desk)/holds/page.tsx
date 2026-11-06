@@ -105,13 +105,63 @@ export default function HoldsPage() {
   }
 
   if (!canManage) {
+    const myHolds = holds.filter((h) => h.kind !== "borrow_request");
+    const rows = [
+      ...myHolds.map((h) => ({
+        id: h.id,
+        title: books.find((b) => b.id === h.book_id)?.title ?? "Unknown title",
+        type: "Hold",
+        placed: h.placed_at,
+        status: h.status,
+        isRequest: false,
+      })),
+      ...requests.map((r) => ({
+        id: r.id,
+        title: r.bookTitle,
+        type: "Borrow request",
+        placed: r.placedAt,
+        status: r.status,
+        isRequest: true,
+      })),
+    ];
     return (
       <div>
         <div className="page-head">
-          <h1 className="page-title">Holds & borrow requests</h1>
+          <h1 className="page-title">My holds & requests</h1>
+          <Link href="/books" className="btn-koha secondary">Search catalog</Link>
         </div>
-        <section className="circ-card">
-          <p>This page is only available to librarians and admins.</p>
+        <section className="koha-table-wrap">
+          <table className="koha-table">
+            <thead>
+              <tr><th>Title</th><th>Type</th><th>Placed on</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {isLoading && <tr><td colSpan={5}>Loading...</td></tr>}
+              {!isLoading && rows.length === 0 && (
+                <tr><td colSpan={5}>You have no holds or borrow requests.</td></tr>
+              )}
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td><strong>{r.title}</strong></td>
+                  <td>{r.type}</td>
+                  <td>{formatDate(r.placed)}</td>
+                  <td><span className={chipClass(r.status, r.isRequest ? "borrow_request" : undefined)}>{r.status}</span></td>
+                  <td>
+                    {(r.status === "pending" || r.status === "ready") && (
+                      <button
+                        type="button"
+                        className="btn-koha secondary"
+                        disabled={busy === r.id}
+                        onClick={() => act(r.id, "cancel", r.isRequest)}
+                      >
+                        {busy === r.id ? "Cancelling..." : "Cancel"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       </div>
     );
