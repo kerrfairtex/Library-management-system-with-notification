@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const { data: existing, error: findError } = await db(supabase)
       .from("users")
       .select("id")
-      .ilike("email", email)
+      .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
       .maybeSingle();
 
     if (findError) {

@@ -1,3 +1,4 @@
+import { getMemberByUser } from "@/lib/store";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
@@ -18,11 +19,7 @@ export async function GET() {
     // appearing in the message or their member id in related metadata); staff
     // keep the full desk feed.
     if (user.role === "student") {
-      const { data: me } = await db(supabase)
-        .from("members")
-        .select("id, name")
-        .ilike("email", user.email)
-        .maybeSingle();
+      const me = await getMemberByUser(user);
       const myName = (me as { name: string } | null)?.name ?? "";
       notifications = notifications.filter(
         (n) =>

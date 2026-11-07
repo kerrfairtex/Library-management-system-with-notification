@@ -89,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
       const { data: existingMember } = await db(supabase)
         .from("members")
         .select("id")
-        .ilike("email", updated.email)
+        .ilike("email", updated.email.replace(/[\\%_]/g, "\\$&"))
         .maybeSingle();
       if (!existingMember) {
         await db(supabase).from("members").insert({

@@ -1,3 +1,4 @@
+import { getMemberByUser } from "@/lib/store";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
@@ -13,11 +14,7 @@ export async function GET() {
   if (!user) return response;
 
   try {
-    const { data: me } = await db(supabase)
-      .from("members")
-      .select("id")
-      .ilike("email", user.email)
-      .maybeSingle();
+    const me = await getMemberByUser(user);
 
     if (!me) {
       return NextResponse.json({ loans: [], holds: [], fines: [] });
