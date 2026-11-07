@@ -13,9 +13,9 @@ export async function POST(request: Request) {
   if (!user) return response;
 
   // Only librarians and admins can reset passwords.
-  if (!canAccess(user, "members.manage" as AppCapability)) {
+  if (!canAccess(user, "staff.manage")) {
     return NextResponse.json(
-      { error: "Only librarians and admins can reset passwords." },
+      { error: "Only admins can reset passwords." },
       { status: 403 }
     );
   }
