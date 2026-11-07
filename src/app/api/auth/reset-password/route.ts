@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   const { error } = await db(supabase)
     .from("users")
     .update({ password_hash: passwordHash })
-    .ilike("email", email);
+    .ilike("email", email.replace(/[\\%_]/g, "\\$&"));
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
