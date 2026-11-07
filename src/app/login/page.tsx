@@ -245,15 +245,14 @@ function LoginForm() {
 function LoginBrand() {
   return (
     <div className="login-copy">
-      <div className="login-seal">
-        <Image
-          src="/branding/trac-library-seal.jpg"
-          alt="Tawi-Tawi Regional Agricultural College Library seal"
-          width={180}
-          height={180}
-          priority
-          className="login-seal-image"
-        />
+      <div className="login-seals">
+        <div className="login-seal">
+          <Image src="/brand/trac-logo-192.png" alt="Tawi-Tawi Regional Agricultural College seal" width={96} height={96} priority className="login-seal-image" />
+        </div>
+        <span className="login-seals-divider" aria-hidden />
+        <div className="login-seal">
+          <Image src="/branding/seal-192.png" alt="TRAC Library seal" width={96} height={96} priority className="login-seal-image" />
+        </div>
       </div>
       <p className="brand login-brand">TRAC LIBRARY</p>
       <p className="login-institute">Tawi-Tawi Regional Agricultural College</p>

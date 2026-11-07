@@ -1299,3 +1299,11 @@ table.koha-table {
     );
   }
 }
+
+/* two seals: college + library */
+.login-seals { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.1rem; }
+.login-seals .login-seal { width: clamp(3.75rem, 11vw, 5.75rem); margin-bottom: 0; flex: none; }
+.login-seals-divider { width: 1px; align-self: stretch; min-height: 2.5rem; background: rgba(244, 250, 246, 0.35); }
+.login-seals-sm { justify-content: center; margin-bottom: 0; }
+.login-seals-sm .login-seal { width: 4rem; }
+.login-seals-sm .login-seals-divider { background: rgba(0, 0, 0, 0.15); }
