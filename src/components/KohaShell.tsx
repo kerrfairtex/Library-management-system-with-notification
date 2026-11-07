@@ -18,7 +18,7 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "./DeskSessionProvider";
 
 /* Top-nav modules — mirrors Koha's header.inc nav items */
-const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app/shelf";
+const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app/";
 
 const primaryNav: { href: string; label: string; icon?: string; capability: string; children?: { href: string; label: string; capability: string }[] }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },

@@ -222,7 +222,7 @@ function LoginForm() {
         </Link>
         <span aria-hidden>·</span>
         <Link
-          href="https://trac-library-bookshelf.vercel.app/shelf"
+          href="https://trac-library-bookshelf.vercel.app/"
           className="login-link"
         >
           ← Back to 3D Bookshelf
@@ -290,7 +290,7 @@ export default function LoginPage() {
         </section>
       </main>
       <footer style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.85rem", color: "#888" }}>
-        Browse the catalog in 3D: <a href="https://trac-library-bookshelf.vercel.app/shelf" style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a>
+        Browse the catalog in 3D: <a href="https://trac-library-bookshelf.vercel.app/" style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a>
       </footer>
     </>
   );
