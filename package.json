@@ -9,13 +9,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "echo \"ESLint flat-config via next lint was removed in Next.js 16; build typechecks instead.\"",
+    "lint": "eslint src",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "seed:users": "node --env-file=.env.local scripts/seed-users.mjs",
     "seed:books": "node --env-file=.env.local scripts/seed-books.mjs",
     "db:check": "node --env-file=.env.local scripts/check-supabase.mjs",
     "db:apply-schema": "node --env-file=.env.local scripts/apply-schema.mjs",
-    "verify:loans": "bash scripts/verify-loan-guards.sh"
+    "verify:loans": "bash scripts/verify-loan-guards.sh",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
