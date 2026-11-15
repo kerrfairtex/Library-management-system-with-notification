@@ -104,10 +104,10 @@ function mapBook(row: BookRow): Book {
 }
 
 function mapMember(row: MemberRow): Member {
-  const memberType: MemberType =
-    row.member_type === "staff" || row.member_type === "community"
-      ? row.member_type
-      : "student";
+  const memberType: MemberType = row.member_type as MemberType;
+  if (memberType !== "student" && memberType !== "faculty" && memberType !== "teacher" && memberType !== "community" && memberType !== "staff") {
+    throw new Error(`Unknown member type: ${row.member_type}. This should not happen.`);
+  }
   return {
     id: row.id,
     name: row.name,
@@ -157,6 +157,10 @@ function mapLoan(row: LoanRow): Loan {
 }
 
 function mapNotification(row: NotificationRow): Notification {
+  const extra = row as NotificationRow & {
+    recipient_member_id?: string | null;
+    audience?: string | null;
+  };
   return {
     id: row.id,
     type: row.type,
@@ -165,6 +169,8 @@ function mapNotification(row: NotificationRow): Notification {
     relatedId: row.related_id ?? undefined,
     read: row.read,
     createdAt: row.created_at,
+    recipient_member_id: extra.recipient_member_id ?? undefined,
+    audience: extra.audience === "member" || extra.audience === "staff" ? extra.audience : undefined,
   };
 }
 
@@ -639,41 +645,30 @@ export async function renewLoan(loanId: string, extraDays = 7): Promise<Loan> {
   return mapLoan(data as LoanRow);
 }
 
-export async function markNotificationRead(id: string): Promise<Notification | null> {
-  const { data: existing, error: fetchError } = await db(supabase)
-    .from("notifications")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  throwIfError(fetchError, "Failed to load notification.");
-  if (!existing) return null;
+export type NotificationScope =
+  | { kind: "member"; memberId: string }
+  | { kind: "staff" };
 
-  const { data, error } = await db(supabase)
-    .from("notifications")
-    .update({ read: true })
-    .eq("id", id)
-    .select("*")
-    .single();
+export async function markNotificationRead(id: string, scope: NotificationScope): Promise<Notification | null> {
+  const base = db(supabase).from("notifications").update({ read: true }).eq("id", id);
+  const scoped =
+    scope.kind === "member"
+      ? base.eq("recipient_member_id", scope.memberId).eq("audience", "member")
+      : base.or("audience.eq.staff,recipient_member_id.is.null");
+  const { data, error } = await scoped.select("*").maybeSingle();
   throwIfError(error, "Failed to mark notification read.");
-  return mapNotification(data as NotificationRow);
+  return data ? mapNotification(data as NotificationRow) : null;
 }
 
-export async function markAllNotificationsRead(): Promise<number> {
-  const { data: unread, error: fetchError } = await db(supabase)
-    .from("notifications")
-    .select("id")
-    .eq("read", false);
-  throwIfError(fetchError, "Failed to load unread notifications.");
-
-  const ids = (unread ?? []).map((n) => n.id as string);
-  if (ids.length === 0) return 0;
-
-  const { error } = await db(supabase)
-    .from("notifications")
-    .update({ read: true })
-    .in("id", ids);
+export async function markAllNotificationsRead(scope: NotificationScope): Promise<number> {
+  const base = db(supabase).from("notifications").update({ read: true }).eq("read", false);
+  const scoped =
+    scope.kind === "member"
+      ? base.eq("recipient_member_id", scope.memberId).eq("audience", "member")
+      : base.or("audience.eq.staff,recipient_member_id.is.null");
+  const { data, error } = await scoped.select("id");
   throwIfError(error, "Failed to mark notifications read.");
-  return ids.length;
+  return (data ?? []).length;
 }
 
 /** True when the account exists but is still awaiting librarian approval. */
@@ -1021,8 +1016,11 @@ export async function approveBorrowRequest(id: string, reviewedBy: string) {
 
   await db(supabase).from("notifications").insert({
     type: "borrow_request_approved",
+    title: "Borrow request approved",
     message: "Your book is approved, just go to the library",
     related_id: hold.id,
+    recipient_member_id: hold.memberId,
+    audience: "member",
     read: false,
   });
 
@@ -1059,6 +1057,8 @@ export async function rejectBorrowRequest(id: string, reviewedBy: string, reason
     title: "Borrow request not approved",
     message: (memberName ? memberName + ": " : "") + "\"" + title + "\" request was not approved" + (reason ? ": " + reason : "."),
     related_id: hold.id,
+    recipient_member_id: hold.memberId,
+    audience: "member",
     read: false,
   });
 

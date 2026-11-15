@@ -213,6 +213,8 @@ export async function PATCH(request: NextRequest) {
         `library desk. Please pick it up within 3 days (by ` +
         `${new Date(pickupExpires).toLocaleDateString("en-PH")}).`,
       related_id: holdRow.book_id,
+      recipient_member_id: holdRow.member_id,
+      audience: "member",
       read: false,
     });
 
