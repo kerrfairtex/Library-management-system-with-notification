@@ -15,7 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { loanDays, renewalDays, maxRenewals, maxLoans, finePerDay } = body;
     
     const rule = await upsertCirculationRule({
-      memberType: memberType as "student" | "staff" | "community",
+      memberType: memberType as "student" | "faculty" | "teacher" | "staff" | "community",
       loanDays: loanDays !== undefined ? Number(loanDays) : 14,
       renewalDays: renewalDays !== undefined ? Number(renewalDays) : 7,
       maxRenewals: maxRenewals !== undefined ? Number(maxRenewals) : 2,
@@ -40,7 +40,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   try {
     const { id: memberType } = await params;
-    const success = await deleteCirculationRule(memberType as "student" | "staff" | "community");
+    const success = await deleteCirculationRule(memberType as "student" | "faculty" | "teacher" | "staff" | "community");
     if (!success) return NextResponse.json({ error: "Circulation rule not found." }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {

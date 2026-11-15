@@ -20,7 +20,7 @@ const emptyForm = {
   grade: "",
 };
 
-const typeFilters: Array<"all" | MemberType> = ["all", "student", "staff", "community"];
+const typeFilters: Array<"all" | MemberType> = ["all", "student", "faculty", "teacher", "staff", "community"];
 
 function typeLabel(type: MemberType): string {
   if (type === "student") return "Student";
@@ -150,7 +150,7 @@ export default function MembersPage() {
           restrictedView
             ? "Only librarians and admins can open the member registry."
             : canManageMembers
-              ? "Register students with a student ID and grade, plus staff or community patrons."
+              ? "Register students with a student ID and grade, plus faculty, teacher, staff or community patrons."
               : "View the member registry. Only admins can add, edit, activate, or delete members."
         }
         action={
@@ -314,6 +314,8 @@ export default function MembersPage() {
               }
             >
               <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="teacher">Teacher</option>
               <option value="staff">Staff</option>
               <option value="community">Community</option>
             </select>

@@ -97,7 +97,7 @@ create index if not exists fines_open_idx on public.fines (member_id)
 create table if not exists public.circulation_rules (
   id uuid primary key default gen_random_uuid(),
   member_type text not null unique
-    check (member_type in ('student', 'staff', 'community')),
+    check (member_type in ('student', 'faculty', 'teacher', 'staff', 'community')),
   loan_days integer not null default 14,
   renewal_days integer not null default 7,
   max_renewals integer not null default 2,
@@ -105,11 +105,17 @@ create table if not exists public.circulation_rules (
   fine_per_day numeric(6, 2) not null default 0
 );
 
+alter table public.circulation_rules drop constraint if exists circulation_rules_member_type_check;
+alter table public.circulation_rules add constraint circulation_rules_member_type_check
+  check (member_type in ('student', 'faculty', 'teacher', 'staff', 'community'));
+
 insert into public.circulation_rules (member_type, loan_days, renewal_days, max_renewals, max_loans, fine_per_day)
 values
   ('student',   14, 7, 2, 3, 1.00),
   ('staff',     30, 14, 3, 10, 0),
-  ('community', 14, 7, 1, 2, 1.00)
+  ('community', 14, 7, 1, 2, 1.00),
+  ('faculty',   14, 7, 2, 5, 1.00),
+  ('teacher',   14, 7, 2, 5, 1.00)
 on conflict (member_type) do nothing;
 
 -- ── Availability sync: keep books.available_copies true to item reality ───

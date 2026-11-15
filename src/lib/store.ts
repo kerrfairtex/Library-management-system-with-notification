@@ -106,7 +106,7 @@ function mapBook(row: BookRow): Book {
 function mapMember(row: MemberRow): Member {
   const memberType: MemberType = row.member_type as MemberType;
   if (memberType !== "student" && memberType !== "faculty" && memberType !== "teacher" && memberType !== "community" && memberType !== "staff") {
-    throw new Error(`Unknown member type: ${row.member_type}. This should not happen.`);
+    console.error(`Unknown member type: ${row.member_type}`);
   }
   return {
     id: row.id,
@@ -123,7 +123,7 @@ function mapMember(row: MemberRow): Member {
 }
 
 function normalizeMemberType(value: unknown): MemberType {
-  if (value === "staff" || value === "community" || value === "student") {
+  if (value === "staff" || value === "community" || value === "student" || value === "faculty" || value === "teacher") {
     return value;
   }
   return "student";

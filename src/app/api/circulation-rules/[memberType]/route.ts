@@ -17,13 +17,13 @@ export async function PATCH(
     const body = await request.json();
     const { loanDays, renewalDays, maxRenewals, maxLoans, finePerDay } = body;
 
-    const validTypes = ["student", "staff", "community"];
+    const validTypes = ["student", "faculty", "teacher", "staff", "community"];
     if (!validTypes.includes(memberType)) {
       return NextResponse.json({ error: "Invalid memberType." }, { status: 400 });
     }
 
     const rule = await upsertCirculationRule({
-      memberType: memberType as "student" | "staff" | "community",
+      memberType: memberType as "student" | "faculty" | "teacher" | "staff" | "community",
       loanDays: loanDays !== undefined ? Number(loanDays) : 14,
       renewalDays: renewalDays !== undefined ? Number(renewalDays) : 7,
       maxRenewals: maxRenewals !== undefined ? Number(maxRenewals) : 2,
@@ -53,12 +53,12 @@ export async function DELETE(
   try {
     const { memberType } = await params;
 
-    const validTypes = ["student", "staff", "community"];
+    const validTypes = ["student", "faculty", "teacher", "staff", "community"];
     if (!validTypes.includes(memberType)) {
       return NextResponse.json({ error: "Invalid memberType." }, { status: 400 });
     }
 
-    const deleted = await deleteCirculationRule(memberType as "student" | "staff" | "community");
+    const deleted = await deleteCirculationRule(memberType as "student" | "faculty" | "teacher" | "staff" | "community");
     if (!deleted) return NextResponse.json({ error: "Circulation rule not found." }, { status: 404 });
 
     return NextResponse.json({ success: true });
