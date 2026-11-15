@@ -245,6 +245,9 @@ create or replace function enforce_loan_capacity() returns trigger
 language plpgsql
 set search_path = public
 as $$
+declare
+  v_type text;
+  v_max integer := 3;
 begin
   perform 1 from books where id = new.book_id for update;
   perform 1 from members where id = new.member_id for update;
@@ -252,8 +255,17 @@ begin
      (select total_copies from books where id = new.book_id) then
     raise exception 'No copies available.';
   end if;
-  if (select count(*) from loans where member_id = new.member_id and status <> 'returned') >= 3 then
-    raise exception 'Member already has the maximum of 3 active loans.';
+
+  -- Per-category limit from circulation_rules; falls back to 3 when the table
+  -- or a rule for this member type does not exist.
+  if to_regclass('public.circulation_rules') is not null then
+    select member_type into v_type from members where id = new.member_id;
+    select max_loans into v_max from public.circulation_rules where member_type = v_type;
+    v_max := coalesce(v_max, 3);
+  end if;
+
+  if (select count(*) from loans where member_id = new.member_id and status <> 'returned') >= v_max then
+    raise exception 'Member already has the maximum of % active loans.', v_max;
   end if;
   return new;
 end;
