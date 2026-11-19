@@ -17,6 +17,7 @@ import {
   pendingSignups,
   peso,
   recentActivity,
+  roleCounts,
   type MyLoanRow,
 } from "./dashboard-stats.ts";
 
@@ -156,4 +157,23 @@ test("finesSummary totals what is owed, who owes it, and today's payments", () =
 
 test("pendingSignups keeps only accounts awaiting approval", () => {
   assert.deepEqual(pendingSignups([{ id: 1, status: "pending" }, { id: 2, status: "active" }, { id: 3 }]).map((u) => u.id), [1]);
+});
+
+// ── Admin ───────────────────────────────────────────────────────────────────
+test("roleCounts lists all six roles with whole-percent shares", () => {
+  const rows = roleCounts({
+    totalAccounts: 10, activeAccounts: 9, pendingAccounts: 1,
+    students: 6, faculty: 1, teachers: 1, community: 0, librarians: 1, admins: 1,
+    totalMemberProfiles: 8, incompleteStudentProfiles: 2,
+  });
+  assert.deepEqual(rows.map((r) => r.role), ["student", "faculty", "teacher", "community", "librarian", "admin"]);
+  assert.deepEqual(rows.map((r) => r.share), [60, 10, 10, 0, 10, 10]);
+  assert.equal(roleCounts({
+    totalAccounts: 0, activeAccounts: 0, pendingAccounts: 0, students: 0, faculty: 0, teachers: 0,
+    community: 0, librarians: 0, admins: 0, totalMemberProfiles: 0, incompleteStudentProfiles: 0,
+  })[0].share, 0);
+});
+
+test("admin statistics endpoint stays admin-only", () => {
+  assert.match(read("src/app/api/admin/user-statistics/route.ts"), /requireCapability\(\s*"staff\.manage"/);
 });

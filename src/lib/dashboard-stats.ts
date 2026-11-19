@@ -193,8 +193,9 @@ export function pendingSignups<T extends { status?: string }>(users: readonly T[
 
 // ── Admin ───────────────────────────────────────────────────────────────────
 
-export function roleCounts(stats: UserStatistics): { role: UserRole; count: number }[] {
-  return [
+/** Accounts per role with each role's share of all accounts (0-100, whole %). */
+export function roleCounts(stats: UserStatistics): { role: UserRole; count: number; share: number }[] {
+  const rows: { role: UserRole; count: number }[] = [
     { role: "student", count: stats.students },
     { role: "faculty", count: stats.faculty },
     { role: "teacher", count: stats.teachers },
@@ -202,6 +203,8 @@ export function roleCounts(stats: UserStatistics): { role: UserRole; count: numb
     { role: "librarian", count: stats.librarians },
     { role: "admin", count: stats.admins },
   ];
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+  return rows.map((r) => ({ ...r, share: total ? Math.round((r.count / total) * 100) : 0 }));
 }
 
 // ── Formatting ──────────────────────────────────────────────────────────────

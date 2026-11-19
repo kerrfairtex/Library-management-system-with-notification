@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/ui";
 import { KpiRow, Panel } from "@/components/dashboard/DashboardKit";
 import { PatronDashboard } from "@/components/dashboard/PatronDashboard";
 import { DeskDashboard } from "@/components/dashboard/DeskDashboard";
+import { AdminPanels } from "@/components/dashboard/AdminPanels";
 
 type DashboardResponse = {
   user: PublicUser;
@@ -63,6 +64,15 @@ export default function DashboardPage() {
       notifications={notifications}
       books={data.books}
       members={data.members}
+      adminPanels={user.role === "admin" ? <AdminPanels /> : undefined}
+      extraActions={
+        user.role === "admin"
+          ? [
+              { href: "/staff#academic-setup", label: "Academic setup" },
+              { href: "/settings", label: "System settings" },
+            ]
+          : []
+      }
     />
   );
 }
