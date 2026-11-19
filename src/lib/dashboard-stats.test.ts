@@ -5,11 +5,16 @@ import { join } from "node:path";
 import {
   calendarDaysUntil,
   currentlyBorrowed,
+  deskHoldQueues,
+  deskToday,
   dueLabel,
   finesOwed,
+  finesSummary,
   holdCounts,
   isSameLocalDay,
   loanLimitRemaining,
+  overdueLoans,
+  pendingSignups,
   peso,
   recentActivity,
   type MyLoanRow,
@@ -92,4 +97,63 @@ test("my-loans returns the loan limit for the caller's own member type only", ()
   assert.match(route, /getMemberByUser\(user\)/);
   assert.match(route, /getMaxLoansForMemberType\(me\.memberType\)/);
   assert.equal(/searchParams/.test(route), false, "no client-chosen member or type");
+});
+
+// ── Librarian ───────────────────────────────────────────────────────────────
+test("deskToday counts today's checkouts and returns only", () => {
+  const out = deskToday(
+    [
+      { borrowedAt: at(19, 9), returnedAt: null },
+      { borrowedAt: at(12), returnedAt: at(19, 10) },
+      { borrowedAt: at(18), returnedAt: at(18, 16) },
+    ],
+    NOW
+  );
+  assert.deepEqual(out, { checkouts: 1, returns: 1 });
+});
+
+test("overdueLoans keeps open past-due loans, most overdue first", () => {
+  const out = overdueLoans(
+    [
+      { id: "a", dueAt: at(17), returnedAt: null, status: "active" as const },
+      { id: "b", dueAt: at(10), returnedAt: null, status: "overdue" as const },
+      { id: "c", dueAt: at(10), returnedAt: at(11), status: "returned" as const },
+      { id: "d", dueAt: at(25), returnedAt: null, status: "active" as const },
+    ],
+    NOW
+  );
+  assert.deepEqual(out.map((l) => [l.id, l.daysOverdue]), [["b", 9], ["a", 2]]);
+});
+
+test("deskHoldQueues separates waiting holds, pickups and borrow requests", () => {
+  const row = (id: string, o: Partial<{ status: string; kind: string; placed_at: string; expires_at: string | null }>) => ({
+    id, book_id: "b", member_id: "m", status: "pending", kind: "hold", placed_at: at(10), expires_at: null, ...o,
+  });
+  const q = deskHoldQueues([
+    row("late", { placed_at: at(15) }),
+    row("early", { placed_at: at(11) }),
+    row("pick2", { status: "ready", expires_at: at(23) }),
+    row("pick1", { status: "ready", expires_at: at(21) }),
+    row("req", { kind: "borrow_request" }),
+  ]);
+  assert.deepEqual(q.waiting.map((h) => h.id), ["early", "late"]);
+  assert.deepEqual(q.pickups.map((h) => h.id), ["pick1", "pick2"]);
+  assert.equal(q.borrowRequests, 1);
+});
+
+test("finesSummary totals what is owed, who owes it, and today's payments", () => {
+  const s = finesSummary(
+    [
+      { memberId: "m1", amount: 50, amountOutstanding: 50, paidAt: null },
+      { memberId: "m1", amount: 20, amountOutstanding: 5, paidAt: null },
+      { memberId: "m2", amount: 30, amountOutstanding: 0, paidAt: at(19, 9) },
+      { memberId: "m3", amount: 10, amountOutstanding: 0, paidAt: at(18) },
+    ],
+    NOW
+  );
+  assert.deepEqual(s, { outstanding: 55, membersOwing: 1, paidToday: 30 });
+});
+
+test("pendingSignups keeps only accounts awaiting approval", () => {
+  assert.deepEqual(pendingSignups([{ id: 1, status: "pending" }, { id: 2, status: "active" }, { id: 3 }]).map((u) => u.id), [1]);
 });

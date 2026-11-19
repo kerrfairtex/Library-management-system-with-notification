@@ -159,6 +159,34 @@ export function finesSummary(
   };
 }
 
+/** Raw hold row as GET /api/holds returns it to staff. */
+export type DeskHoldRow = {
+  id: string;
+  book_id: string;
+  member_id: string;
+  status: string;
+  kind?: string | null;
+  placed_at: string;
+  expires_at?: string | null;
+};
+
+/**
+ * Splits the open hold queue: reservations still waiting for a copy (oldest
+ * first) and copies on the shelf awaiting pickup (soonest expiry first).
+ * Borrow requests are a separate queue and are counted on their own.
+ */
+export function deskHoldQueues(holds: readonly DeskHoldRow[]) {
+  const isRequest = (h: DeskHoldRow) => h.kind === "borrow_request";
+  const byPlaced = (a: DeskHoldRow, b: DeskHoldRow) =>
+    new Date(a.placed_at).getTime() - new Date(b.placed_at).getTime();
+  const expiry = (h: DeskHoldRow) => (h.expires_at ? new Date(h.expires_at).getTime() : Number.POSITIVE_INFINITY);
+  return {
+    waiting: holds.filter((h) => !isRequest(h) && h.status === "pending").sort(byPlaced),
+    pickups: holds.filter((h) => h.status === "ready").sort((a, b) => expiry(a) - expiry(b)),
+    borrowRequests: holds.filter((h) => isRequest(h) && h.status === "pending").length,
+  };
+}
+
 export function pendingSignups<T extends { status?: string }>(users: readonly T[]): T[] {
   return users.filter((u) => u.status === "pending");
 }
