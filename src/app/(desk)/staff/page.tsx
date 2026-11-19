@@ -174,6 +174,9 @@ export default function StaffPage() {
       await reload();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Save failed");
+      // An edit is up to two requests (profile, then role); if the second
+      // fails the first may already be saved, so refresh the list.
+      void reload();
     } finally {
       setBusy(false);
     }
@@ -361,11 +364,19 @@ export default function StaffPage() {
                               Make librarian
                             </button>
                           )}
-                          {academicRoles
+                          {isPatron(person) && academicRoles
                             .filter((r) => r !== person.role)
                             .map((r) => (
                               <button key={r} type="button" className="btn btn-ghost"
-                                onClick={() => changeRole(person, r)}>
+                                onClick={() => changeRole(person, r)}
+                                disabled={isSelf || lastAdmin}
+                                title={
+                                  isSelf
+                                    ? "Another admin has to change your role"
+                                    : lastAdmin
+                                      ? "The library needs at least one admin"
+                                      : undefined
+                                }>
                                 Make {r}
                               </button>
                             ))}
