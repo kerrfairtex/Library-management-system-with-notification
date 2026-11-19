@@ -24,6 +24,7 @@ export default function UserGuidelinesPage() {
           </Link>
           <nav style={{ display: "flex", gap: "1.25rem", alignItems: "center", fontSize: "0.88rem" }}>
             <Link href="/about" style={{ color: "rgba(255,255,255,0.9)" }}>About & Privacy</Link>
+            <Link href="/catalog" style={{ color: "rgba(255,255,255,0.9)" }}>Catalog</Link>
             <Link href="/shelf" style={{ color: "rgba(255,255,255,0.9)" }}>3D Bookshelf</Link>
             <Link href="/login" style={{ background: "rgba(255,255,255,0.18)", padding: "0.3rem 0.85rem", borderRadius: 8, color: "#fff", fontWeight: 600 }}>
               Sign in
@@ -146,7 +147,7 @@ export default function UserGuidelinesPage() {
           <p style={{ lineHeight: 1.7 }}>Open <Link href="/login" style={{ color: "#1f7a5c" }}>/login</Link>. Enter your email and password, then click <strong>Sign in to desk</strong>. The page shows accessible error messages if sign-in fails.</p>
 
           <h3 id="login-google" style={{ fontSize: "1.05rem", fontWeight: 700, margin: "1.25rem 0 0.5rem" }}>3.2 Sign In — Google OAuth</h3>
-          <p style={{ lineHeight: 1.7 }}>Click <strong>Continue with Google</strong>. After selecting your Google account, you are redirected back to the desk. If your account was newly created via Google, a librarian must approve it before first use (it shows as "pending").</p>
+          <p style={{ lineHeight: 1.7 }}>Click <strong>Continue with Google</strong>. After selecting your Google account, you are redirected back to the desk. If your account was newly created via Google, a librarian must approve it before first use (it shows as {"\u201cpending\u201d"}).</p>
 
           <h3 id="pending-account" style={{ fontSize: "1.05rem", fontWeight: 700, margin: "1.25rem 0 0.5rem" }}>3.3 Pending Google Account</h3>
           <p style={{ lineHeight: 1.7 }}>New Google-sign-up accounts start with <code style={{ background: "#f3f7f4", padding: "0.15rem 0.4rem", borderRadius: 4 }}>status: pending</code>. They cannot sign in. A librarian or admin must approve at <Link href="/staff" style={{ color: "#1f7a5c" }}>/staff</Link> before access is granted.</p>
@@ -305,7 +306,7 @@ export default function UserGuidelinesPage() {
           <div style={{ background: "#fff", border: "1px solid rgba(18,36,31,0.1)", borderRadius: 12, padding: "1rem 1.25rem", marginTop: "1rem" }}>
             <p style={{ fontWeight: 700, margin: "0 0 0.6rem", fontSize: "0.95rem" }}>⚠ Verification note</p>
             <p style={{ lineHeight: 1.65, margin: 0, fontSize: "0.88rem", color: "#555" }}>
-              The "Fast cataloging" button links to <code style={{ background: "#f3f7f4", padding: "0.15rem 0.4rem", borderRadius: 4 }}>/books/new</code> — this route was not found in the route inventory during the audit and should be verified as a working destination before relying on it.
+              The {"\u201cFast cataloging\u201d"} button links to <code style={{ background: "#f3f7f4", padding: "0.15rem 0.4rem", borderRadius: 4 }}>/books/new</code> — this route was not found in the route inventory during the audit and should be verified as a working destination before relying on it.
             </p>
           </div>
         </section>
@@ -324,7 +325,7 @@ export default function UserGuidelinesPage() {
             <li><strong>Select book</strong> — with a patron selected, type a title or ISBN in the same scan bar; a book table appears with availability counts; click <em>Check out</em>.</li>
             <li><strong>Confirm</strong> — a success chip appears showing the title and due date; the patron&apos;s current checkouts table updates.</li>
           </ol>
-          <p style={{ lineHeight: 1.7 }}><strong>Loan period</strong> is chosen from a dropdown: 7, 14, 21, or 30 days. The patron loan cap is <strong>3 active loans</strong> — attempting a 4th shows an error: <em>"Patron already has the maximum of 3 active loans."</em></p>
+          <p style={{ lineHeight: 1.7 }}><strong>Loan period</strong> is chosen from a dropdown: 7, 14, 21, or 30 days. The patron loan cap is <strong>3 active loans</strong> — attempting a 4th shows an error: <em>{"\u201cPatron already has the maximum of 3 active loans.\u201d"}</em></p>
         </section>
 
         {/* ─ Section 12: Check In ─ */}
@@ -371,7 +372,7 @@ export default function UserGuidelinesPage() {
           <p style={{ lineHeight: 1.7 }}>
             <strong>Route:</strong> <Link href="/borrow" style={{ color: "#1f7a5c" }}>/borrow?isbn=...</Link>
           </p>
-          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Students use the <strong>Borrow this book</strong> button on the 3D Bookshelf. If copies are available, a message prompts them to visit the desk. If all copies are out, they can place a hold. On success: <em>"Hold placed! You are #N in the queue."</em></p>
+          <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Students use the <strong>Borrow this book</strong> button on the 3D Bookshelf. If copies are available, a message prompts them to visit the desk. If all copies are out, they can place a hold. On success: <em>{"\u201cHold placed! You are #N in the queue.\u201d"}</em></p>
         </section>
 
         {/* ─ Section 15: Fines ─ */}
@@ -670,7 +671,7 @@ export default function UserGuidelinesPage() {
           <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Login fails repeatedly</h3>
           <p style={{ lineHeight: 1.7 }}>Wait a few minutes — the rate limiter resets. If you have a pending Google account, visit the library desk or call [REDACTED].</p>
 
-          <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Cannot check out — "maximum of 3 active loans"</h3>
+          <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Cannot check out — {"\u201cmaximum of 3 active loans\u201d"}</h3>
           <p style={{ lineHeight: 1.7 }}>Return one of the existing loans first, then check out the new one.</p>
 
           <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "1rem 0 0.5rem" }}>Cannot find a book</h3>
@@ -724,7 +725,7 @@ export default function UserGuidelinesPage() {
             <li>Dainel M. Al-basri</li>
             <li>Adzlina A. Sahidjuan</li>
           </ul>
-          <p style={{ margin: "1rem 0 0 0" }}>© {new Date().getFullYear()} TRAC Library. Source: <Link href="/docs/USER_GUIDE.md" style={{ color: "#1f7a5c" }}>docs/USER_GUIDE.md</Link></p>
+          <p style={{ margin: "1rem 0 0 0" }}>© {new Date().getFullYear()} TRAC Library. Source: <code>docs/USER_GUIDE.md</code> in the project repository.</p>
         </div>
       </footer>
     </div>

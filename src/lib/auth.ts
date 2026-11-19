@@ -28,5 +28,6 @@ export function toPublicUser(user: User): PublicUser {
     name: user.name,
     email: user.email,
     role: user.role,
+    status: user.status,
   };
 }

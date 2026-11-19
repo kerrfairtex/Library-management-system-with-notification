@@ -127,9 +127,7 @@ export async function POST(request: Request) {
     );
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Google sign-in failed." },
-      { status: 500 }
-    );
+    console.error("Google sign-in failed:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ error: "Google sign-in failed." }, { status: 500 });
   }
 }

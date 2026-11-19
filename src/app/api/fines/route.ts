@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
-import { canAccess } from "@/lib/permissions";
-import { listFines, getFinesData, createFine, getMemberByEmail } from "@/lib/store";
+import { canAccess, isPatron } from "@/lib/permissions";
+import { listFines, getFinesData, createFine, getMemberByUser } from "@/lib/store";
 
 export async function GET(request: Request) {
   const { user, response } = await requireSession();
@@ -15,8 +15,10 @@ export async function GET(request: Request) {
       if (memberId) return NextResponse.json({ fines: await listFines(memberId) });
       return NextResponse.json(await getFinesData());
     }
-    if (user.role === "student") {
-      const me = await getMemberByEmail(user.email);
+    // Every patron role (student, faculty, teacher, community) sees only
+    // their own fines; the member is resolved from the session, never a param.
+    if (isPatron(user)) {
+      const me = await getMemberByUser(user);
       if (!me) return NextResponse.json({ fines: [] });
       return NextResponse.json({ fines: await listFines(me.id) });
     }

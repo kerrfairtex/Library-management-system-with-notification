@@ -6,10 +6,13 @@ Brand assets live in `public/branding/` (`trac-library-seal.jpg`, `trac-library-
 
 ## Features
 
-- **Catalog** — add, edit, search, and delete books with copy tracking
-- **Students & members** — register students (student ID + grade), staff, or community patrons; activate/deactivate
+- **Catalog** — add, edit, search, and delete books with copy tracking; **add by ISBN** (scan or type, details filled from Open Library)
+- **Public catalog** — `/catalog` lets anyone search titles, see shelf location and live availability without signing in
+- **Students & members** — register student, faculty, teacher, community and staff patrons; students carry a student ID plus department, course, year level and section; activate/deactivate
 - **Circulation** — check out, renew, and return loans (max 3 active loans per member, 7-day period)
-- **Notifications** — overdue, due soon, checkout, return, new book/member, and low-stock alerts
+- **Notifications** — overdue, due soon, hold ready/expired, checkout, return, new book/member, and low-stock alerts; optional **e-mail copies** to members
+- **Holds** — ready holds expire after their 3-day pickup window and the copy is released
+- **Fine limit** — optional `FINE_BLOCK_THRESHOLD` blocks checkout while unpaid fines reach the limit
 - **Login** — staff sign-in with session cookie protection for desk and APIs, plus Google sign-up/sign-in
 - **Desk dashboard** — live stats, recent loans, and alert feed
 - **Persistent storage** — Supabase Postgres (`books`, `members`, `loans`, `notifications`, optional `users`)
@@ -45,17 +48,32 @@ Supabase is migrating from legacy JWT `anon`/`service_role` keys to new `sb_publ
 
 `AUTH_SECRET` signs the session cookie and is **required in production** — the app refuses to sign anyone in without it, because the development fallback is public in this repository and could be used to forge sessions. Generate one with `openssl rand -base64 32`.
 
-Create the tables in your Supabase project (SQL editor → paste and run):
+Create the tables in your Supabase project (SQL editor → paste and run, **in this order**):
 
 ```bash
-supabase/schema.sql
+supabase/schema.sql                                         # users, books, members, loans, notifications, holds, settings + loan RPCs
+supabase/koha-upgrade.sql                                   # book_items, fines, circulation_rules, holds.kind (borrow requests)
+supabase/migrations/20261117_academic_user_management_up.sql  # departments, courses, statistics RPCs
+supabase/migrations/20261118_admin_protection_atomic.sql      # change_user_role, delete_user_guarded, approve_student_account
+supabase/migrations/20261119_notification_email.sql           # notifications.emailed_at (only needed for e-mail notices)
+supabase/migrations/20261120_course_department.sql            # courses.department_id (course ↔ department integrity)
 ```
+
+Then verify (read-only; exits 1 and names the missing file if anything is absent):
+
+```bash
+npm run db:check
+```
+
+`schema.sql` alone is **not** enough: the Fines, Holds/borrow requests, item barcodes, circulation rules, Staff and Admin insights pages query tables and functions created by the later files. `npm run db:apply-schema` applies only `schema.sql`. The `BOOK_ITEMS_INTEGRATION*.sql` and `FIX_RPC_CALLS.sql` files are one-off hotfixes for older databases. Check them against your live functions before running them.
 
 Then seed the two demo accounts so login actually works:
 
 ```bash
 npm run seed:users
 ```
+
+> **Development only.** These passwords are published in this repository. Never create them in production. If they already exist there, change those passwords or delete the accounts. The app now refuses to set any of them as a new password.
 
 This inserts (and updates on re-run):
 
@@ -114,6 +132,7 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `/api/auth/google` | POST | Exchange a verified Google session for a TRAC session cookie |
 | `/api/books` | GET, POST | List / create books |
 | `/api/books/[id]` | PATCH, DELETE | Update / delete book |
+| `/api/isbn-lookup?isbn=` | GET | Title/author/year from Open Library (librarian/admin) |
 | `/api/members` | GET, POST | List / create members |
 | `/api/members/[id]` | PATCH, DELETE | Update / delete member |
 | `/api/loans` | GET, POST | List loans / checkout |
@@ -122,18 +141,26 @@ On first sign-in, a row is created in the `users` table for the Google account (
 | `/api/dashboard` | GET | Aggregated desk data |
 | `/api/users` | GET, POST | List / create staff accounts (**admin only**) |
 | `/api/users/[id]` | PATCH, DELETE | Change name, role or password / remove access (**admin only**) |
-| `/api/cron/refresh-loans` | GET, POST | Scheduled loan sweep (requires `CRON_SECRET`) |
+| `/api/cron/refresh-loans` | GET, POST | Scheduled sweep: overdue, due-soon, hold expiry, e-mail (requires `CRON_SECRET`) |
+| `/api/health` | GET | Public liveness probe |
 
 ## Roles
 
-| Role | Can do |
+| Account role | Can do |
 | --- | --- |
-| Librarian | Catalog, students, circulation, alerts |
-| Admin | Everything a librarian can, plus create staff accounts and assign roles |
+| Student, Faculty, Teacher, Community | Patron self-service: catalog, borrow requests, **own** loans, holds, fines and alerts. Every patron role gets the same scope; no patron can see another member's records. |
+| Librarian | Catalog, circulation, holds queue, fines desk, reports; can view (not edit) member records |
+| Admin | Everything a librarian can, plus member records, user accounts, role assignment, departments & courses, and statistics |
+
+**Adding a student (admin).** Student ID, department, course, year level and section are required. The server rejects a department or course that doesn't exist or is inactive, a course its department doesn't offer, a year level the course's program length doesn't offer (a 4-year course allows 1st–4th Year, plus Irregular and Graduate Student), a malformed Student ID, and a duplicate Student ID. All checks run before the account is created. If a member record with the same email already exists (for example, registered at the desk), it is linked and updated to the student's details. If that record is already linked to another account, the request is refused.
+
+**Departments & courses** are managed on the Administration page. Set each course's department to restrict which courses the student forms offer. Set each course's program length (1–6 years) to control which year levels appear. Rows are deactivated, never deleted. Faculty and teachers may record an optional department. A suggested college/course catalog is in `supabase/seeds/suggested_academic_catalog.sql`. It's optional and isn't your school's official list: rows are inserted inactive and never overwrite existing ones, so activate only what the school actually offers. A member linked to a login account takes its category from the account role and its email is the sign-in address, so neither can be changed from the Patrons page.
+
+Account roles are distinct from member (patron) categories. Legacy `staff` patron records remain valid.
 
 Only an admin sees the **Staff** page and only an admin may call `/api/users`. Every request re-reads the account from the database, so a demotion or deletion takes effect on the target's very next request rather than whenever their cookie expires.
 
-Two rules stop the library from losing control of itself: an admin cannot remove their own admin role or delete their own account, and the last remaining admin cannot be demoted or deleted.
+Several rules stop the library from losing control of itself: an admin cannot remove their own admin role, change their own status, or delete their own account; the last remaining ACTIVE admin cannot be demoted, deactivated or deleted. Only an admin may assign the privileged librarian/admin roles.
 
 The first admin comes from `npm run seed:users`; after that, admins create each other from the Staff page.
 
@@ -144,6 +171,9 @@ The first admin comes from `npm run seed:users`; after that, admins create each 
 - **Checked out / returned / renewed** — circulation events
 - **Book / member added** — catalog and membership events
 - **Low stock** — zero available copies
+- **Hold ready / hold expired** — pickup window opened / passed without pickup
+
+**E-mail (optional).** Set `RESEND_API_KEY` and `EMAIL_FROM` and apply `supabase/migrations/20261119_notification_email.sql`. The daily sweep then e-mails each member a copy of their due-soon, overdue, hold-ready, hold-expired and borrow-request notices. Each notice is claimed (`emailed_at`) before sending, so two schedulers cannot send it twice. Notices older than 3 days are never mailed. A mail outage is reported in the sweep response but does not fail the sweep.
 
 Overdue stamping and due-date reminders run on a schedule rather than during page loads. `vercel.json` calls `/api/cron/refresh-loans` daily at 02:00 UTC, and a reminder for a given loan suppresses the next one for four days, so a repeated run cannot pile up duplicate alerts.
 
@@ -184,6 +214,9 @@ Covers overdue derivation and the Google allowlist, including lookalike domains 
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
 - On Vercel, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), `AUTH_SECRET`, and `CRON_SECRET` in project environment variables.
+- **Scheduled loan sweep is opt-in.** `/api/cron/refresh-loans` returns 403 unless `CRON_SCHEDULE_ENABLED=true` is set on that deployment. Without it, no overdue or due-soon notifications are ever created. On Vercel, `vercel.json` provides the schedule. On Render (free plan, no scheduler), `.github/workflows/refresh-loans.yml` calls it daily once the repo secrets `DESK_URL` and `CRON_SECRET` are set.
+- **Render (`render.yaml`)** declares every variable the app reads. Values marked `sync: false` (`SUPABASE_SERVICE_ROLE_KEY`, `AUTH_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SHELF_ORIGIN`, `NEXT_PUBLIC_SITE_URL`, `SHELF_ALLOWED_ORIGIN`) must be entered in the dashboard. `NEXT_PUBLIC_*` values are baked in at Docker build time, so change them and then redeploy.
+- `/api/health` is public (no session) so Render's health check gets a 200.
 - Vercel project settings (Settings → General): **Root Directory** blank (repo root — not `public` or `src`), **Framework Preset** Next.js, **Output Directory** blank. `package.json` (with `"next"`) lives at the repo root; pointing Root Directory at `public` or `src` produces “No Next.js version detected” and can serve a static folder listing instead of the app.
 - `vercel.json` pins `"framework": "nextjs"`, `"buildCommand": "next build"`, and `"outputDirectory": null` so a dashboard Output Directory of `public` cannot turn the deploy into a static file listing.
 

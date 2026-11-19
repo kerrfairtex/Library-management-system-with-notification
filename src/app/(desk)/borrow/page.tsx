@@ -32,7 +32,7 @@ function BorrowInner() {
 
   const [memberId, setMemberId] = useState("");
   const [days, setDays] = useState(14);
-  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string; bookId: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const books = booksData?.books ?? [];
@@ -62,10 +62,6 @@ function BorrowInner() {
     (l) => l.memberId === memberId && l.status !== "returned"
   );
 
-  useEffect(() => {
-    setMessage(null);
-  }, [book?.id]);
-
   async function borrow(e: React.FormEvent) {
     e.preventDefault();
     if (!book || !memberId) return;
@@ -80,12 +76,14 @@ function BorrowInner() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Borrow failed.");
       setMessage({
+        bookId: book.id,
         tone: "ok",
         text: `"${book.title}" checked out — due ${formatDate(body.dueAt) ?? "on time"}.`,
       });
       reload();
     } catch (error) {
       setMessage({
+        bookId: book.id,
         tone: "err",
         text: error instanceof Error ? error.message : "Borrow failed.",
       });
@@ -125,7 +123,7 @@ function BorrowInner() {
             No book in the catalog matches{" "}
             <strong>{isbn}</strong>.
           </p>
-          <Link href="/books/new" className="btn-koha" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
+          <Link href="/books?add=1" className="btn-koha" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
             Fast cataloging — add it
           </Link>
         </section>
@@ -230,7 +228,7 @@ function BorrowInner() {
         </form>
       )}
 
-      {message && (
+      {message && message.bookId === book?.id && (
         <p
           className={`chip chip-${message.tone === "ok" ? "ready" : "overdue"}`}
           style={{ marginTop: "1rem", display: "inline-block" }}
@@ -335,7 +333,7 @@ function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; 
         </>
       ) : (
         <>
-          <p>All copies are out — place a hold and we'll keep your spot in the queue.</p>
+          <p>All copies are out — place a hold and we{"\u2019"}ll keep your spot in the queue.</p>
           <button type="button" className="btn-koha" onClick={placeHold} disabled={state === "busy"}>
             {state === "busy" ? "Placing…" : "Place a hold"}
           </button>

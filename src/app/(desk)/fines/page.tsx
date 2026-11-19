@@ -21,7 +21,7 @@ function peso(n: number) {
 
 export default function FinesPage() {
   const { session: me } = useDeskSession();
-  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
+  const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ fines: Fine[]; members: Member[] }>("/api/fines");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showPaid, setShowPaid] = useState(false);

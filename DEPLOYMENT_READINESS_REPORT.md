@@ -11,7 +11,7 @@
 ## 0. Architecture summary (what this application is)
 
 ### A. What the application does
-A library management system for the Institute of Agricultural Sciences (TRAC, Bongao, Tawi-Tawi): book catalog with copy tracking, student/staff/community member registry, loan circulation (checkout / renew / return, 14-day default, 5-active-loan cap), a global notification inbox (overdue, due-soon, checked-out, returned, renewed, book/member added, low-stock), role-based staff desks (student / librarian / admin), Google OAuth self sign-up, and a daily cron sweep that stamps overdue loans and emits due-date reminders. Data lives in Supabase Postgres; the app is a thin Next.js API + client-side desk UI over it.
+A library management system for the Tawi-Tawi Regional Agricultural College (TRAC, Bongao, Tawi-Tawi): book catalog with copy tracking, student/staff/community member registry, loan circulation (checkout / renew / return, 14-day default, 5-active-loan cap), a global notification inbox (overdue, due-soon, checked-out, returned, renewed, book/member added, low-stock), role-based staff desks (student / librarian / admin), Google OAuth self sign-up, and a daily cron sweep that stamps overdue loans and emits due-date reminders. Data lives in Supabase Postgres; the app is a thin Next.js API + client-side desk UI over it.
 
 ### B. How authentication works
 - Email login: `POST /api/auth/login` looks up `users` by email (`ilike`), verifies a `salt:scrypt` hash with `timingSafeEqual` (`src/lib/auth.ts`), and sets a signed session cookie.

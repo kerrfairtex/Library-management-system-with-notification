@@ -16,6 +16,7 @@ const nav = [
   { href: "/loans", label: "Circulation", icon: "⇄", capability: "loans.manage" },
   { href: "/notifications", label: "Alerts", icon: "✦", capability: "notifications.read" },
   { href: "/staff", label: "Users", icon: "◇", capability: "staff.manage" },
+  { href: "/admin-insights", label: "Insights", icon: "◈", capability: "staff.manage" },
   { href: "/profile", label: "Profile", icon: "◉", capability: "dashboard.read" },
 ];
 

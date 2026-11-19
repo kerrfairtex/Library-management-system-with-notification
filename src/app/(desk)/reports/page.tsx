@@ -6,6 +6,7 @@
  */
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default function ReportsPage() {
   const { session: me } = useDeskSession();
-  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
+  const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
   const { data: loansData } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
@@ -49,8 +50,15 @@ export default function ReportsPage() {
 
   // issues_stats
   const openLoans = loans.filter((l) => l.status !== "returned");
+  // Stable clock via an external store: the snapshot is taken outside render,
+  // so the purity rule is satisfied and all rows share one timestamp.
+  const now = useSyncExternalStore(
+    () => () => undefined,
+    () => Date.now(),
+    () => 0
+  );
   const overdue = openLoans.filter(
-    (l) => l.status === "overdue" || new Date(l.dueAt).getTime() < Date.now()
+    (l) => l.status === "overdue" || new Date(l.dueAt).getTime() < now
   );
 
   if (!canManage) {

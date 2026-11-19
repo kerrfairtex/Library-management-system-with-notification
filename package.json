@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint src",
-    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "test": "node scripts/run-tests.mjs",
     "seed:users": "node --env-file=.env.local scripts/seed-users.mjs",
     "seed:books": "node --env-file=.env.local scripts/seed-books.mjs",
     "db:check": "node --env-file=.env.local scripts/check-supabase.mjs",

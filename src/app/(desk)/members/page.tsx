@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Member, MemberType, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
@@ -18,13 +19,20 @@ const emptyForm = {
   memberType: "student" as MemberType,
   studentId: "",
   grade: "",
+  departmentId: "",
+  courseId: "",
+  yearLevel: "",
+  section: "",
 };
+
 
 const typeFilters: Array<"all" | MemberType> = ["all", "student", "faculty", "teacher", "staff", "community"];
 
 function typeLabel(type: MemberType): string {
   if (type === "student") return "Student";
   if (type === "staff") return "Staff";
+  if (type === "faculty") return "Faculty";
+  if (type === "teacher") return "Teacher";
   return "Community";
 }
 
@@ -38,13 +46,46 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/academic")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data && !cancelled) setMaster(data); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const canManageMembers = canAccess(me?.user, "members.write");
   const canViewMembers = canAccess(me?.user, "members.read");
 
+  // Deep link from the completeness audit: /members?edit=<memberId>.
+  // Open the matching record once the list is loaded. State updates happen
+  // in a microtask, never synchronously in the effect body.
   useEffect(() => {
-    if (!canManageMembers) setOpen(false);
-  }, [canManageMembers]);
+    if (typeof window === "undefined" || !data || !canManageMembers) return;
+    const editId = new URLSearchParams(window.location.search).get("edit");
+    if (!editId) return;
+    const target = data.find((m) => m.id === editId);
+    if (!target) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setEditing(target);
+      setForm({
+        name: target.name, email: target.email, phone: target.phone,
+        memberType: target.memberType, studentId: target.studentId ?? "",
+        grade: target.grade ?? "", departmentId: target.departmentId ?? "",
+        courseId: target.courseId ?? "", yearLevel: target.yearLevel ?? "",
+        section: target.section ?? "",
+      });
+      setFormError(null);
+      setOpen(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    });
+    return () => { cancelled = true; };
+  }, [data, canManageMembers]);
 
   const members = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,6 +120,10 @@ export default function MembersPage() {
       memberType: member.memberType,
       studentId: member.studentId ?? "",
       grade: member.grade ?? "",
+      departmentId: member.departmentId ?? "",
+      courseId: member.courseId ?? "",
+      yearLevel: member.yearLevel ?? "",
+      section: member.section ?? "",
     });
     setFormError(null);
     setOpen(true);
@@ -96,6 +141,14 @@ export default function MembersPage() {
       memberType: form.memberType,
       studentId: form.memberType === "student" ? form.studentId : null,
       grade: form.memberType === "student" ? form.grade : null,
+      // Students require a department; faculty/teachers may record one.
+      departmentId:
+        form.memberType === "student" || form.memberType === "faculty" || form.memberType === "teacher"
+          ? form.departmentId || null
+          : null,
+      courseId: form.memberType === "student" ? form.courseId : null,
+      yearLevel: form.memberType === "student" ? form.yearLevel : null,
+      section: form.memberType === "student" ? form.section : null,
     };
     try {
       if (editing) {
@@ -306,6 +359,10 @@ export default function MembersPage() {
               id="memberType"
               className="field"
               value={form.memberType}
+              // Linked to a login account: the category follows the account
+              // role, which is changed in Administration.
+              disabled={Boolean(editing?.userId)}
+              title={editing?.userId ? "Linked to a login account. Change the role in Administration." : undefined}
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
@@ -336,6 +393,8 @@ export default function MembersPage() {
                 className="field"
                 required
                 type={key === "email" ? "email" : "text"}
+                readOnly={key === "email" && Boolean(editing?.userId)}
+                title={key === "email" && editing?.userId ? "Sign-in email of a linked account; not editable here." : undefined}
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
               />
@@ -343,32 +402,27 @@ export default function MembersPage() {
           ))}
           {form.memberType === "student" && (
             <>
-              <div>
-                <label className="label" htmlFor="studentId">
-                  Student ID
-                </label>
-                <input
-                  id="studentId"
-                  className="field"
-                  required
-                  value={form.studentId}
-                  onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
-                  placeholder="e.g. STU-2026-0142"
-                />
-              </div>
+              <StudentIdField value={form.studentId}
+                onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+              <AcademicFields mode="student" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
               <div>
                 <label className="label" htmlFor="grade">
-                  Grade / class
+                  Legacy grade / class
                 </label>
                 <input
                   id="grade"
                   className="field"
                   value={form.grade}
                   onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
-                  placeholder="e.g. Grade 10 / Year 2"
+                  placeholder="Historical value only — not the year level"
                 />
               </div>
             </>
+          )}
+          {(form.memberType === "faculty" || form.memberType === "teacher") && (
+            <AcademicFields mode="department" master={master} value={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>

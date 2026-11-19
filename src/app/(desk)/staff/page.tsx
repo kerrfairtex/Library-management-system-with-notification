@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { roleLabel } from "@/lib/permissions";
 import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { AcademicSetup } from "@/components/AcademicSetup";
+import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -16,12 +18,22 @@ const emptyForm = {
   email: "",
   password: "",
   role: "student" as UserRole,
+  studentId: "",
+  departmentId: "",
+  courseId: "",
+  yearLevel: "",
+  section: "",
 };
+
+const academicRoles: UserRole[] = ["student", "faculty", "teacher", "community"];
 
 const roleBlurbs: Record<UserRole, string> = {
   admin: "Full system control: users, roles, books, members, and circulation.",
-  librarian: "Can manage books and circulation, but not users or member records.",
-  student: "Read-only account for dashboard, catalog, alerts, and personal profile.",
+  librarian: "Runs the desk: catalog, circulation, holds, fines and reports. Cannot manage accounts or edit member records.",
+  student: "Student patron: catalog, own loans, holds, fines and borrow requests. Requires Student ID, department, course, year and section.",
+  faculty: "Faculty patron: catalog, alerts, holds, and borrow requests.",
+  teacher: "Teacher patron: catalog, alerts, holds, and borrow requests.",
+  community: "Community patron: catalog, alerts, holds, and borrow requests.",
 };
 
 function roleBlurb(role: UserRole): string {
@@ -41,6 +53,18 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/academic")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && !cancelled) setMaster(data);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const staff = useMemo(() => data ?? [], [data]);
   const adminCount = staff.filter((person) => person.role === "admin").length;
@@ -72,7 +96,10 @@ export default function StaffPage() {
 
   function openEdit(person: PublicUser) {
     setEditing(person);
-    setForm({ name: person.name, email: person.email, password: "", role: person.role });
+    setForm({
+      name: person.name, email: person.email, password: "", role: person.role,
+      studentId: "", departmentId: "", courseId: "", yearLevel: "", section: "",
+    });
     setFormError(null);
     setOpen(true);
   }
@@ -84,15 +111,36 @@ export default function StaffPage() {
     try {
       if (editing) {
         const body: Record<string, unknown> = { name: form.name, role: form.role };
+        if (form.role === "student") {
+          Object.assign(body, {
+            studentId: form.studentId,
+            departmentId: form.departmentId,
+            courseId: form.courseId,
+            yearLevel: form.yearLevel,
+            section: form.section,
+          });
+        }
         if (form.password) body.password = form.password;
         await apiJson(`/api/users/${editing.id}`, {
           method: "PATCH",
           body: JSON.stringify(body),
         });
       } else {
+        // Send only the academic fields the chosen role uses.
+        const body: Record<string, unknown> = {
+          name: form.name, email: form.email, password: form.password, role: form.role,
+        };
+        if (form.role === "student") {
+          Object.assign(body, {
+            studentId: form.studentId, departmentId: form.departmentId, courseId: form.courseId,
+            yearLevel: form.yearLevel, section: form.section,
+          });
+        } else if ((form.role === "faculty" || form.role === "teacher") && form.departmentId) {
+          body.departmentId = form.departmentId;
+        }
         await apiJson("/api/users", {
           method: "POST",
-          body: JSON.stringify(form),
+          body: JSON.stringify(body),
         });
       }
       setOpen(false);
@@ -270,15 +318,14 @@ export default function StaffPage() {
                               Make librarian
                             </button>
                           )}
-                          {person.role !== "student" && (
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => changeRole(person, "student")}
-                            >
-                              Make student
-                            </button>
-                          )}
+                          {academicRoles
+                            .filter((r) => r !== person.role)
+                            .map((r) => (
+                              <button key={r} type="button" className="btn btn-ghost"
+                                onClick={() => changeRole(person, r)}>
+                                Make {r}
+                              </button>
+                            ))}
                           <button
                             type="button"
                             className="btn btn-danger"
@@ -304,6 +351,8 @@ export default function StaffPage() {
           </div>
         )}
       </div>
+
+      {isAdmin && <AcademicSetup />}
 
       <Modal
         open={open}
@@ -357,6 +406,9 @@ export default function StaffPage() {
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
               <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="teacher">Teacher</option>
+              <option value="community">Community</option>
               <option value="librarian">Librarian</option>
               <option value="admin">Admin</option>
             </select>
@@ -383,6 +435,24 @@ export default function StaffPage() {
               At least {MIN_PASSWORD_LENGTH} characters.
             </p>
           </div>
+
+
+          {form.role === "student" && (
+            <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+              <p className="text-xs font-semibold">Student information (required)</p>
+              <StudentIdField value={form.studentId}
+                onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+              <AcademicFields mode="student" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+            </div>
+          )}
+          {(form.role === "faculty" || form.role === "teacher") && !editing && (
+            <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+              <p className="text-xs font-semibold">{roleLabel(form.role)} information</p>
+              <AcademicFields mode="department" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>

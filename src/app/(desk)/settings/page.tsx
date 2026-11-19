@@ -50,6 +50,26 @@ export default function SettingsPage() {
   const { data: rulesData, reload: reloadRules } = useApi<{ circulationRules: CirculationRule[] }>("/api/circulation-rules");
 
   const [form, setForm] = useState<CirculationSettings>(defaultSettings);
+
+  // Apply fetched values asynchronously (microtask), not synchronously in the
+  // effect body. This preserves the original behavior without cascading renders.
+  useEffect(() => {
+    if (!data) return;
+    const values: CirculationSettings = {
+      max_active_loans_per_member: data.max_active_loans_per_member ?? 3,
+      loan_period_days: data.loan_period_days ?? 14,
+      loan_period_options: data.loan_period_options ?? [7, 14, 21, 30],
+      max_loan_days: data.max_loan_days ?? 60,
+      overdue_fine_per_day: data.overdue_fine_per_day ?? 5,
+      pickup_window_days: data.pickup_window_days ?? 3,
+      overdue_alert_cooldown_days: data.overdue_alert_cooldown_days ?? 4,
+      due_soon_window_days: data.due_soon_window_days ?? 3,
+      max_renewal_days: data.max_renewal_days ?? 60,
+    };
+    let cancelled = false;
+    Promise.resolve().then(() => { if (!cancelled) setForm(values); });
+    return () => { cancelled = true; };
+  }, [data]);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -58,22 +78,6 @@ export default function SettingsPage() {
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
   const [ruleBusy, setRuleBusy] = useState(false);
   const [ruleError, setRuleError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (data) {
-      setForm({
-        max_active_loans_per_member: data.max_active_loans_per_member ?? 3,
-        loan_period_days: data.loan_period_days ?? 14,
-        loan_period_options: data.loan_period_options ?? [7, 14, 21, 30],
-        max_loan_days: data.max_loan_days ?? 60,
-        overdue_fine_per_day: data.overdue_fine_per_day ?? 5,
-        pickup_window_days: data.pickup_window_days ?? 3,
-        overdue_alert_cooldown_days: data.overdue_alert_cooldown_days ?? 4,
-        due_soon_window_days: data.due_soon_window_days ?? 3,
-        max_renewal_days: data.max_renewal_days ?? 60,
-      });
-    }
-  }, [data]);
 
   if (!isAdmin) {
     return (
@@ -432,7 +436,7 @@ export default function SettingsPage() {
                   }
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Days before due date to send "due soon" reminder.
+                  Days before due date to send {"\u201c"}due soon{"\u201d"} reminder.
                 </p>
               </div>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
-import { checkoutBook, getLoansData } from "@/lib/store";
+import { checkoutBook, getLoansData, getOutstandingFines } from "@/lib/store";
+import { fineBlockMessage, parseFineThreshold } from "@/lib/fine-block";
 import { enrichLoans } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -56,6 +57,11 @@ export async function POST(request: Request) {
     if (!Number.isInteger(loanDays) || loanDays < 1 || loanDays > 60) {
       return NextResponse.json({ error: "days must be an integer between 1 and 60." }, { status: 400 });
     }
+    const blocked = fineBlockMessage(
+      await getOutstandingFines(memberId),
+      parseFineThreshold(process.env.FINE_BLOCK_THRESHOLD)
+    );
+    if (blocked) return NextResponse.json({ error: blocked }, { status: 409 });
     const loan = await checkoutBook(bookId, memberId, loanDays, user.id);
     return NextResponse.json(loan, { status: 201 });
   } catch (error) {

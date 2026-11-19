@@ -12,13 +12,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { canAccess, type AppCapability } from "@/lib/permissions";
+import { canAccess, isPatron, type AppCapability } from "@/lib/permissions";
 import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { resolveDeploymentOrigin } from "@/lib/deploy-config";
 import { useDeskSession } from "./DeskSessionProvider";
 
 /* Top-nav modules — mirrors Koha's header.inc nav items */
-const SHELF_ORIGIN = process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "https://trac-library-bookshelf.vercel.app/";
+// Fail closed: no production fallback. Staging must configure its own origin.
+const SHELF_CONFIG = resolveDeploymentOrigin(
+  process.env.NEXT_PUBLIC_SHELF_ORIGIN,
+  "NEXT_PUBLIC_SHELF_ORIGIN"
+);
+const SHELF_ORIGIN = SHELF_CONFIG.ok ? SHELF_CONFIG.value : "";
 
 const primaryNav: { href: string; label: string; icon?: string; capability: string; children?: { href: string; label: string; capability: string }[] }[] = [
   { href: "/", label: "Home", capability: "dashboard.read" },
@@ -46,6 +52,7 @@ const moreNav = [
   { href: "/holds", label: "Holds queue", capability: "loans.manage" },
   { href: "/fines", label: "Fines desk", capability: "loans.manage" },
   { href: "/staff", label: "Administration", capability: "staff.manage" },
+  { href: "/admin-insights", label: "Insights", capability: "staff.manage" },
   { href: "/profile", label: "My profile" },
 ];
 
@@ -99,7 +106,9 @@ export function KohaShell({ children }: {
 
   const can = (cap: string) =>
     canAccess(user, cap as AppCapability);
-  const isStudent = user?.role === "student";
+  // All patron roles (student, faculty, teacher, community) get the
+  // self-service nav: My Loans / My Holds / My Fines.
+  const isStudent = isPatron(user);
   const navItems: readonly ShellNavItem[] = isStudent ? studentNav : primaryNav;
   const moreItems: readonly { href: string; label: string; capability?: string }[] =
     isStudent ? studentMore : moreNav;
@@ -200,15 +209,21 @@ export function KohaShell({ children }: {
           </nav>
 
           <div className="koha-topbar-right">
-            <a
-              className="koha-shelf-btn"
-              href={SHELF_ORIGIN}
-              target="_blank"
-              rel="noreferrer noopener"
-              title="Browse the 3D bookshelf"
-            >
-              📚 3D Bookshelf
-            </a>
+            {SHELF_CONFIG.ok ? (
+              <a
+                className="koha-shelf-btn"
+                href={SHELF_ORIGIN}
+                target="_blank"
+                rel="noreferrer noopener"
+                title="Browse the 3D bookshelf"
+              >
+                📚 3D Bookshelf
+              </a>
+            ) : (
+              <span className="koha-shelf-btn" role="status" title={SHELF_CONFIG.error}>
+                📚 Bookshelf not configured
+              </span>
+            )}
             <NotificationBell />
             <div className="koha-dropdown-wrap" ref={accountRef}>
               <button

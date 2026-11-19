@@ -10,7 +10,17 @@ export type ShelfBook = {
   total_copies: number;
 };
 
-export type UserRole = "student" | "librarian" | "admin";
+export type UserRole =
+  | "student"
+  | "faculty"
+  | "teacher"
+  | "community"
+  | "librarian"
+  | "admin";
+
+/** Patron roles need a linked members row; staff roles do not. */
+export const PATRON_ROLES: readonly UserRole[] = ["student", "faculty", "teacher", "community"];
+export const PRIVILEGED_ROLES: readonly UserRole[] = ["librarian", "admin"];
 
 /** Membership verification gate: self-sign-ups start 'pending' until an admin approves. */
 export type UserStatus = "pending" | "active";
@@ -81,11 +91,70 @@ export type Member = {
   memberType: MemberType;
   /** School student ID — required when memberType is "student". */
   studentId: string | null;
-  /** Class / grade level for students (e.g. "Grade 10", "Year 2"). */
+  /** Legacy class/grade text. Kept for compatibility; NOT the year level. */
   grade: string | null;
+  /** Master-data references. Nullable for legacy records only. */
+  departmentId: string | null;
+  courseId: string | null;
+  yearLevel: string | null;
+  section: string | null;
   joinedAt: string;
   active: boolean;
   userId: string | null;           // FK to users
+};
+
+export type Department = {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+};
+
+export type Course = {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+  /** Owning department; null = offered across departments / not yet mapped. */
+  departmentId: string | null;
+  /** Program length in years (1-6); limits the year levels offered. null = not set. */
+  programYears: number | null;
+};
+
+/** Database-backed administrator statistics (users = authoritative source). */
+export type UserStatistics = {
+  totalAccounts: number;
+  activeAccounts: number;
+  pendingAccounts: number;
+  students: number;
+  faculty: number;
+  teachers: number;
+  community: number;
+  librarians: number;
+  admins: number;
+  totalMemberProfiles: number;
+  incompleteStudentProfiles: number;
+};
+
+export type StudentCompletenessIssue = {
+  memberId: string;
+  userId: string | null;
+  name: string;
+  email: string;
+  studentId: string | null;
+  missingFields: string[];
+};
+
+export type StudentCompletenessAudit = {
+  totalStudentAccounts: number;
+  totalStudentMembers: number;
+  linkedStudentAccounts: number;
+  unlinkedStudentRecords: number;
+  completeStudentProfiles: number;
+  incompleteStudentProfiles: number;
+  missingFieldBreakdown: Record<string, number>;
+  duplicateStudentIds: string[];
+  recordsRequiringReview: StudentCompletenessIssue[];
 };
 
 export type LoanStatus = "active" | "returned" | "overdue";
@@ -153,6 +222,7 @@ export type CirculationRule = {
 export type NotificationType =
   | "overdue"
   | "hold_ready"
+  | "hold_expired"
   | "pending_approval"
   | "due_soon"
   | "returned"

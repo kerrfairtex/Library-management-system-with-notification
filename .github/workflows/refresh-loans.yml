@@ -1,0 +1,41 @@
+name: Refresh loans (overdue + due-soon alerts)
+
+# Render's free web service has no scheduler, and vercel.json crons only run
+# on Vercel. This calls the same endpoint daily at 02:00 UTC (10:00 PH time).
+# The sweep is idempotent: a reminder suppresses the next one for four days.
+#
+# Repository secrets required (Settings → Secrets and variables → Actions):
+#   DESK_URL     e.g. https://library-cp22.onrender.com   (no trailing slash)
+#   CRON_SECRET  same value as the deployment's CRON_SECRET
+# The deployment must also have CRON_SCHEDULE_ENABLED=true.
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/refresh-loans
+        env:
+          DESK_URL: ${{ secrets.DESK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$DESK_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::DESK_URL or CRON_SECRET secret not set; skipping."
+            exit 0
+          fi
+          # Free Render instances sleep; the first request wakes them, so retry.
+          for attempt in 1 2 3; do
+            status=$(curl -sS -o response.json -w '%{http_code}' --max-time 90 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$DESK_URL/api/cron/refresh-loans") || status=000
+            echo "Attempt $attempt: HTTP $status"
+            if [ "$status" = "200" ]; then cat response.json; exit 0; fi
+            sleep 30
+          done
+          cat response.json 2>/dev/null || true
+          exit 1

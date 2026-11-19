@@ -33,10 +33,6 @@ export default function LoansPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const canManageLoans = canAccess(me?.user, "loans.manage");
 
-  useEffect(() => {
-    if (!canManageLoans) setOpen(false);
-  }, [canManageLoans]);
-
   // All hooks must run before any conditional return (rules of hooks):
   // returning early here while useMemo runs below would crash React when
   // the session loads after first render.

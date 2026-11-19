@@ -4,6 +4,7 @@ services:
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
     envVars:
       - key: SUPABASE_URL
         value: https://wapnzuawqhekgkqpgphj.supabase.co
@@ -12,8 +13,44 @@ services:
         value: https://wapnzuawqhekgkqpgphj.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         value: sb_publishable_8TA2JFc305PwVlkOLUaIKw_0i_i9aDc
+      # The TRAC desk (this Render service). Shelf "Request to borrow" links
+      # resolve against it (src/app/shelf/site-config.ts).
       - key: NEXT_PUBLIC_LIBRARY_ORIGIN
-        value: "https://trac-library-bookshelf.vercel.app"
+        value: "https://library-cp22.onrender.com"
+      # Shelf URL shown in the desk nav and login page, and the only extra
+      # origin the CSRF check accepts. Set to the Vercel bookshelf URL.
+      - key: NEXT_PUBLIC_SHELF_ORIGIN
+        sync: false
+      # Canonical public URL of this desk (used by sitemap.xml).
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      # ── Runtime secrets: Render prompts for these; never commit values ──
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Signs session cookies; login is refused in production without it.
+      - key: AUTH_SECRET
+        sync: false
+      # Bearer token for /api/cron/refresh-loans (overdue + due-soon alerts).
+      - key: CRON_SECRET
+        sync: false
+      # The loan sweep is opt-in per deployment; without "true" it returns 403
+      # and no overdue/due-soon notifications are ever generated.
+      - key: CRON_SCHEDULE_ENABLED
+        value: "true"
+      # Cross-origin reader of /api/shelf-availability (the Vercel bookshelf).
+      # Same-origin /shelf works without it.
+      - key: SHELF_ALLOWED_ORIGIN
+        sync: false
+      # Optional: block checkout when unpaid fines reach this many pesos
+      # (src/lib/fine-block.ts). Leave empty to disable.
+      - key: FINE_BLOCK_THRESHOLD
+        sync: false
+      # Optional e-mail copies of member notices (src/lib/email.ts). Both must
+      # be set; also apply supabase/migrations/20261119_notification_email.sql.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
 # Force rebuild: 2026-10-03T07:19:32.915309
 # Force rebuild 2: 2026-10-03T07:36:32.985516
 # Force rebuild for kind filter fix: 2026-10-03T08:56:26.952591

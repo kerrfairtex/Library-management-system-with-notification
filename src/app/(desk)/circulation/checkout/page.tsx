@@ -16,7 +16,7 @@ import { canAccess } from "@/lib/permissions";
 
 export default function CheckoutPage() {
   const { session: me } = useDeskSession();
-  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
+  const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
   const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
   const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");

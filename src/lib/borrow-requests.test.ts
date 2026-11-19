@@ -15,7 +15,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { canAccess } from "./permissions.ts";
-import { type Hold } from "./types.ts";
+import { type Hold, type UserRole } from "./types.ts";
 
 // Replicate expected capabilities (roleCapabilities not exported)
 const studentCaps = new Set(["dashboard.read", "books.read", "notifications.read", "holds.place", "loans.request"]);
@@ -99,7 +99,7 @@ test("approval/rejection records reviewer identity", () => {
 test("a student cannot approve their own borrow request", () => {
   const student = "student";
   assert.ok(
-    !canAccess({ role: student as any }, "loans.manage"),
+    !canAccess({ role: student as UserRole }, "loans.manage"),
     "student cannot approve/reject (no loans.manage)",
   );
 });

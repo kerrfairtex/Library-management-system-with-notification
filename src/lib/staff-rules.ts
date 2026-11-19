@@ -2,17 +2,54 @@ import type { PublicUser, UserRole, UserStatus } from "./types";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+const USER_ROLES: readonly UserRole[] = [
+  "student", "faculty", "teacher", "community", "librarian", "admin",
+];
+
 export function isUserRole(value: unknown): value is UserRole {
-  return value === "student" || value === "admin" || value === "librarian";
+  return USER_ROLES.includes(value as UserRole);
 }
 
 export function isUserStatus(value: unknown): value is UserStatus {
   return value === "pending" || value === "active";
 }
 
+/** Only an admin may assign privileged roles; callers enforce admin gate too. */
+export function describeRoleAssignmentProblem({
+  actorRole,
+  nextRole,
+}: {
+  actorRole: UserRole;
+  nextRole: UserRole;
+}): string | null {
+  if (actorRole === "admin") return null;
+  if (nextRole === "admin" || nextRole === "librarian") {
+    return "Only an admin can assign privileged roles.";
+  }
+  return null;
+}
+
+/**
+ * Passwords that are published in this repository (README, seed scripts) or
+ * are among the most common ones. An account using any of them is effectively
+ * public, so they are refused whenever a password is set or changed.
+ */
+const BLOCKED_PASSWORDS = new Set([
+  "admin123", "librarian123", "student123",
+  "password", "password1", "password123", "12345678", "123456789", "1234567890",
+  "qwerty123", "qwertyuiop", "11111111", "00000000", "iloveyou", "abc12345",
+  "admin1234", "welcome1", "library123", "changeme", "change-me-in-production",
+]);
+
 export function describePasswordProblem(password: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (password.length > 128) {
+    return "Password must be at most 128 characters.";
+  }
+  if (BLOCKED_PASSWORDS.has(password.toLowerCase()) || /^(.)\1+$/.test(password)) {
+    return "That password is too common or publicly known. Choose a different one.";
   }
   return null;
 }
@@ -79,6 +116,31 @@ export function describeStatusChangeProblem({
 }): string | null {
   if (target.id === actorId) {
     return "You cannot change your own verification status.";
+  }
+  return null;
+}
+
+/**
+ * Prevents the final ACTIVE administrator from being moved into a non-active
+ * state by another administrator. Self-changes are already blocked separately.
+ */
+export function describeStatusTransitionProblem({
+  actorId,
+  target,
+  nextStatus,
+  adminCount,
+}: {
+  actorId: string;
+  target: PublicUser;
+  nextStatus: UserStatus;
+  adminCount: number;
+}): string | null {
+  const selfProblem = describeStatusChangeProblem({ actorId, target });
+  if (selfProblem) return selfProblem;
+  const deactivatingAdmin =
+    target.role === "admin" && target.status === "active" && nextStatus !== "active";
+  if (deactivatingAdmin && adminCount <= 1) {
+    return "The library needs at least one active admin. Promote someone else first.";
   }
   return null;
 }

@@ -19,7 +19,7 @@ type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
 export default function CirculationHomePage() {
   const { session: me } = useDeskSession();
-  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
+  const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data: loansPage, loading } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
   const loans = loansPage?.data ?? [];
   const open = loans.filter((l) => l.status !== "returned");
@@ -60,7 +60,7 @@ export default function CirculationHomePage() {
             <Link href="/loans?filter=renew" className="circ-button warn">
               <span aria-hidden>↻</span> Renew
             </Link>
-            <Link href="/books/new" className="circ-button">
+            <Link href="/books?add=1" className="circ-button">
               <span aria-hidden>✚</span> Fast cataloging
             </Link>
           </div>
