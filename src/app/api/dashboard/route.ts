@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
-import { canAccess, roleDashboardTitle } from "@/lib/permissions";
+import { roleDashboardTitle } from "@/lib/permissions";
 import { computeDashboardStats, getLibraryData, listBooks, getNotificationsData } from "@/lib/store";
 import type { DashboardStats } from "@/lib/types";
+import { notificationAudienceFor } from "@/lib/notification-policy";
 import { enrichLoans, sortNotifications } from "@/lib/utils";
 
 export async function GET() {
@@ -10,7 +11,11 @@ export async function GET() {
   if (!user) return response;
 
   try {
-    if (!canAccess(user, "members.read")) {
+    const audience = notificationAudienceFor(user.role);
+    if (!audience) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
+    }
+    if (audience === "member") {
       // Students see their own-facing snapshot only: catalog stats and the
       // alert feed. The member registry and circulation history are withheld
       // (member PII must not reach student accounts).

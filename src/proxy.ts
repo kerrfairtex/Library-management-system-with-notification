@@ -4,11 +4,16 @@ import { randomBytes } from "crypto";
 
 const PUBLIC_PATHS = [
   "/user-guidelines",
+  // About & Privacy: linked from the login page and required to be public for
+  // the Google OAuth consent screen. Static content only.
+  "/about",
   "/login",
   "/auth/callback",
   // The 3D bookshelf must be publicly browsable — only the desk (login,
   // /api/*) requires authentication.
   "/shelf",
+  // Public catalog search (OPAC): titles, shelf locations, availability only.
+  "/catalog",
   "/api/auth/login",
   // Public read-only feed for the 3D bookshelf app (copy counts only).
   "/api/shelf-availability",
@@ -17,7 +22,8 @@ const PUBLIC_PATHS = [
   // Scheduled invocations carry no session cookie. These routes authenticate
   // themselves with CRON_SECRET instead.
   "/api/cron",
-  "/api/debug-holds",
+  // Liveness probe for Render's healthCheckPath (no data, no secrets).
+  "/api/health",
 ];
 
 // Mutating requests must originate from our own site (CSRF defense).
@@ -31,12 +37,14 @@ function sameOrigin(request: NextRequest): boolean {
   try {
     const host = request.headers.get("host");
     const originHost = new URL(origin).host;
-    // Allow same-origin OR the Vercel frontend domain
-    const allowedOrigins = [
-      "trac-library-bookshelf.vercel.app",
-      "trac-library-bookshelf-e9plqp108-kerros.vercel.app"
-    ];
-    return originHost === host || allowedOrigins.includes(originHost);
+    // Allow same-origin OR an explicitly configured bookshelf origin.
+    // No hardcoded production domains: staging must configure its own.
+    const configured = (process.env.NEXT_PUBLIC_SHELF_ORIGIN ?? "").trim();
+    let allowedHost = "";
+    if (configured) {
+      try { allowedHost = new URL(configured).host; } catch { allowedHost = ""; }
+    }
+    return originHost === host || (allowedHost !== "" && originHost === allowedHost);
   } catch {
     return false;
   }

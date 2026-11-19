@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { db, supabase } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/authz";
+import { assertPrivilegedRoleAssignment, requireAdmin } from "@/lib/authz";
+import { changeUserRoleAtomically } from "@/lib/role-transition";
+import {
+  approveStudentAtomically,
+  changeUserStatusAtomically,
+  deleteUserGuarded,
+} from "@/lib/admin-guards";
+import { supabase } from "@/lib/supabase";
+import { applyUserPatch } from "@/lib/user-patch";
+import type { PublicUser } from "@/lib/types";
 import {
   countAdmins,
-  deleteStaff,
   getPublicUserById,
   updateStaff,
 } from "@/lib/store";
 import {
   describeDeleteProblem,
-  describePasswordProblem,
-  describeRoleChangeProblem,
-  describeStatusChangeProblem,
-  isUserRole,
-  isUserStatus,
 } from "@/lib/staff-rules";
 
 type Params = { params: Promise<{ id: string }> };
@@ -28,88 +30,43 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!target) {
       return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
     }
+    const body = (await request.json()) as Record<string, unknown>;
 
-    const body = await request.json();
-    const updates: Parameters<typeof updateStaff>[1] = {};
-
-    if (body.name !== undefined) {
-      const name = String(body.name).trim();
-      if (!name) {
-        return NextResponse.json({ error: "Name cannot be empty." }, { status: 400 });
-      }
-      updates.name = name;
-    }
-
-    if (body.password !== undefined) {
-      const password = String(body.password);
-      const problem = describePasswordProblem(password);
-      if (problem) return NextResponse.json({ error: problem }, { status: 400 });
-      updates.password = password;
-    }
-
-    if (body.role !== undefined) {
-      if (!isUserRole(body.role)) {
-        return NextResponse.json(
-          { error: "Role must be student, librarian, or admin." },
-          { status: 400 }
-        );
-      }
-      const problem = describeRoleChangeProblem({
-        actorId: actor.id,
-        target,
-        nextRole: body.role,
-        adminCount: await countAdmins(),
-      });
-      if (problem) return NextResponse.json({ error: problem }, { status: 409 });
-      updates.role = body.role;
-    }
-
-    if (body.status !== undefined) {
-      if (!isUserStatus(body.status)) {
-        return NextResponse.json(
-          { error: "Status must be pending or active." },
-          { status: 400 }
-        );
-      }
-      const problem = describeStatusChangeProblem({ actorId: actor.id, target });
-      if (problem) return NextResponse.json({ error: problem }, { status: 409 });
-      updates.status = body.status;
-    }
-
-    const updated = await updateStaff(id, updates);
-    if (!updated) {
-      return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
-    }
-
-    // Approving an account? Auto-create the matching members row so students
-    // can immediately place holds and be tracked in circulation. Idempotent:
-    // skips when a member row with that email already exists. Staff-role users
-    // are not given a membership automatically.
-    if (body.status === "active" && updated.role === "student") {
-      const { data: existingMember } = await db(supabase)
-        .from("members")
-        .select("id")
-        .ilike("email", updated.email.replace(/[\\%_]/g, "\\$&"))
-        .maybeSingle();
-      if (!existingMember) {
-        await db(supabase).from("members").insert({
-          name: updated.name,
-          email: updated.email,
-          phone: "",
-          member_type: "student",
-          student_id: null,
-          grade: null,
-          active: true,
+    const result = await applyUserPatch({
+      actor,
+      target,
+      body,
+      countAdmins,
+      privilegedAssignmentDenied: (actorRole, nextRole) =>
+        assertPrivilegedRoleAssignment(actorRole, nextRole) !== null,
+      mutateProfile: async (updates) => updateStaff(id, updates),
+      mutateStatus: async (nextStatus, studentActivation) => {
+        const rpc = studentActivation
+          ? await approveStudentAtomically(supabase, { userId: id, actorId: actor.id })
+          : await changeUserStatusAtomically(supabase, {
+              userId: id, nextStatus, actorId: actor.id,
+            });
+        return rpc.ok ? { ok: true, data: rpc.data } : { ok: false, error: rpc.error };
+      },
+      mutateRole: async (nextRole) => {
+        const rpc = await changeUserRoleAtomically(supabase, {
+          userId: id, nextRole, actorId: actor.id,
         });
-      }
-    }
+        return rpc.error
+          ? { ok: false, error: rpc.error.message }
+          : { ok: true, data: rpc.data as PublicUser };
+      },
+    });
 
-    return NextResponse.json(updated);
+    if (result.kind === "error") {
+      if (result.log) console.error(result.log);
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+    return NextResponse.json(result.data);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update staff." },
-      { status: 400 }
-    );
+    // Log diagnostics server-side only; never return raw DB error text.
+    console.error("PATCH /api/users/[id] failed:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ error: "Failed to update staff." }, { status: 400 });
   }
 }
 
@@ -131,15 +88,17 @@ export async function DELETE(_request: Request, { params }: Params) {
     });
     if (problem) return NextResponse.json({ error: problem }, { status: 409 });
 
-    const removed = await deleteStaff(id);
-    if (!removed) {
+    const removed = await deleteUserGuarded(supabase, id, actor.id);
+    if (!removed.ok) {
+      console.error("Guarded deletion rejected:", removed.error);
+      return NextResponse.json({ error: removed.error }, { status: 409 });
+    }
+    if (!removed.data) {
       return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
     }
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete staff." },
-      { status: 400 }
-    );
+    console.error("DELETE /api/users/[id] failed:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ error: "Failed to delete staff." }, { status: 400 });
   }
 }

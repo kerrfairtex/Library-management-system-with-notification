@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { roleLabel } from "@/lib/permissions";
 import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
@@ -16,12 +16,24 @@ const emptyForm = {
   email: "",
   password: "",
   role: "student" as UserRole,
+  studentId: "",
+  departmentId: "",
+  courseId: "",
+  yearLevel: "",
+  section: "",
 };
+
+const academicRoles: UserRole[] = ["student", "faculty", "teacher", "community"];
+const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+const sections = ["A", "B", "C", "D"]; // controlled input until official list supplied
 
 const roleBlurbs: Record<UserRole, string> = {
   admin: "Full system control: users, roles, books, members, and circulation.",
   librarian: "Can manage books and circulation, but not users or member records.",
   student: "Read-only account for dashboard, catalog, alerts, and personal profile.",
+  faculty: "Faculty patron: catalog, alerts, holds, and borrow requests.",
+  teacher: "Teacher patron: catalog, alerts, holds, and borrow requests.",
+  community: "Community patron: catalog, alerts, holds, and borrow requests.",
 };
 
 function roleBlurb(role: UserRole): string {
@@ -41,6 +53,21 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [master, setMaster] = useState<{
+    departments: { id: string; code: string }[];
+    courses: { id: string; code: string }[];
+  }>({ departments: [], courses: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/academic")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && !cancelled) setMaster(data);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const staff = useMemo(() => data ?? [], [data]);
   const adminCount = staff.filter((person) => person.role === "admin").length;
@@ -72,7 +99,10 @@ export default function StaffPage() {
 
   function openEdit(person: PublicUser) {
     setEditing(person);
-    setForm({ name: person.name, email: person.email, password: "", role: person.role });
+    setForm({
+      name: person.name, email: person.email, password: "", role: person.role,
+      studentId: "", departmentId: "", courseId: "", yearLevel: "", section: "",
+    });
     setFormError(null);
     setOpen(true);
   }
@@ -84,6 +114,15 @@ export default function StaffPage() {
     try {
       if (editing) {
         const body: Record<string, unknown> = { name: form.name, role: form.role };
+        if (form.role === "student") {
+          Object.assign(body, {
+            studentId: form.studentId,
+            departmentId: form.departmentId,
+            courseId: form.courseId,
+            yearLevel: form.yearLevel,
+            section: form.section,
+          });
+        }
         if (form.password) body.password = form.password;
         await apiJson(`/api/users/${editing.id}`, {
           method: "PATCH",
@@ -270,15 +309,14 @@ export default function StaffPage() {
                               Make librarian
                             </button>
                           )}
-                          {person.role !== "student" && (
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => changeRole(person, "student")}
-                            >
-                              Make student
-                            </button>
-                          )}
+                          {academicRoles
+                            .filter((r) => r !== person.role)
+                            .map((r) => (
+                              <button key={r} type="button" className="btn btn-ghost"
+                                onClick={() => changeRole(person, r)}>
+                                Make {r}
+                              </button>
+                            ))}
                           <button
                             type="button"
                             className="btn btn-danger"
@@ -357,6 +395,9 @@ export default function StaffPage() {
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
               <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="teacher">Teacher</option>
+              <option value="community">Community</option>
               <option value="librarian">Librarian</option>
               <option value="admin">Admin</option>
             </select>
@@ -383,6 +424,56 @@ export default function StaffPage() {
               At least {MIN_PASSWORD_LENGTH} characters.
             </p>
           </div>
+
+
+          {form.role === "student" && (
+            <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+              <p className="text-xs font-semibold">Student academic information (required)</p>
+              <div>
+                <label className="label" htmlFor="studentId">Student ID *</label>
+                <input id="studentId" className="field" required value={form.studentId}
+                  onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label" htmlFor="departmentId">Department *</label>
+                <select id="departmentId" className="field" required value={form.departmentId}
+                  onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}>
+                  <option value="">Select department</option>
+                  {master.departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="courseId">Course / Program *</label>
+                <select id="courseId" className="field" required value={form.courseId}
+                  onChange={(e) => setForm((f) => ({ ...f, courseId: e.target.value }))}>
+                  <option value="">Select course</option>
+                  {master.courses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor="yearLevel">Year level *</label>
+                  <select id="yearLevel" className="field" required value={form.yearLevel}
+                    onChange={(e) => setForm((f) => ({ ...f, yearLevel: e.target.value }))}>
+                    <option value="">Select year</option>
+                    {yearLevels.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="section">Section *</label>
+                  <select id="section" className="field" required value={form.section}
+                    onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}>
+                    <option value="">Select section</option>
+                    {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>

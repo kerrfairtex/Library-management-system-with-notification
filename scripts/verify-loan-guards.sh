@@ -10,9 +10,30 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PGURL=$(grep -E '^POSTGRES_URL_NON_POOLING=' .env.local | head -1 | cut -d= -f2- | tr -d '"')
+# Accept the canonical name first, then the direct/session URLs this repo
+# actually stores (source: .env / .env.local DATABASE_URL, DIRECT_URL).
+# No value is ever printed. An explicit environment override wins.
+PGURL=${POSTGRES_URL_NON_POOLING:-}
 if [ -z "$PGURL" ]; then
-  echo "POSTGRES_URL_NON_POOLING not found in .env.local" >&2
+  for KEY in POSTGRES_URL_NON_POOLING DIRECT_URL DATABASE_URL; do
+    VALUE=$(grep -E "^${KEY}=" .env.local | head -1 | cut -d= -f2- | tr -d '"' || true)
+    if [ -n "$VALUE" ]; then PGURL=$VALUE; break; fi
+  done
+fi
+if [ -z "$PGURL" ]; then
+  cat >&2 <<'MSG'
+BLOCKED: no direct (non-pooling) database connection is configured.
+Set POSTGRES_URL_NON_POOLING, DIRECT_URL, or DATABASE_URL in .env.local, or
+export POSTGRES_URL_NON_POOLING. Obtain the direct/session connection string
+from the Supabase dashboard. Do not commit the value.
+This script verifies database-side loan guards and cannot run without it.
+All checks run inside a transaction that is ROLLED BACK; no data is written.
+MSG
+  exit 1
+fi
+
+if ! command -v psql >/dev/null 2>&1; then
+  echo "BLOCKED: psql is not installed or not on PATH." >&2
   exit 1
 fi
 

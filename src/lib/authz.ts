@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { canAccess, type AppCapability } from "./permissions";
+import { describeRoleAssignmentProblem } from "./staff-rules";
 import { SESSION_COOKIE, readSessionUserId } from "./session";
 import { getPublicUserById } from "./store";
 import type { PublicUser } from "./types";
@@ -40,6 +41,18 @@ export async function requireSession(): Promise<Allowed | Denied> {
     };
   }
 
+  // mapUser now normalizes any non-"active" status to "pending" (fail closed),
+  // so NULL/unknown legacy statuses cannot silently gain operational access.
+  if (user.status !== "active") {
+    return {
+      user: null,
+      response: NextResponse.json(
+        { error: "Your account is awaiting librarian approval." },
+        { status: 403 }
+      ),
+    };
+  }
+
   return { user, response: null };
 }
 
@@ -61,5 +74,17 @@ export async function requireCapability(
     };
   }
 
+
   return session;
+}
+
+/** Admin-only privileged-role assignment (never self-service). */
+export function assertPrivilegedRoleAssignment(
+  actorRole: "student" | "faculty" | "teacher" | "community" | "librarian" | "admin",
+  nextRole: "student" | "faculty" | "teacher" | "community" | "librarian" | "admin"
+): NextResponse | null {
+  const problem = describeRoleAssignmentProblem({ actorRole, nextRole });
+  return problem
+    ? NextResponse.json({ error: problem }, { status: 403 })
+    : null;
 }

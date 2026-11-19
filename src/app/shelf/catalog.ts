@@ -1,5 +1,5 @@
 // borrowUrl: links to the TRAC desk app for borrowing.
-// Uses NEXT_PUBLIC_LIBRARY_ORIGIN env var (set to the Vercel URL in vercel.json),
+// Uses NEXT_PUBLIC_LIBRARY_ORIGIN env var (the Render desk URL, set in vercel.json and render.yaml),
 // falls back to same-origin /borrow path.
 import { borrowUrl } from "./site-config";
 

@@ -8,7 +8,7 @@
 
 ## 1. About TRAC Library
 
-TRAC Library is the web-based library management system of the **Institute of Agricultural Sciences**, Bongao, Tawi-Tawi, Philippines. It digitizes cataloging, circulation, reservations, fines, and patron notifications. It includes an interactive 3D bookshelf.
+TRAC Library is the web-based library management system of the **Tawi-Tawi Regional Agricultural College**, Bongao, Tawi-Tawi, Philippines. It digitizes cataloging, circulation, reservations, fines, and patron notifications. It includes an interactive 3D bookshelf.
 
 **Stack:** Next.js · React 19 · TypeScript · Tailwind CSS · Supabase PostgreSQL · Three.js · cookie-based HMAC-SHA256 sessions · optional Google OAuth
 

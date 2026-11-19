@@ -12,8 +12,19 @@ export type AppCapability =
   | "notifications.read"
   | "staff.manage";
 
+const patronCapabilities: readonly AppCapability[] = [
+  "dashboard.read",
+  "books.read",
+  "notifications.read",
+  "holds.place",
+  "loans.request",
+];
+
 const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
-  student: ["dashboard.read", "books.read", "notifications.read", "holds.place", "loans.request"],
+  student: patronCapabilities,
+  faculty: patronCapabilities,
+  teacher: patronCapabilities,
+  community: patronCapabilities,
   librarian: [
     "dashboard.read",
     "books.read",
@@ -36,6 +47,9 @@ const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
 
 const roleLabels: Record<UserRole, string> = {
   student: "Student",
+  faculty: "Faculty",
+  teacher: "Teacher",
+  community: "Community",
   librarian: "Librarian",
   admin: "Admin",
 };

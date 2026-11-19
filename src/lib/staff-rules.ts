@@ -2,12 +2,31 @@ import type { PublicUser, UserRole, UserStatus } from "./types";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+const USER_ROLES: readonly UserRole[] = [
+  "student", "faculty", "teacher", "community", "librarian", "admin",
+];
+
 export function isUserRole(value: unknown): value is UserRole {
-  return value === "student" || value === "admin" || value === "librarian";
+  return USER_ROLES.includes(value as UserRole);
 }
 
 export function isUserStatus(value: unknown): value is UserStatus {
   return value === "pending" || value === "active";
+}
+
+/** Only an admin may assign privileged roles; callers enforce admin gate too. */
+export function describeRoleAssignmentProblem({
+  actorRole,
+  nextRole,
+}: {
+  actorRole: UserRole;
+  nextRole: UserRole;
+}): string | null {
+  if (actorRole === "admin") return null;
+  if (nextRole === "admin" || nextRole === "librarian") {
+    return "Only an admin can assign privileged roles.";
+  }
+  return null;
 }
 
 export function describePasswordProblem(password: string): string | null {
@@ -79,6 +98,31 @@ export function describeStatusChangeProblem({
 }): string | null {
   if (target.id === actorId) {
     return "You cannot change your own verification status.";
+  }
+  return null;
+}
+
+/**
+ * Prevents the final ACTIVE administrator from being moved into a non-active
+ * state by another administrator. Self-changes are already blocked separately.
+ */
+export function describeStatusTransitionProblem({
+  actorId,
+  target,
+  nextStatus,
+  adminCount,
+}: {
+  actorId: string;
+  target: PublicUser;
+  nextStatus: UserStatus;
+  adminCount: number;
+}): string | null {
+  const selfProblem = describeStatusChangeProblem({ actorId, target });
+  if (selfProblem) return selfProblem;
+  const deactivatingAdmin =
+    target.role === "admin" && target.status === "active" && nextStatus !== "active";
+  if (deactivatingAdmin && adminCount <= 1) {
+    return "The library needs at least one active admin. Promote someone else first.";
   }
   return null;
 }

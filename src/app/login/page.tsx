@@ -7,6 +7,11 @@ import { Suspense, useId, useState, type FormEvent } from "react";
 import { apiJson } from "@/lib/hooks";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { PublicUser } from "@/lib/types";
+import { resolveDeploymentOrigin } from "@/lib/deploy-config";
+
+// No silent production fallback: bookshelf links appear only when configured.
+const SHELF = resolveDeploymentOrigin(process.env.NEXT_PUBLIC_SHELF_ORIGIN, "NEXT_PUBLIC_SHELF_ORIGIN");
+const shelfOrigin = SHELF.ok ? SHELF.value : "";
 
 function GoogleIcon() {
   return (
@@ -217,16 +222,19 @@ function LoginForm() {
           Forgot password?
         </button>
         <span aria-hidden>·</span>
+        <Link href="/catalog" className="login-link">
+          Search the catalog
+        </Link>
+        <span aria-hidden>·</span>
         <Link href="/about" className="login-link">
           About &amp; Privacy
         </Link>
         <span aria-hidden>·</span>
-        <Link
-          href="https://trac-library-bookshelf.vercel.app/"
-          className="login-link"
-        >
-          ← Back to 3D Bookshelf
-        </Link>
+        {shelfOrigin && (
+          <Link href={shelfOrigin} className="login-link">
+            ← Back to 3D Bookshelf
+          </Link>
+        )}
       </div>
 
       {showForgot && (
@@ -289,7 +297,9 @@ export default function LoginPage() {
         </section>
       </main>
       <footer style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.85rem", color: "#888" }}>
-        Browse the catalog in 3D: <a href="https://trac-library-bookshelf.vercel.app/" style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a>
+        {shelfOrigin && (
+          <>Browse the catalog in 3D: <a href={shelfOrigin} style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a></>
+        )}
       </footer>
     </>
   );

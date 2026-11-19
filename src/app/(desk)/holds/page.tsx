@@ -45,7 +45,7 @@ type HoldRow = {
 
 export default function HoldsPage() {
   const { session: me } = useDeskSession();
-  const canManage = me?.user ? canAccess(me.user as any, "loans.manage") : false;
+  const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data, loading, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
   const requestsApi = useApi<{ requests: BorrowRequestRow[] }>("/api/borrow-requests");
   const requestsData = requestsApi?.data;

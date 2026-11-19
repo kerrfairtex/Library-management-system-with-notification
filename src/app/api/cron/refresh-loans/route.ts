@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { sweepLoanStatuses } from "@/lib/store";
+import { dispatchNotificationEmails, expireStaleHolds, sweepLoanStatuses } from "@/lib/store";
+import { cronPolicy } from "@/lib/cron-policy";
 
 /**
- * Stamps overdue loans and sends due-date reminders. Scheduled in vercel.json;
+ * Stamps overdue loans, sends due-date reminders, and expires ready holds
+ * whose pickup window has passed, then e-mails the new member notices
+ * (only when RESEND_API_KEY and EMAIL_FROM are set). Scheduled in vercel.json;
  * Vercel calls it with `Authorization: Bearer $CRON_SECRET` whenever that
  * variable is set on the project.
  *
@@ -11,26 +14,20 @@ import { sweepLoanStatuses } from "@/lib/store";
  * front of it. It therefore refuses to run in production without one.
  */
 function authorize(request: Request): NextResponse | null {
-  const secret = process.env.CRON_SECRET;
-
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json(
-        {
-          error:
-            "CRON_SECRET is not set. Add it to the deployment environment so " +
-            "this endpoint cannot be triggered by anyone.",
-        },
-        { status: 503 }
-      );
-    }
-    return null;
-  }
-
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-  return null;
+  const status = cronPolicy({
+    enabled: process.env.CRON_SCHEDULE_ENABLED,
+    scheduled: request.headers.get("x-vercel-cron") !== null,
+    secret: process.env.CRON_SECRET,
+    auth: request.headers.get("authorization"),
+  });
+  if (status === null) return null;
+  const message =
+    status === 403
+      ? "Loan refresh is disabled for this deployment."
+      : status === 503
+        ? "CRON_SECRET is not set. Add it to the deployment environment so this endpoint cannot be triggered by anyone."
+        : "Unauthorized.";
+  return NextResponse.json({ error: message }, { status });
 }
 
 async function run(request: Request) {
@@ -39,7 +36,16 @@ async function run(request: Request) {
 
   try {
     const result = await sweepLoanStatuses();
-    return NextResponse.json({ ranAt: new Date().toISOString(), ...result });
+    const expiredHolds = await expireStaleHolds();
+    // E-mail is best effort: a mail outage or a missing emailed_at column
+    // (migration 20261119 not applied) must not fail the circulation sweep.
+    let email: Awaited<ReturnType<typeof dispatchNotificationEmails>> | { error: string };
+    try {
+      email = await dispatchNotificationEmails();
+    } catch (err) {
+      email = { error: err instanceof Error ? err.message : "E-mail dispatch failed." };
+    }
+    return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, email });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Loan sweep failed." },

@@ -10,7 +10,7 @@ function parseMemberType(value: unknown): MemberType | undefined {
   if (value === "staff" || value === "community" || value === "student" || value === "faculty" || value === "teacher") {
     return value;
   }
-  return "student";
+  throw new Error("Invalid member category.");
 }
 
 export async function PATCH(request: Request, { params }: Params) {
@@ -50,6 +50,13 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.grade !== undefined) {
       updates.grade = body.grade === null ? null : String(body.grade).trim() || null;
     }
+    for (const field of ["departmentId", "courseId", "yearLevel", "section"] as const) {
+      if (body[field] !== undefined) {
+        // Symmetric field copy; the store validates resolved values.
+        (updates as Record<string, unknown>)[field] =
+          body[field] === null ? null : String(body[field]).trim() || null;
+      }
+    }
     if (body.userId !== undefined) {
       updates.userId = body.userId === null ? null : String(body.userId).trim() || null;
     }
@@ -60,10 +67,15 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     return NextResponse.json(member);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update member." },
-      { status: 400 }
-    );
+    const message = error instanceof Error ? error.message : "Failed to update member.";
+    if (message === "Invalid member category." || message.includes("required") || message.includes("valid department ID") || message.includes("valid course ID")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    if (message.includes("already exists")) {
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
+    console.error("updateMember failed:", error);
+    return NextResponse.json({ error: "Failed to update member." }, { status: 500 });
   }
 }
 

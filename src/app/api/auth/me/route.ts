@@ -1,29 +1,23 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, readSessionUserId } from "@/lib/session";
 import { getUserById, updateOwnProfile } from "@/lib/store";
+import { requireSession } from "@/lib/authz";
 import { toPublicUser } from "@/lib/auth";
 import { describePasswordProblem } from "@/lib/staff-rules";
 
 export async function GET() {
-  const jar = await cookies();
-  const userId = await readSessionUserId(jar.get(SESSION_COOKIE)?.value);
-  if (!userId) {
+  const { user, response } = await requireSession();
+  if (!user) return response;
+  const full = await getUserById(user.id);
+  if (!full) {
     return NextResponse.json({ user: null }, { status: 401 });
   }
-  const user = await getUserById(userId);
-  if (!user) {
-    return NextResponse.json({ user: null }, { status: 401 });
-  }
-  return NextResponse.json({ user: { ...toPublicUser(user), createdAt: user.createdAt } });
+  return NextResponse.json({ user: { ...toPublicUser(full), createdAt: full.createdAt } });
 }
 
 export async function PATCH(request: Request) {
-  const jar = await cookies();
-  const userId = await readSessionUserId(jar.get(SESSION_COOKIE)?.value);
-  if (!userId) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  }
+  const { user: sessionUser, response } = await requireSession();
+  if (!sessionUser) return response;
+  const userId = sessionUser.id;
 
   try {
     const body = await request.json();

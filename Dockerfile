@@ -17,10 +17,19 @@ COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Cross-site origins used by the desk nav, login page, shelf borrow links and
+# sitemap. Without these ARGs the values set on the Render service never reach
+# the client bundle.
+ARG NEXT_PUBLIC_SHELF_ORIGIN
+ARG NEXT_PUBLIC_LIBRARY_ORIGIN
+ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_SHELF_ORIGIN=$NEXT_PUBLIC_SHELF_ORIGIN \
+    NEXT_PUBLIC_LIBRARY_ORIGIN=$NEXT_PUBLIC_LIBRARY_ORIGIN \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npx next build --webpack
 
 FROM node:22-alpine AS runner
@@ -28,8 +37,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=10000
-# Server-side env vars (AUTH_SECRET, SUPABASE_URL, SUPABASE_SECRET_KEY,
-# CRON_SECRET) are injected at runtime by Render from service config.
+# Server-side env vars (AUTH_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# CRON_SECRET, CRON_SCHEDULE_ENABLED, SHELF_ALLOWED_ORIGIN) are injected at
+# runtime by Render from service config.
 # Render routes to $PORT (default 10000) — `next start` honors PORT.
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next

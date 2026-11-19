@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
+import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
+import { PATRON_ROLES, type Course, type Department, type StudentCompletenessAudit, type UserStatistics } from "./types";
+import { missingAcademicFields, profileMissingFields, validateAcademicInput } from "./academic";
 import type {
   Book,
   BookItem,
@@ -47,6 +50,10 @@ type MemberRow = {
   member_type: MemberType | null;
   student_id: string | null;
   grade: string | null;
+  department_id?: string | null;
+  course_id?: string | null;
+  year_level?: string | null;
+  section?: string | null;
   joined_at: string;
   active: boolean;
   user_id: string | null;
@@ -116,6 +123,10 @@ function mapMember(row: MemberRow): Member {
     memberType,
     studentId: row.student_id ?? null,
     grade: row.grade ?? null,
+    departmentId: row.department_id ?? null,
+    courseId: row.course_id ?? null,
+    yearLevel: row.year_level ?? null,
+    section: row.section ?? null,
     joinedAt: row.joined_at,
     active: row.active,
     userId: row.user_id ?? null,
@@ -133,12 +144,20 @@ function assertMemberInput(input: {
   memberType: MemberType;
   studentId: string | null;
   grade: string | null;
+  departmentId?: string | null;
+  courseId?: string | null;
+  yearLevel?: string | null;
+  section?: string | null;
 }) {
-  if (input.memberType === "student") {
-    if (!input.studentId?.trim()) {
-      throw new Error("Student ID is required for student members.");
-    }
-  }
+  const problems = validateAcademicInput({
+    memberType: input.memberType,
+    studentId: input.studentId,
+    departmentId: input.departmentId,
+    courseId: input.courseId,
+    yearLevel: input.yearLevel,
+    section: input.section,
+  });
+  if (problems.length > 0) throw new Error(problems.join(" "));
 }
 
 function mapLoan(row: LoanRow): Loan {
@@ -181,7 +200,9 @@ function mapUser(row: UserRow): User {
     email: row.email,
     passwordHash: row.password_hash,
     role: row.role,
-    status: row.status === "pending" ? "pending" : "active",
+    // Fail closed: only an explicit "active" is active. Any other value
+    // (including legacy NULL) stays non-active and is blocked by authz.
+    status: row.status === "active" ? "active" : "pending",
     createdAt: row.created_at,
     authUserId: row.auth_user_id,
   };
@@ -278,6 +299,122 @@ export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
     overdueAlerts: row?.overdue_alerts ?? 0,
     dueSoonAlerts: row?.due_soon_alerts ?? 0,
   };
+}
+
+/**
+ * Hold-shelf expiry (Koha "ExpireReservesMaxPickUpDelay", Evergreen "clear
+ * holds shelf"). A hold marked ready gets a pickup window (expires_at); once
+ * it passes, the hold is expired so the copy is released and the member can
+ * request the title again (the one-active-hold index covers pending/ready).
+ */
+export async function expireStaleHolds(now = new Date()): Promise<number> {
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .update({ status: "expired" })
+    .eq("status", "ready")
+    .lt("expires_at", now.toISOString())
+    .select("id, book_id, member_id");
+  if (error) throw new Error(error.message || "Hold expiry failed.");
+  const rows = (data ?? []) as { id: string; book_id: string; member_id: string }[];
+  if (rows.length > 0) {
+    const { error: notifyError } = await db(supabase).from("notifications").insert(
+      rows.map((h) => ({
+        type: "hold_expired",
+        title: "Hold expired",
+        message: "Your reserved book was not picked up in time and has been released. You can request it again.",
+        related_id: h.book_id,
+        recipient_member_id: h.member_id,
+        audience: "member",
+        read: false,
+      }))
+    );
+    if (notifyError) throw new Error(notifyError.message || "Hold expiry notice failed.");
+  }
+  return rows.length;
+}
+
+export type EmailDispatchResult = { enabled: boolean; sent: number; failed: number; skipped: number };
+
+/**
+ * Sends e-mail copies of recent member notifications (see src/lib/email.ts).
+ * Each row is claimed by stamping emailed_at with a conditional update before
+ * sending, so concurrent or repeated sweeps never send a notice twice. Only
+ * notices from the last 3 days are mailed, so a late opt-in or a long outage
+ * cannot flood inboxes with stale reminders.
+ */
+export async function dispatchNotificationEmails(limit = 200): Promise<EmailDispatchResult> {
+  const config = emailConfig(process.env);
+  if (!config) return { enabled: false, sent: 0, failed: 0, skipped: 0 };
+
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db(supabase)
+    .from("notifications")
+    .select("id, type, title, message, recipient_member_id")
+    .is("emailed_at", null)
+    .eq("audience", "member")
+    .in("type", [...EMAILED_TYPES])
+    .gte("created_at", since)
+    .not("recipient_member_id", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message || "Failed to load notifications for e-mail.");
+
+  const rows = (data ?? []) as {
+    id: string; type: string; title: string; message: string; recipient_member_id: string;
+  }[];
+  if (rows.length === 0) return { enabled: true, sent: 0, failed: 0, skipped: 0 };
+
+  const memberIds = [...new Set(rows.map((r) => r.recipient_member_id))];
+  const { data: members, error: memberErr } = await db(supabase)
+    .from("members")
+    .select("id, name, email")
+    .in("id", memberIds);
+  if (memberErr) throw new Error(memberErr.message || "Failed to load members for e-mail.");
+  const byId = new Map(
+    ((members ?? []) as { id: string; name: string; email: string | null }[]).map((m) => [m.id, m])
+  );
+
+  const result: EmailDispatchResult = { enabled: true, sent: 0, failed: 0, skipped: 0 };
+  for (const row of rows) {
+    // Claim first: only the sweep whose update matches sends this notice.
+    const { data: claimed, error: claimErr } = await db(supabase)
+      .from("notifications")
+      .update({ emailed_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .is("emailed_at", null)
+      .select("id");
+    if (claimErr) throw new Error(claimErr.message || "Failed to claim notification for e-mail.");
+    if (!claimed || (claimed as unknown[]).length === 0) continue;
+
+    const member = byId.get(row.recipient_member_id);
+    if (!member || !isPlausibleEmail(member.email)) {
+      result.skipped++;
+      continue;
+    }
+    try {
+      await sendEmail(config, member.email.trim(), buildNoticeEmail(row, member.name ?? "", config.siteUrl));
+      result.sent++;
+    } catch {
+      // Release the claim so the next sweep retries this notice.
+      await db(supabase).from("notifications").update({ emailed_at: null }).eq("id", row.id);
+      result.failed++;
+    }
+  }
+  return result;
+}
+
+/** Sum of a member's unpaid fines (amount_outstanding), in pesos. */
+export async function getOutstandingFines(memberId: string): Promise<number> {
+  const { data, error } = await db(supabase)
+    .from("fines")
+    .select("amount_outstanding")
+    .eq("member_id", memberId)
+    .gt("amount_outstanding", 0);
+  if (error) throw new Error(error.message || "Failed to load fines.");
+  return ((data ?? []) as { amount_outstanding: number | string }[]).reduce(
+    (sum, f) => sum + Number(f.amount_outstanding),
+    0
+  );
 }
 
 
@@ -481,7 +618,17 @@ export async function createMember(
     memberType === "student" ? (input.studentId?.trim() || null) : null;
   const grade =
     memberType === "student" ? (input.grade?.trim() || null) : null;
-  assertMemberInput({ memberType, studentId, grade });
+  const departmentId =
+    memberType === "student" ? (input.departmentId?.trim() || null) : null;
+  const courseId =
+    memberType === "student" ? (input.courseId?.trim() || null) : null;
+  const yearLevel =
+    memberType === "student" ? (input.yearLevel?.trim() || null) : null;
+  const section =
+    memberType === "student" ? (input.section?.trim() || null) : null;
+  assertMemberInput({
+    memberType, studentId, grade, departmentId, courseId, yearLevel, section,
+  });
 
   const row = {
     id: randomUUID(),
@@ -491,6 +638,10 @@ export async function createMember(
     member_type: memberType,
     student_id: studentId,
     grade,
+    department_id: departmentId,
+    course_id: courseId,
+    year_level: yearLevel,
+    section,
     joined_at: new Date().toISOString(),
     active: true,
     user_id: await findUserIdByEmail(input.email),
@@ -498,7 +649,11 @@ export async function createMember(
 
   const { data, error } = await db(supabase).from("members").insert(row).select("*").single();
   if (error && error.code === "23505") {
-    throw new Error("A member with this email already exists.");
+    throw new Error(
+      /student_id/i.test(error.message ?? "")
+        ? "A member with this Student ID already exists."
+        : "A member with this email already exists."
+    );
   }
   throwIfError(error, "Failed to create member.");
 
@@ -538,14 +693,38 @@ export async function updateMember(
       : current.studentId;
   const nextGrade =
     updates.grade !== undefined ? updates.grade?.trim() || null : current.grade;
+  const nextDepartmentId =
+    updates.departmentId !== undefined
+      ? updates.departmentId?.trim() || null
+      : current.departmentId;
+  const nextCourseId =
+    updates.courseId !== undefined
+      ? updates.courseId?.trim() || null
+      : current.courseId;
+  const nextYearLevel =
+    updates.yearLevel !== undefined
+      ? updates.yearLevel?.trim() || null
+      : current.yearLevel;
+  const nextSection =
+    updates.section !== undefined
+      ? updates.section?.trim() || null
+      : current.section;
 
   const resolvedStudentId = nextType === "student" ? nextStudentId : null;
   const resolvedGrade = nextType === "student" ? nextGrade : null;
+  const resolvedDepartmentId = nextType === "student" ? nextDepartmentId : null;
+  const resolvedCourseId = nextType === "student" ? nextCourseId : null;
+  const resolvedYearLevel = nextType === "student" ? nextYearLevel : null;
+  const resolvedSection = nextType === "student" ? nextSection : null;
 
   const touchingIdentity =
     updates.memberType !== undefined ||
     updates.studentId !== undefined ||
-    updates.grade !== undefined;
+    updates.grade !== undefined ||
+    updates.departmentId !== undefined ||
+    updates.courseId !== undefined ||
+    updates.yearLevel !== undefined ||
+    updates.section !== undefined;
   if (touchingIdentity || nextType === "student") {
     // Allow legacy rows missing student_id until staff edits them,
     // but require an ID whenever type/student fields are being saved as student.
@@ -554,6 +733,10 @@ export async function updateMember(
         memberType: nextType,
         studentId: resolvedStudentId,
         grade: resolvedGrade,
+        departmentId: resolvedDepartmentId,
+        courseId: resolvedCourseId,
+        yearLevel: resolvedYearLevel,
+        section: resolvedSection,
       });
     }
   }
@@ -568,6 +751,10 @@ export async function updateMember(
     patch.member_type = nextType;
     patch.student_id = resolvedStudentId;
     patch.grade = resolvedGrade;
+    patch.department_id = resolvedDepartmentId;
+    patch.course_id = resolvedCourseId;
+    patch.year_level = resolvedYearLevel;
+    patch.section = resolvedSection;
   }
 
   const { data, error } = await db(supabase)
@@ -678,7 +865,9 @@ export async function isAccountPending(email: string): Promise<boolean> {
     .select("status")
     .ilike("email", escapeLike(email.trim()))
     .maybeSingle();
-  return (data as { status?: string } | null)?.status === "pending";
+  // Fail closed: only an explicitly ACTIVE account may proceed. NULL,
+  // unknown, or pending statuses block sign-in (no silent activation).
+  return (data as { status?: string } | null)?.status !== "active";
 }
 
 export async function authenticateUser(
@@ -727,9 +916,11 @@ export async function listStaff(): Promise<PublicUser[]> {
   return ((data as UserRow[] | null) ?? []).map((row) => toPublicUser(mapUser(row)));
 }
 
+/** Counts ACTIVE admins only — inactive admins must not satisfy the last-admin guard. */
 export async function countAdmins(): Promise<number> {
-  const { data, error } = await db(supabase).from("users").select("id").eq("role", "admin");
-  throwIfError(error, "Failed to count admins.");
+  const { data, error } = await db(supabase)
+    .from("users").select("id").eq("role", "admin").eq("status", "active");
+  throwIfError(error, "Failed to count active admins.");
   return data?.length ?? 0;
 }
 
@@ -738,6 +929,13 @@ export async function createStaff(input: {
   email: string;
   password: string;
   role: UserRole;
+  academic?: {
+    studentId?: string | null;
+    departmentId?: string | null;
+    courseId?: string | null;
+    yearLevel?: string | null;
+    section?: string | null;
+  };
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
 
@@ -763,7 +961,24 @@ export async function createStaff(input: {
   throwIfError(error, "Failed to create staff account.");
   const created = toPublicUser(mapUser(data as UserRow));
 
-  if (input.role === "student") {
+  if (PATRON_ROLES.includes(input.role)) {
+    const memberType = input.role; // student | faculty | teacher | community
+    const academic = input.academic ?? {};
+    if (memberType === "student") {
+      const problems = missingAcademicFields({
+        memberType,
+        ...academic,
+      });
+      if (problems.length > 0) {
+        const { error: undoError } = await db(supabase).from("users").delete().eq("id", row.id);
+        if (undoError) {
+          console.error("Could not undo account after failed academic validation:", undoError);
+        }
+        throw new Error(
+          `Missing required student fields: ${problems.join(", ")}.`
+        );
+      }
+    }
     const existing = await getMemberByEmail(email);
     let memberError: unknown = null;
     if (existing) {
@@ -779,9 +994,13 @@ export async function createStaff(input: {
         name: row.name,
         email,
         phone: null,
-        member_type: "student",
-        student_id: null,
+        member_type: memberType,
+        student_id: memberType === "student" ? academic.studentId?.trim() || null : null,
         grade: null,
+        department_id: memberType === "student" ? academic.departmentId?.trim() || null : null,
+        course_id: memberType === "student" ? academic.courseId?.trim() || null : null,
+        year_level: memberType === "student" ? academic.yearLevel?.trim() || null : null,
+        section: memberType === "student" ? academic.section?.trim() || null : null,
         joined_at: new Date().toISOString(),
         active: true,
         user_id: row.id,
@@ -793,7 +1012,7 @@ export async function createStaff(input: {
       throw new Error(
         undoError
           ? "The account was created but its library membership could not be, and the account could not be removed. Delete it and try again."
-          : "Could not create the library membership for this student, so the account was not created."
+          : `Could not create the library membership for this ${memberType}, so the account was not created.`
       );
     }
   }
@@ -1402,6 +1621,168 @@ export async function getLibraryData(): Promise<LibraryData> {
     notifications: ((notificationsRes.data as NotificationRow[] | null) ?? []).map(
       mapNotification
     ),
+  };
+}
+
+/** Master data — database-backed dropdown sources. Active-only by default. */
+export async function listDepartments(includeInactive = false): Promise<Department[]> {
+  let query = db(supabase).from("departments").select("id,code,name,active")
+    .order("code", { ascending: true });
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  throwIfError(error, "Failed to load departments.");
+  return ((data ?? []) as Department[]).map((d) => ({
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    active: d.active,
+  }));
+}
+
+export async function listCourses(includeInactive = false): Promise<Course[]> {
+  let query = db(supabase).from("courses").select("id,code,name,active")
+    .order("code", { ascending: true });
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  throwIfError(error, "Failed to load courses.");
+  return ((data ?? []) as Course[]).map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    active: c.active,
+  }));
+}
+
+/**
+ * Server-side account statistics. The users table is authoritative;
+ * members are counted separately and linked rows never become extra accounts.
+ * Aggregation is performed in SQL, not in the browser.
+ */
+export async function getUserStatistics(): Promise<UserStatistics> {
+  const [usersRes, membersRes, incompleteRes] = await Promise.all([
+    db(supabase).from("users").select("role,status"),
+    db(supabase).from("members").select("id", { count: "exact", head: true }),
+    db(supabase).rpc("count_incomplete_student_profiles"),
+  ]);
+  throwIfError(usersRes.error, "Failed to aggregate account statistics.");
+  throwIfError(membersRes.error, "Failed to count member profiles.");
+  throwIfError(incompleteRes.error, "Failed to count incomplete student profiles.");
+
+  const users = (usersRes.data ?? []) as { role: string; status: string | null }[];
+  const count = (predicate: (u: { role: string; status: string | null }) => boolean) =>
+    users.filter(predicate).length;
+
+  return {
+    totalAccounts: users.length,
+    activeAccounts: count((u) => u.status === "active"),
+    pendingAccounts: count((u) => u.status === "pending"),
+    students: count((u) => u.role === "student"),
+    faculty: count((u) => u.role === "faculty"),
+    teachers: count((u) => u.role === "teacher"),
+    community: count((u) => u.role === "community"),
+    librarians: count((u) => u.role === "librarian"),
+    admins: count((u) => u.role === "admin"),
+    totalMemberProfiles: membersRes.count ?? 0,
+    incompleteStudentProfiles: Number(incompleteRes.data ?? 0),
+  };
+}
+
+/**
+ * Filtered account statistics. Counts still come from users/members; filters
+ * narrow the member cohort by academic fields via a joined RPC when available.
+ */
+export async function getFilteredUserStatistics(filters: {
+  role?: string | null;
+  status?: string | null;
+  department?: string | null;
+  course?: string | null;
+  yearLevel?: string | null;
+  section?: string | null;
+}): Promise<UserStatistics> {
+  const base = await getUserStatistics();
+  const hasAcademicFilter =
+    filters.department || filters.course || filters.yearLevel || filters.section;
+  if (!hasAcademicFilter) {
+    // Role/status filters are applied to the authoritative users table.
+    const query = db(supabase).from("users").select("role,status");
+    if (filters.role) query.eq("role", filters.role);
+    if (filters.status) query.eq("status", filters.status);
+    const { data, error } = await query;
+    throwIfError(error, "Failed to aggregate filtered accounts.");
+    const users = (data ?? []) as { role: string; status: string | null }[];
+    const count = (predicate: (u: { role: string; status: string | null }) => boolean) =>
+      users.filter(predicate).length;
+    return {
+      ...base,
+      totalAccounts: users.length,
+      activeAccounts: count((u) => u.status === "active"),
+      pendingAccounts: count((u) => u.status === "pending"),
+      students: count((u) => u.role === "student"),
+      faculty: count((u) => u.role === "faculty"),
+      teachers: count((u) => u.role === "teacher"),
+      community: count((u) => u.role === "community"),
+      librarians: count((u) => u.role === "librarian"),
+      admins: count((u) => u.role === "admin"),
+    };
+  }
+  const { data, error } = await db(supabase).rpc("filtered_user_statistics", {
+    p_role: filters.role ?? null,
+    p_status: filters.status ?? null,
+    p_department: filters.department ?? null,
+    p_course: filters.course ?? null,
+    p_year_level: filters.yearLevel ?? null,
+    p_section: filters.section ?? null,
+  });
+  throwIfError(error, "Failed to aggregate filtered account statistics.");
+  return (data as UserStatistics) ?? base;
+}
+
+/** Existing-record completeness audit for students. Read-only. */
+export async function getStudentCompletenessAudit(): Promise<StudentCompletenessAudit> {
+  const [membersRes, usersRes] = await Promise.all([
+    db(supabase).from("members").select("*").eq("member_type", "student"),
+    db(supabase).from("users").select("id,role,status").eq("role", "student"),
+  ]);
+  throwIfError(membersRes.error, "Failed to load student members.");
+  throwIfError(usersRes.error, "Failed to load student accounts.");
+
+  const studentMembers = ((membersRes.data ?? []) as MemberRow[]).map(mapMember);
+  const studentUsers = (usersRes.data ?? []) as { id: string; role: string; status: string | null }[];
+  const linkedIds = new Set(
+    studentMembers.map((m) => m.userId).filter((id): id is string => Boolean(id))
+  );
+  const breakdown: Record<string, number> = {};
+  const incomplete = studentMembers.filter((m) => {
+    const missing = profileMissingFields(m);
+    for (const field of missing) breakdown[field] = (breakdown[field] ?? 0) + 1;
+    return missing.length > 0;
+  });
+  const counts = new Map<string, number>();
+  for (const m of studentMembers) {
+    if (m.studentId) counts.set(m.studentId, (counts.get(m.studentId) ?? 0) + 1);
+  }
+  const duplicateStudentIds = [...counts.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([id]) => id)
+    .sort();
+
+  return {
+    totalStudentAccounts: studentUsers.length,
+    totalStudentMembers: studentMembers.length,
+    linkedStudentAccounts: studentUsers.filter((u) => linkedIds.has(u.id)).length,
+    unlinkedStudentRecords: studentMembers.filter((m) => !m.userId).length,
+    completeStudentProfiles: studentMembers.length - incomplete.length,
+    incompleteStudentProfiles: incomplete.length,
+    missingFieldBreakdown: breakdown,
+    duplicateStudentIds,
+    recordsRequiringReview: incomplete.map((m) => ({
+      memberId: m.id,
+      userId: m.userId,
+      name: m.name,
+      email: m.email,
+      studentId: m.studentId,
+      missingFields: profileMissingFields(m),
+    })),
   };
 }
 

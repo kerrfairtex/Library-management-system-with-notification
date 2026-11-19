@@ -18,13 +18,22 @@ const emptyForm = {
   memberType: "student" as MemberType,
   studentId: "",
   grade: "",
+  departmentId: "",
+  courseId: "",
+  yearLevel: "",
+  section: "",
 };
+
+const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+const sections = ["A", "B", "C", "D"];
 
 const typeFilters: Array<"all" | MemberType> = ["all", "student", "faculty", "teacher", "staff", "community"];
 
 function typeLabel(type: MemberType): string {
   if (type === "student") return "Student";
   if (type === "staff") return "Staff";
+  if (type === "faculty") return "Faculty";
+  if (type === "teacher") return "Teacher";
   return "Community";
 }
 
@@ -38,13 +47,49 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [master, setMaster] = useState<{
+    departments: { id: string; code: string }[];
+    courses: { id: string; code: string }[];
+  }>({ departments: [], courses: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/academic")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data && !cancelled) setMaster(data); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const canManageMembers = canAccess(me?.user, "members.write");
   const canViewMembers = canAccess(me?.user, "members.read");
 
+  // Deep link from the completeness audit: /members?edit=<memberId>.
+  // Open the matching record once the list is loaded. State updates happen
+  // in a microtask, never synchronously in the effect body.
   useEffect(() => {
-    if (!canManageMembers) setOpen(false);
-  }, [canManageMembers]);
+    if (typeof window === "undefined" || !data || !canManageMembers) return;
+    const editId = new URLSearchParams(window.location.search).get("edit");
+    if (!editId) return;
+    const target = data.find((m) => m.id === editId);
+    if (!target) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setEditing(target);
+      setForm({
+        name: target.name, email: target.email, phone: target.phone,
+        memberType: target.memberType, studentId: target.studentId ?? "",
+        grade: target.grade ?? "", departmentId: target.departmentId ?? "",
+        courseId: target.courseId ?? "", yearLevel: target.yearLevel ?? "",
+        section: target.section ?? "",
+      });
+      setFormError(null);
+      setOpen(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    });
+    return () => { cancelled = true; };
+  }, [data, canManageMembers]);
 
   const members = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,6 +124,10 @@ export default function MembersPage() {
       memberType: member.memberType,
       studentId: member.studentId ?? "",
       grade: member.grade ?? "",
+      departmentId: member.departmentId ?? "",
+      courseId: member.courseId ?? "",
+      yearLevel: member.yearLevel ?? "",
+      section: member.section ?? "",
     });
     setFormError(null);
     setOpen(true);
@@ -96,6 +145,10 @@ export default function MembersPage() {
       memberType: form.memberType,
       studentId: form.memberType === "student" ? form.studentId : null,
       grade: form.memberType === "student" ? form.grade : null,
+      departmentId: form.memberType === "student" ? form.departmentId : null,
+      courseId: form.memberType === "student" ? form.courseId : null,
+      yearLevel: form.memberType === "student" ? form.yearLevel : null,
+      section: form.memberType === "student" ? form.section : null,
     };
     try {
       if (editing) {
@@ -358,15 +411,53 @@ export default function MembersPage() {
               </div>
               <div>
                 <label className="label" htmlFor="grade">
-                  Grade / class
+                  Legacy grade / class
                 </label>
                 <input
                   id="grade"
                   className="field"
                   value={form.grade}
                   onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
-                  placeholder="e.g. Grade 10 / Year 2"
+                  placeholder="Historical value only — not the year level"
                 />
+              </div>
+              <div>
+                <label className="label" htmlFor="departmentId">Department *</label>
+                <select id="departmentId" className="field" required value={form.departmentId}
+                  onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}>
+                  <option value="">Select department</option>
+                  {master.departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="courseId">Course / Program *</label>
+                <select id="courseId" className="field" required value={form.courseId}
+                  onChange={(e) => setForm((f) => ({ ...f, courseId: e.target.value }))}>
+                  <option value="">Select course</option>
+                  {master.courses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor="yearLevel">Year level *</label>
+                  <select id="yearLevel" className="field" required value={form.yearLevel}
+                    onChange={(e) => setForm((f) => ({ ...f, yearLevel: e.target.value }))}>
+                    <option value="">Select year</option>
+                    {yearLevels.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="section">Section *</label>
+                  <select id="section" className="field" required value={form.section}
+                    onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}>
+                    <option value="">Select section</option>
+                    {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
               </div>
             </>
           )}

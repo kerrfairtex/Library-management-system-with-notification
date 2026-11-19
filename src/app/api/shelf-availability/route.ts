@@ -1,19 +1,44 @@
 import { NextResponse } from "next/server";
 import { listBooks } from "@/lib/store";
+import { corsAllowed } from "@/lib/cors-policy";
 
 /*
  * Public availability feed for the 3D bookshelf companion site.
  * GET /api/shelf-availability
  *   -> [{ id, isbn, title, author, genre, available_copies, total_copies }, ...]
  *
- * CORS: the bookshelf deploys on its own origin (Vercel), so allow any origin
- * to READ this endpoint. It exposes only catalog info — no patron data.
+ * CORS: only the explicitly configured bookshelf origin may read this feed.
+ * No wildcard default: an unconfigured deployment fails closed.
  */
-const ALLOWED_ORIGIN = process.env.SHELF_ALLOWED_ORIGIN ?? "*";
+const ALLOWED_ORIGIN = (process.env.SHELF_ALLOWED_ORIGIN ?? "").trim().replace(/\/$/, "");
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
 
-export async function GET() {
+/**
+ * True when the caller is this deployment's own /shelf page. Browsers omit
+ * Origin on same-origin GETs, and when they do send it, it matches Host.
+ * Same-origin reads need no CORS grant, so they must keep working when
+ * SHELF_ALLOWED_ORIGIN is unset — otherwise the bundled /shelf page gets 503.
+ */
+function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
+export async function GET(request: Request) {
+  const policy = corsAllowed(process.env.SHELF_ALLOWED_ORIGIN, request.headers.get("origin"));
+  const sameOrigin = isSameOrigin(request);
+  if (!policy.configured && !sameOrigin) {
+    return NextResponse.json({ error: "Shelf availability is not configured." }, { status: 503 });
+  }
+  if (policy.configured && !policy.allowed && !sameOrigin) {
+    return NextResponse.json({ error: "Origin not allowed." }, { status: 403 });
+  }
   try {
     const books = await listBooks();
     return NextResponse.json(
@@ -28,7 +53,11 @@ export async function GET() {
       })),
       {
         headers: {
-          "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+          // CORS is granted only to the configured shelf origin; same-origin
+          // callers need no grant.
+          ...(policy.configured && policy.allowed
+            ? { "Access-Control-Allow-Origin": ALLOWED_ORIGIN, Vary: "Origin" }
+            : {}),
           "Cache-Control": "public, max-age=30, stale-while-revalidate=120",
         },
       }
@@ -41,11 +70,13 @@ export async function GET() {
   }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+  const policy = corsAllowed(process.env.SHELF_ALLOWED_ORIGIN, request.headers.get("origin"));
+  if (!policy.configured) return new NextResponse(null, { status: 503 });
   return new NextResponse(null, {
-    status: 204,
+    status: policy.allowed ? 204 : 403,
     headers: {
-      "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+      "Access-Control-Allow-Origin": policy.responseOrigin,
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     },

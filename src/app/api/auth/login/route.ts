@@ -77,8 +77,9 @@ export async function POST(request: Request) {
     );
     return response;
   } catch (error) {
+    console.error("Login failed:", error instanceof Error ? error.message : "unknown error");
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Login failed." },
+      { error: "Login failed." },
       { status: 500 }
     );
   }

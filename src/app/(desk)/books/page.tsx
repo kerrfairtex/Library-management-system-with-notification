@@ -44,6 +44,43 @@ export default function BooksPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupNote, setLookupNote] = useState<string | null>(null);
+
+  // Copy-cataloging: fill empty fields from Open Library by ISBN. Never
+  // overwrites what the librarian already typed.
+  async function lookupIsbn() {
+    if (!form.isbn.trim()) {
+      setFormError("Enter an ISBN first.");
+      return;
+    }
+    setLookupBusy(true);
+    setFormError(null);
+    setLookupNote(null);
+    try {
+      const meta = await apiJson<{
+        isbn: string;
+        title: string;
+        author: string;
+        publishedYear: number | null;
+        genre: string;
+        publisher: string | null;
+      }>(`/api/isbn-lookup?isbn=${encodeURIComponent(form.isbn)}`);
+      setForm((f) => ({
+        ...f,
+        isbn: meta.isbn,
+        title: f.title.trim() ? f.title : meta.title,
+        author: f.author.trim() ? f.author : meta.author,
+        genre: f.genre.trim() ? f.genre : meta.genre,
+        publishedYear: meta.publishedYear ?? f.publishedYear,
+      }));
+      setLookupNote(`Filled from Open Library${meta.publisher ? ` (${meta.publisher})` : ""}. Check before saving.`);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "ISBN lookup failed.");
+    } finally {
+      setLookupBusy(false);
+    }
+  }
   const [itemsTab, setItemsTab] = useState<string | null>(null);
   const [itemForm, setItemForm] = useState(emptyItemForm);
   const [itemBusy, setItemBusy] = useState(false);
@@ -52,9 +89,23 @@ export default function BooksPage() {
   const canManageBooks = canAccess(me?.user, "books.write");
   const canRequestBorrow = canAccess(me?.user, "loans.request");
 
+  // Deep link from "Fast cataloging" buttons: /books?add=1
   useEffect(() => {
-    if (!canManageBooks) setOpen(false);
+    if (typeof window === "undefined" || !canManageBooks) return;
+    if (new URLSearchParams(window.location.search).get("add") !== "1") return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setEditing(null);
+      setForm(emptyForm);
+      setFormError(null);
+      setOpen(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    });
+    return () => { cancelled = true; };
   }, [canManageBooks]);
+
+
 
   const books = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -73,6 +124,7 @@ export default function BooksPage() {
     setEditing(null);
     setForm(emptyForm);
     setFormError(null);
+    setLookupNote(null);
     setOpen(true);
   }
 
@@ -307,7 +359,7 @@ export default function BooksPage() {
                           <td colSpan={8}>
                             <div className="p-4 border-t border-[var(--line)]">
                               <div className="flex items-center justify-between mb-3">
-                                <h4>Physical copies for "{book.title}"</h4>
+                                <h4>Physical copies for {"\u201c"}{book.title}{"\u201d"}</h4>
                                 <button
                                   type="button"
                                   className="btn btn-primary"
@@ -498,12 +550,46 @@ export default function BooksPage() {
       >
         <form className="space-y-3" onSubmit={onSubmit}>
           {formError && <ErrorBanner message={formError} />}
+          {!editing && (
+            <div>
+              <label className="label" htmlFor="isbn-lookup">
+                Quick add by ISBN
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  id="isbn-lookup"
+                  className="field"
+                  required
+                  inputMode="numeric"
+                  placeholder="Scan or type ISBN, then Look up"
+                  value={form.isbn}
+                  onChange={(e) => setForm((f) => ({ ...f, isbn: e.target.value }))}
+                  onKeyDown={(e) => {
+                    // Barcode scanners send Enter after the digits.
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void lookupIsbn();
+                    }
+                  }}
+                />
+                <button type="button" className="btn-ghost" onClick={lookupIsbn} disabled={lookupBusy}>
+                  {lookupBusy ? "Looking up…" : "Look up"}
+                </button>
+              </div>
+              {lookupNote && (
+                <p style={{ fontSize: "0.8rem", marginTop: "0.25rem", color: "#2f6b3a" }}>{lookupNote}</p>
+              )}
+            </div>
+          )}
           {([
             ["title", "Title"],
             ["author", "Author"],
             ["isbn", "ISBN"],
             ["genre", "Genre"],
-          ] as const).map(([key, label]) => (
+          ] as const)
+            // When adding, the ISBN is entered in the quick-add box above.
+            .filter(([key]) => editing || key !== "isbn")
+            .map(([key, label]) => (
             <div key={key}>
               <label className="label" htmlFor={key}>
                 {label}

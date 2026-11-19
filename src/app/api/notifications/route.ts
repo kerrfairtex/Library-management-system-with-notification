@@ -1,7 +1,7 @@
 import { getMemberByUser } from "@/lib/store";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
-import { db, supabase } from "@/lib/supabase";
+import { notificationAudienceFor } from "@/lib/notification-policy";
 import {
   getNotificationsData,
   markAllNotificationsRead,
@@ -15,8 +15,12 @@ export async function GET() {
   if (!user) return response;
 
   try {
+    const audience = notificationAudienceFor(user.role);
+    if (!audience) {
+      return NextResponse.json({ error: "Unauthorized notification access." }, { status: 403 });
+    }
     let notifications = await getNotificationsData();
-    if (user.role === "student") {
+    if (audience === "member") {
       const me = await getMemberByUser(user);
       const myMemberId = (me as { id: string } | null)?.id;
       // No member record means nothing is addressed to this account.
@@ -45,9 +49,13 @@ export async function PATCH(request: Request) {
   if (!user) return response;
 
   try {
+    const audience = notificationAudienceFor(user.role);
+    if (!audience) {
+      return NextResponse.json({ error: "Unauthorized notification access." }, { status: 403 });
+    }
     const body = await request.json();
     let scope: NotificationScope | null;
-    if (user.role === "student") {
+    if (audience === "member") {
       const me = await getMemberByUser(user);
       const memberId = (me as { id: string } | null)?.id;
       scope = memberId ? { kind: "member", memberId } : null;
