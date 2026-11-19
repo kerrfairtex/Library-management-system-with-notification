@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { roleLabel } from "@/lib/permissions";
+import { isPatron, roleLabel } from "@/lib/permissions";
 import type { PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
+import { profileDetailRows, type OwnMemberDetails } from "@/lib/profile-details";
+import type { AcademicMaster } from "@/components/AcademicFields";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -17,6 +19,10 @@ type ProfileUser = PublicUser & { createdAt: string };
 export default function ProfilePage() {
   const { session: data, reload } = useDeskSession();
   const user = data?.user as ProfileUser | undefined;
+  const patron = isPatron(user);
+  const ownMember = useApi<{ member: OwnMemberDetails | null }>(patron ? "/api/auth/me/member" : null);
+  const master = useApi<AcademicMaster>(patron ? "/api/academic" : null);
+  const detailRows = profileDetailRows(ownMember.data?.member, master.data ?? { departments: [], courses: [] });
 
   const [nameForm, setNameForm] = useState({ name: "", busy: false, error: null as string | null, success: false });
   const [pwForm, setPwForm] = useState({ password: "", confirm: "", busy: false, error: null as string | null, success: false });
@@ -89,9 +95,34 @@ export default function ProfilePage() {
 
             <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Member since</dt>
             <dd className="text-sm">{formatDate(user.createdAt)}</dd>
+
+            {detailRows.map((row) => (
+              <div key={row.label} className="contents">
+                <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">{row.label}</dt>
+                <dd className={`text-sm ${row.value === "Not set" ? "text-[color-mix(in_srgb,var(--ink)_50%,transparent)]" : ""}`}>
+                  {row.value}
+                </dd>
+              </div>
+            ))}
           </dl>
         ) : (
           <p className="text-sm">Loading…</p>
+        )}
+        {patron && (ownMember.loading || master.loading) && (
+          <div className="mt-3 space-y-2" aria-busy="true" aria-label="Loading academic details">
+            <div className="skeleton h-4 w-56 max-w-full" />
+            <div className="skeleton h-4 w-44 max-w-full" />
+          </div>
+        )}
+        {patron && (ownMember.error || master.error) && (
+          <div className="mt-3">
+            <ErrorBanner message={ownMember.error || master.error || "Failed to load academic details."} />
+          </div>
+        )}
+        {detailRows.length > 0 && (
+          <p className="mt-3 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+            Ask the library desk to correct your ID or academic details.
+          </p>
         )}
       </div>
 
