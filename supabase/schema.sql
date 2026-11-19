@@ -177,9 +177,11 @@ exception
     raise notice 'Could not apply members_member_type_check: %', sqlerrm;
 end $$;
 
-create unique index if not exists members_student_id_unique
-  on public.members (student_id)
-  where student_id is not null and student_id <> '';
+-- ID number (members.student_id) is unique within a member type, ignoring
+-- case and surrounding spaces (see migrations/20261121_member_id_per_type.sql).
+create unique index if not exists members_type_id_number_unique
+  on public.members (member_type, lower(btrim(student_id)))
+  where student_id is not null and btrim(student_id) <> '';
 
 -- One patron per email address, compared case-insensitively to match the
 -- app's lookups.

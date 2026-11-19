@@ -30,6 +30,9 @@ const roleCapabilities: Record<UserRole, readonly AppCapability[]> = {
     "books.read",
     "books.write",
     "members.read",
+    // Librarians register and edit PATRON members/accounts only; the
+    // patron-only scope is enforced by describeAccountManagementProblem.
+    "members.write",
     "loans.manage",
     "notifications.read",
   ],

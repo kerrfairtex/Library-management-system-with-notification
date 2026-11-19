@@ -17,7 +17,7 @@ function parseMemberType(value: unknown): MemberType | undefined {
 export async function PATCH(request: Request, { params }: Params) {
   const { user, response } = await requireCapability(
     "members.write",
-    "Only admins can update members."
+    "Only librarians and admins can update members."
   );
   if (!user) return response;
 
@@ -59,6 +59,14 @@ export async function PATCH(request: Request, { params }: Params) {
       }
     }
     if (body.userId !== undefined) {
+      // Linking a member to a login account could attach it to a staff
+      // account, so it stays admin-only even though librarians edit members.
+      if (user.role !== "admin") {
+        return NextResponse.json(
+          { error: "Only an admin can link a member to a login account." },
+          { status: 403 }
+        );
+      }
       updates.userId = body.userId === null ? null : String(body.userId).trim() || null;
     }
 
@@ -84,9 +92,11 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  // Deleting a member removes history; admin-only even though librarians
+  // hold members.write for registering and editing patrons.
   const { user, response } = await requireCapability(
-    "members.write",
-    "Only admins can delete members."
+    "staff.manage",
+    "Only an admin can delete members."
   );
   if (!user) return response;
 

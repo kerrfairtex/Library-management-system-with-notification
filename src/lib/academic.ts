@@ -89,11 +89,13 @@ export function isUuid(value: unknown): boolean {
  */
 export function validateAcademicInput(input: AcademicInput): string[] {
   if (input.memberType !== "student") {
+    const problems: string[] = [];
     // Faculty/teachers may carry an optional department; validate its shape.
     if (DEPARTMENT_MEMBER_TYPES.includes(input.memberType) && !blank(input.departmentId) && !isUuid(input.departmentId)) {
-      return ["departmentId must be a valid department ID."];
+      problems.push("departmentId must be a valid department ID.");
     }
-    return [];
+    problems.push(...idNumberProblems(input.memberType, input.studentId));
+    return problems;
   }
   const problems = missingAcademicFields(input).map(
     (field) => `${field} is required for student members.`
@@ -114,6 +116,90 @@ export function validateAcademicInput(input: AcademicInput): string[] {
     problems.push("section must be a short code (1-10 letters, digits, spaces or '-').");
   }
   return problems;
+}
+
+/*
+ * ID numbers. One column, members.student_id, holds the official ID for every
+ * patron type (student ID, employee/faculty ID, or the ID a community member
+ * presented). It is unique per member type, case-insensitive, and always
+ * stored as trimmed text so leading zeros survive ("00125" stays "00125").
+ * Staff member rows carry no ID.
+ */
+
+/** Member types whose ID number is mandatory. */
+export const ID_REQUIRED_MEMBER_TYPES: readonly MemberType[] = ["student", "faculty", "teacher"];
+/** Member types that may record an ID number at all. */
+export const ID_MEMBER_TYPES: readonly MemberType[] = ["student", "faculty", "teacher", "community"];
+
+const ID_LABELS: Record<MemberType, string> = {
+  student: "Student ID",
+  faculty: "Employee/Faculty ID",
+  teacher: "Employee/Faculty ID",
+  community: "ID presented",
+  staff: "ID number",
+};
+
+export function idNumberLabel(memberType: MemberType): string {
+  return ID_LABELS[memberType] ?? "ID number";
+}
+
+export function isIdNumberRequired(memberType: MemberType): boolean {
+  return ID_REQUIRED_MEMBER_TYPES.includes(memberType);
+}
+
+export function acceptsIdNumber(memberType: MemberType): boolean {
+  return ID_MEMBER_TYPES.includes(memberType);
+}
+
+/** Trimmed text, or null when blank. Never coerced to a number. */
+export function normalizeIdNumber(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Comparison key used for uniqueness (matches the DB index). */
+export function idNumberKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Required/format checks for a non-student ID (students use the full student rules). */
+function idNumberProblems(memberType: MemberType, value: unknown): string[] {
+  if (!acceptsIdNumber(memberType)) return [];
+  const id = normalizeIdNumber(value);
+  const label = idNumberLabel(memberType);
+  if (!id) {
+    return isIdNumberRequired(memberType) ? [`${label} is required for ${memberType} members.`] : [];
+  }
+  if (!STUDENT_ID_PATTERN.test(id)) {
+    return [`${label} must be 3-30 letters, digits, '-', '/' or '.' (kept exactly as typed, leading zeros included).`];
+  }
+  return [];
+}
+
+/** The 409 message for an ID already used by another member of the same type. */
+export function duplicateIdNumberMessage(memberType: MemberType): string {
+  return `A ${memberType} with this ID number already exists.`;
+}
+
+/**
+ * Pure duplicate check: true when another member of the SAME type already
+ * holds this ID (case-insensitive, trimmed). The same ID may exist under a
+ * different type, e.g. student "00125" and faculty "00125".
+ */
+export function hasIdNumberConflict(
+  existing: readonly { id: string; memberType: MemberType; idNumber: string | null }[],
+  candidate: { memberType: MemberType; idNumber: string | null; exceptMemberId?: string }
+): boolean {
+  if (!candidate.idNumber) return false;
+  const key = idNumberKey(candidate.idNumber);
+  return existing.some(
+    (row) =>
+      row.id !== candidate.exceptMemberId &&
+      row.memberType === candidate.memberType &&
+      row.idNumber !== null &&
+      idNumberKey(row.idNumber) === key
+  );
 }
 
 /** Master-data rows as needed for reference checks. */

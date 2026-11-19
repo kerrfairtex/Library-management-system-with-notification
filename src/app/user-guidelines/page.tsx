@@ -290,7 +290,7 @@ export default function UserGuidelinesPage() {
           </p>
           <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>Filter by type: All · Student · Staff · Community. Search by name, email, phone, student ID, or grade. The table shows student ID and grade only when type=student. Email is immutable when editing. Activation/deactivation preserves member history.</p>
           <p style={{ lineHeight: 1.7, marginTop: "0.5rem" }}>
-            Librarians without <code style={{ background: "#f3f7f4", padding: "0.15rem 0.4rem", borderRadius: 4 }}>members.write</code> see a restricted view: they cannot add, edit, activate, deactivate, or delete members.
+            Librarians can add, edit, activate and deactivate members. Only an admin can delete a member or link one to a login account.
           </p>
         </section>
 
