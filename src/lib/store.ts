@@ -1072,6 +1072,8 @@ export async function createStaff(input: {
   email: string;
   password: string;
   role: UserRole;
+  /** Optional; saved to members.phone for patron accounts. */
+  phone?: string | null;
   academic?: {
     studentId?: string | null;
     departmentId?: string | null;
@@ -1156,6 +1158,8 @@ export async function createStaff(input: {
     section: academic.section,
     active: true,
     user_id: row.id,
+    // Only set when entered, so linking never blanks a phone already on file.
+    ...(input.phone ? { phone: input.phone } : {}),
   };
   let memberError: { code?: string; message?: string } | null = null;
   if (existing) {

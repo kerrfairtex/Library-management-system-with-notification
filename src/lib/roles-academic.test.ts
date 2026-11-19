@@ -310,3 +310,18 @@ test("member type changes are blocked while loans are open, on both paths", asyn
   assert.match(update, /if \(nextType !== current\.memberType\)[\s\S]*?countOpenLoansForMember\(id\)[\s\S]*?InputError\(problem, 409\)/);
   assert.match(read("src/app/api/users/[id]/route.ts"), /countOpenLoans: \(\) => countOpenLoansForUser\(id\)/);
 });
+
+test("optional phone on new patron accounts is validated and saved to the member", async () => {
+  const { describePhoneProblem, normalizePhone } = await import("./staff-rules.ts");
+  assert.equal(describePhoneProblem(""), null, "optional");
+  assert.equal(describePhoneProblem("0917 123 4567"), null);
+  assert.equal(describePhoneProblem("+63 (2) 8123-4567"), null);
+  assert.match(describePhoneProblem("call me") ?? "", /7-20 digits/);
+  assert.match(describePhoneProblem("12-34") ?? "", /7-20 digits/);
+  assert.equal(normalizePhone("  0917  "), "0917");
+  const users = read("src/app/api/users/route.ts");
+  assert.match(users, /describePhoneProblem\(body\.phone\)/);
+  assert.match(users, /phone: normalizePhone\(body\.phone\)/);
+  assert.match(read("src/lib/store.ts"), /\.\.\.\(input\.phone \? \{ phone: input\.phone \} : \{\}\)/);
+  assert.match(read("src/app/(desk)/staff/page.tsx"), /htmlFor="phone">Phone \(optional\)/);
+});

@@ -20,6 +20,7 @@ const emptyForm = {
   email: "",
   password: "",
   role: "student" as UserRole,
+  phone: "",
   studentId: "",
   departmentId: "",
   courseId: "",
@@ -122,7 +123,7 @@ export default function StaffPage() {
   function openEdit(person: PublicUser) {
     setEditing(person);
     setForm({
-      name: person.name, email: person.email, password: "", role: person.role,
+      name: person.name, email: person.email, password: "", role: person.role, phone: "",
       studentId: "", departmentId: "", courseId: "", yearLevel: "", section: "",
     });
     setFormError(null);
@@ -161,6 +162,7 @@ export default function StaffPage() {
         const body: Record<string, unknown> = {
           name: form.name, email: form.email, password: form.password, role: form.role,
         };
+        if (academicRoles.includes(form.role) && form.phone.trim()) body.phone = form.phone;
         if (form.role === "student") {
           Object.assign(body, {
             studentId: form.studentId, departmentId: form.departmentId, courseId: form.courseId,
@@ -486,6 +488,23 @@ export default function StaffPage() {
               {roleBlurb(form.role)}
             </p>
           </div>
+
+          {!editing && academicRoles.includes(form.role) && (
+            <div>
+              <label className="label" htmlFor="phone">Phone (optional)</label>
+              <input
+                id="phone"
+                className="field"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={20}
+                placeholder="0917 123 4567"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+          )}
 
           {(isAdmin || !editing) && (
           <div>

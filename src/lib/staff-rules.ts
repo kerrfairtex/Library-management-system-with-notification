@@ -58,6 +58,23 @@ export function describeAccountManagementProblem({
   return null;
 }
 
+/** Optional phone: trimmed text, or null when blank. */
+export function normalizePhone(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  return trimmed ? trimmed : null;
+}
+
+/** Digits with the usual separators (+, spaces, dashes, dots, parentheses). */
+export function describePhoneProblem(value: unknown): string | null {
+  const phone = normalizePhone(value);
+  if (!phone) return null;
+  if (!/^[0-9+()\-.\s]{7,20}$/.test(phone) || (phone.match(/\d/g) ?? []).length < 7) {
+    return "Enter a phone number of 7-20 digits; +, spaces, dashes and parentheses are allowed.";
+  }
+  return null;
+}
+
 /**
  * A member with books out keeps their account type until those loans are
  * returned or transferred: loan limits, due dates and fines follow the type.
