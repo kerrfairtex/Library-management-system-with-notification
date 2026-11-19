@@ -85,6 +85,14 @@ export default function StaffPage() {
 
   const staff = useMemo(() => data ?? [], [data]);
   const adminCount = staff.filter((person) => person.role === "admin").length;
+
+  // Edit modal: a staff account only moves between librarian and admin, and
+  // nobody changes their own role or demotes the last admin from here.
+  const editingSelf = Boolean(editing && editing.id === me?.user?.id);
+  const editingLastAdmin = editing?.role === "admin" && adminCount <= 1;
+  const roleLocked = editingSelf || editingLastAdmin;
+  const editRoleOptions: UserRole[] =
+    editing && !isPatron(editing) ? ["librarian", "admin"] : roleOptions;
   const pending = useMemo(() => staff.filter((p) => p.status === "pending"), [staff]);
 
   if (me && !canManageAccounts) {
@@ -460,12 +468,20 @@ export default function StaffPage() {
               id="role"
               className="field"
               value={form.role}
+              disabled={roleLocked}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
-              {roleOptions.map((r) => (
+              {editRoleOptions.map((r) => (
                 <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
+            {roleLocked && (
+              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                {editingSelf
+                  ? "Another admin has to change your role."
+                  : "The library needs at least one admin, so this role can't change."}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
               {roleBlurb(form.role)}
             </p>
