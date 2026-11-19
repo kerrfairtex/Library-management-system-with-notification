@@ -53,13 +53,6 @@ export function AdminPanels() {
       </Panel>
 
       <div className="space-y-5">
-        <Panel
-          title="Recent role changes"
-          empty={{
-            title: "Not recorded yet",
-            body: "Role changes aren't logged, so there's no history to show. This needs a role-change log in the database.",
-          }}
-        />
         <Panel title="Setup">
           <div className="grid gap-2">
             <Link href="/staff#academic-setup" className="btn btn-ghost justify-start">
