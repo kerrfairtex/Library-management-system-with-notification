@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
 import { deleteMember, updateMember } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
+import { InputError } from "@/lib/academic";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -67,6 +68,9 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     return NextResponse.json(member);
   } catch (error) {
+    if (error instanceof InputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : "Failed to update member.";
     if (message === "Invalid member category." || message.includes("required") || message.includes("valid department ID") || message.includes("valid course ID")) {
       return NextResponse.json({ error: message }, { status: 400 });

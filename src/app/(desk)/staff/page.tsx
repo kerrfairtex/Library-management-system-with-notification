@@ -7,6 +7,8 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { AcademicSetup } from "@/components/AcademicSetup";
+import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -24,13 +26,11 @@ const emptyForm = {
 };
 
 const academicRoles: UserRole[] = ["student", "faculty", "teacher", "community"];
-const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
-const sections = ["A", "B", "C", "D"]; // controlled input until official list supplied
 
 const roleBlurbs: Record<UserRole, string> = {
   admin: "Full system control: users, roles, books, members, and circulation.",
-  librarian: "Can manage books and circulation, but not users or member records.",
-  student: "Read-only account for dashboard, catalog, alerts, and personal profile.",
+  librarian: "Runs the desk: catalog, circulation, holds, fines and reports. Cannot manage accounts or edit member records.",
+  student: "Student patron: catalog, own loans, holds, fines and borrow requests. Requires Student ID, department, course, year and section.",
   faculty: "Faculty patron: catalog, alerts, holds, and borrow requests.",
   teacher: "Teacher patron: catalog, alerts, holds, and borrow requests.",
   community: "Community patron: catalog, alerts, holds, and borrow requests.",
@@ -53,10 +53,7 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [master, setMaster] = useState<{
-    departments: { id: string; code: string }[];
-    courses: { id: string; code: string }[];
-  }>({ departments: [], courses: [] });
+  const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +126,21 @@ export default function StaffPage() {
           body: JSON.stringify(body),
         });
       } else {
+        // Send only the academic fields the chosen role uses.
+        const body: Record<string, unknown> = {
+          name: form.name, email: form.email, password: form.password, role: form.role,
+        };
+        if (form.role === "student") {
+          Object.assign(body, {
+            studentId: form.studentId, departmentId: form.departmentId, courseId: form.courseId,
+            yearLevel: form.yearLevel, section: form.section,
+          });
+        } else if ((form.role === "faculty" || form.role === "teacher") && form.departmentId) {
+          body.departmentId = form.departmentId;
+        }
         await apiJson("/api/users", {
           method: "POST",
-          body: JSON.stringify(form),
+          body: JSON.stringify(body),
         });
       }
       setOpen(false);
@@ -343,6 +352,8 @@ export default function StaffPage() {
         )}
       </div>
 
+      {isAdmin && <AcademicSetup />}
+
       <Modal
         open={open}
         title={editing ? `Edit ${editing.name}` : "Add user"}
@@ -428,50 +439,18 @@ export default function StaffPage() {
 
           {form.role === "student" && (
             <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
-              <p className="text-xs font-semibold">Student academic information (required)</p>
-              <div>
-                <label className="label" htmlFor="studentId">Student ID *</label>
-                <input id="studentId" className="field" required value={form.studentId}
-                  onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label" htmlFor="departmentId">Department *</label>
-                <select id="departmentId" className="field" required value={form.departmentId}
-                  onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}>
-                  <option value="">Select department</option>
-                  {master.departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.code}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="courseId">Course / Program *</label>
-                <select id="courseId" className="field" required value={form.courseId}
-                  onChange={(e) => setForm((f) => ({ ...f, courseId: e.target.value }))}>
-                  <option value="">Select course</option>
-                  {master.courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label" htmlFor="yearLevel">Year level *</label>
-                  <select id="yearLevel" className="field" required value={form.yearLevel}
-                    onChange={(e) => setForm((f) => ({ ...f, yearLevel: e.target.value }))}>
-                    <option value="">Select year</option>
-                    {yearLevels.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="section">Section *</label>
-                  <select id="section" className="field" required value={form.section}
-                    onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}>
-                    <option value="">Select section</option>
-                    {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
+              <p className="text-xs font-semibold">Student information (required)</p>
+              <StudentIdField value={form.studentId}
+                onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+              <AcademicFields mode="student" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+            </div>
+          )}
+          {(form.role === "faculty" || form.role === "teacher") && !editing && (
+            <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+              <p className="text-xs font-semibold">{roleLabel(form.role)} information</p>
+              <AcademicFields mode="department" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
             </div>
           )}
 

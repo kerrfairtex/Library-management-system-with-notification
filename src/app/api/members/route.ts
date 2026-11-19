@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
 import { createMember, listMembers } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
-import { validateAcademicInput } from "@/lib/academic";
+import { InputError, validateAcademicInput } from "@/lib/academic";
 
 function parseMemberType(value: unknown): MemberType {
   if (value === "staff" || value === "community" || value === "student" || value === "faculty" || value === "teacher") {
@@ -42,6 +42,9 @@ export async function POST(request: Request) {
     if (!name || !email || !phone) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    }
     const type = parseMemberType(memberType);
     const academicProblems = validateAcademicInput({
       memberType: type,
@@ -78,6 +81,9 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
+    if (error instanceof InputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const message = error instanceof Error ? error.message : "Failed to create member.";
     if (message === "Invalid member category." || message.includes("required")) {
       return NextResponse.json({ error: message }, { status: 400 });

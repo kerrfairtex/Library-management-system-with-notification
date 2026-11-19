@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/authz";
 import { createStaff, listStaff } from "@/lib/store";
 import { describePasswordProblem, isUserRole } from "@/lib/staff-rules";
-import { missingAcademicFields, validateAcademicInput } from "@/lib/academic";
+import { InputError, missingAcademicFields, validateAcademicInput } from "@/lib/academic";
 
 export async function GET() {
   const { user, response } = await requireAdmin();
@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     if (!name || !email) {
       return NextResponse.json({ error: "Name and email are required." }, { status: 400 });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    }
     if (!isUserRole(role)) {
       return NextResponse.json(
         { error: "Role must be student, faculty, teacher, community, librarian, or admin." },
@@ -58,9 +61,10 @@ export async function POST(request: Request) {
         );
       }
     }
+    // Validate with the member category the role maps to. (Previously a
+    // student mapped to "staff", which skipped every academic check.)
     const invalid = validateAcademicInput({
-      memberType: role === "faculty" || role === "teacher" || role === "community"
-        ? role : "staff",
+      memberType: role === "librarian" || role === "admin" ? "staff" : role,
       studentId: body.studentId,
       departmentId: body.departmentId,
       courseId: body.courseId,
@@ -84,6 +88,9 @@ export async function POST(request: Request) {
       });
       return NextResponse.json(created, { status: 201 });
     } catch (error) {
+      if (error instanceof InputError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
       const message = error instanceof Error ? error.message : "Failed to create account.";
       if (/already exists/i.test(message)) {
         return NextResponse.json({ error: message }, { status: 409 });

@@ -26,7 +26,8 @@ begin
     drop constraint if exists users_role_check;
   alter table public.users
     add constraint users_role_check
-    check (role in ('student', 'librarian', 'admin'));
+    -- All six account roles (kept in sync with migration 20261117).
+    check (role in ('student', 'faculty', 'teacher', 'community', 'librarian', 'admin'));
 exception
   when others then
     raise notice 'Could not apply users_role_check: %', sqlerrm;

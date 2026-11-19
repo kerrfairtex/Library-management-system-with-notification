@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Member, MemberType, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
+import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
@@ -24,8 +25,6 @@ const emptyForm = {
   section: "",
 };
 
-const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
-const sections = ["A", "B", "C", "D"];
 
 const typeFilters: Array<"all" | MemberType> = ["all", "student", "faculty", "teacher", "staff", "community"];
 
@@ -47,10 +46,7 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [master, setMaster] = useState<{
-    departments: { id: string; code: string }[];
-    courses: { id: string; code: string }[];
-  }>({ departments: [], courses: [] });
+  const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
 
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +141,11 @@ export default function MembersPage() {
       memberType: form.memberType,
       studentId: form.memberType === "student" ? form.studentId : null,
       grade: form.memberType === "student" ? form.grade : null,
-      departmentId: form.memberType === "student" ? form.departmentId : null,
+      // Students require a department; faculty/teachers may record one.
+      departmentId:
+        form.memberType === "student" || form.memberType === "faculty" || form.memberType === "teacher"
+          ? form.departmentId || null
+          : null,
       courseId: form.memberType === "student" ? form.courseId : null,
       yearLevel: form.memberType === "student" ? form.yearLevel : null,
       section: form.memberType === "student" ? form.section : null,
@@ -359,6 +359,10 @@ export default function MembersPage() {
               id="memberType"
               className="field"
               value={form.memberType}
+              // Linked to a login account: the category follows the account
+              // role, which is changed in Administration.
+              disabled={Boolean(editing?.userId)}
+              title={editing?.userId ? "Linked to a login account. Change the role in Administration." : undefined}
               onChange={(e) =>
                 setForm((f) => ({
                   ...f,
@@ -389,6 +393,8 @@ export default function MembersPage() {
                 className="field"
                 required
                 type={key === "email" ? "email" : "text"}
+                readOnly={key === "email" && Boolean(editing?.userId)}
+                title={key === "email" && editing?.userId ? "Sign-in email of a linked account; not editable here." : undefined}
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
               />
@@ -396,19 +402,10 @@ export default function MembersPage() {
           ))}
           {form.memberType === "student" && (
             <>
-              <div>
-                <label className="label" htmlFor="studentId">
-                  Student ID
-                </label>
-                <input
-                  id="studentId"
-                  className="field"
-                  required
-                  value={form.studentId}
-                  onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))}
-                  placeholder="e.g. STU-2026-0142"
-                />
-              </div>
+              <StudentIdField value={form.studentId}
+                onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+              <AcademicFields mode="student" master={master} value={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
               <div>
                 <label className="label" htmlFor="grade">
                   Legacy grade / class
@@ -421,45 +418,11 @@ export default function MembersPage() {
                   placeholder="Historical value only — not the year level"
                 />
               </div>
-              <div>
-                <label className="label" htmlFor="departmentId">Department *</label>
-                <select id="departmentId" className="field" required value={form.departmentId}
-                  onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}>
-                  <option value="">Select department</option>
-                  {master.departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.code}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="courseId">Course / Program *</label>
-                <select id="courseId" className="field" required value={form.courseId}
-                  onChange={(e) => setForm((f) => ({ ...f, courseId: e.target.value }))}>
-                  <option value="">Select course</option>
-                  {master.courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label" htmlFor="yearLevel">Year level *</label>
-                  <select id="yearLevel" className="field" required value={form.yearLevel}
-                    onChange={(e) => setForm((f) => ({ ...f, yearLevel: e.target.value }))}>
-                    <option value="">Select year</option>
-                    {yearLevels.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="section">Section *</label>
-                  <select id="section" className="field" required value={form.section}
-                    onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}>
-                    <option value="">Select section</option>
-                    {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
             </>
+          )}
+          {(form.memberType === "faculty" || form.memberType === "teacher") && (
+            <AcademicFields mode="department" master={master} value={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
           )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>

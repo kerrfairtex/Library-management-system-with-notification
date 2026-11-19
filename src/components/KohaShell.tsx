@@ -12,7 +12,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { canAccess, type AppCapability } from "@/lib/permissions";
+import { canAccess, isPatron, type AppCapability } from "@/lib/permissions";
 import type { Notification, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
@@ -106,7 +106,9 @@ export function KohaShell({ children }: {
 
   const can = (cap: string) =>
     canAccess(user, cap as AppCapability);
-  const isStudent = user?.role === "student";
+  // All patron roles (student, faculty, teacher, community) get the
+  // self-service nav: My Loans / My Holds / My Fines.
+  const isStudent = isPatron(user);
   const navItems: readonly ShellNavItem[] = isStudent ? studentNav : primaryNav;
   const moreItems: readonly { href: string; label: string; capability?: string }[] =
     isStudent ? studentMore : moreNav;

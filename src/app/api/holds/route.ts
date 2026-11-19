@@ -1,14 +1,18 @@
 import { getMemberByUser } from "@/lib/store";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
+import { canAccess, isPatron } from "@/lib/permissions";
 import { db, supabase } from "@/lib/supabase";
 
 /*
  * Holds (reservations) API — Koha-style holds queue.
  *
- * GET    /api/holds              → queue (staff) or own holds (student)
- * POST   /api/holds {bookId}     → place a hold (any signed-in user)
- * PATCH  /api/holds {id, action} → cancel | fulfill (staff)
+ * GET    /api/holds              → queue (staff) or own holds (patron)
+ * POST   /api/holds {bookId}     → patron: own hold; staff: hold for memberId
+ * PATCH  /api/holds {id, action} → patron: cancel own; staff: cancel | fulfill
+ *
+ * Patron = student, faculty, teacher or community (isPatron). Anyone who is
+ * neither a patron nor holds loans.manage is refused.
  */
 
 export async function GET(request: NextRequest) {
@@ -22,10 +26,12 @@ export async function GET(request: NextRequest) {
       .in("status", ["pending", "ready"])
       .order("placed_at", { ascending: true });
 
-    if (user.role === "student") {
+    if (isPatron(user)) {
       const me = await getMemberByUser(user);
       if (!me) return NextResponse.json({ holds: [] });
       query = query.eq("member_id", (me as { id: string }).id);
+    } else if (!canAccess(user, "loans.manage")) {
+      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
 
     const { data, error } = await query;
@@ -50,27 +56,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "bookId is required." }, { status: 400 });
     }
 
-    // Resolve the patron row for this user (students hold for themselves).
-    const me = await getMemberByUser(user);
-    if (!me && user.role === "student") {
-      return NextResponse.json(
-        { error: "No library membership found for your account." },
-        { status: 400 }
-      );
+    const patron = isPatron(user);
+    if (!patron && !canAccess(user, "loans.manage")) {
+      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
-    const memberId =
-      user.role === "student"
-        ? (me as { id: string }).id
-        : String(body.memberId || (me as { id: string } | null)?.id || "");
-    if (!memberId) {
-      return NextResponse.json(
-        { error: "memberId is required for staff placement." },
-        { status: 400 }
-      );
+
+    // Patrons hold for themselves only — never trust a caller-supplied
+    // memberId. Staff place holds for the member they name.
+    let memberId: string;
+    if (patron) {
+      const me = await getMemberByUser(user);
+      if (!me) {
+        return NextResponse.json(
+          { error: "No library membership found for your account." },
+          { status: 400 }
+        );
+      }
+      if (!me.active) {
+        return NextResponse.json(
+          { error: "Your library membership is inactive. Please contact the library." },
+          { status: 403 }
+        );
+      }
+      memberId = me.id;
+    } else {
+      memberId = String(body.memberId ?? "").trim();
+      if (!memberId) {
+        return NextResponse.json(
+          { error: "memberId is required for staff placement." },
+          { status: 400 }
+        );
+      }
     }
 
     // Staff: validate that the target member exists and is active
-    if (user.role !== "student") {
+    if (!patron) {
       const { data: targetMember, error: memberError } = await db(supabase)
         .from("members")
         .select("id, active")
@@ -141,11 +161,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "id is required." }, { status: 400 });
     }
 
-    // ── Students: may cancel only their own pending/ready hold. ──
-    if (user.role === "student") {
+    // ── Patrons: may cancel only their own pending/ready hold. ──
+    if (isPatron(user)) {
       if (action !== "cancel") {
         return NextResponse.json(
-          { error: "Students can only cancel their own holds." },
+          { error: "You can only cancel your own holds." },
           { status: 403 }
         );
       }

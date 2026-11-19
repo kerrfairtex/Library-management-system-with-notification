@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Book, DashboardStats, Member, Notification, PublicUser } from "@/lib/types";
-import { canAccess, roleLabel } from "@/lib/permissions";
+import { canAccess, isPatron, roleLabel } from "@/lib/permissions";
 import type { EnrichedLoan } from "@/lib/utils";
 import { useApi } from "@/lib/hooks";
 import { daysUntil, formatDate, notificationTone } from "@/lib/utils";
@@ -52,7 +52,9 @@ export default function DashboardPage() {
   }
 
   const { stats, recentLoans, notifications, user } = data;
-  const isStudent = user.role === "student";
+  // Patron home (student, faculty, teacher, community); the API returns no
+  // member registry or loan history to these roles.
+  const isStudent = isPatron(user);
   const isAdmin = user.role === "admin";
 
   return (

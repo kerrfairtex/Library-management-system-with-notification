@@ -56,6 +56,13 @@ supabase/koha-upgrade.sql                                   # book_items, fines,
 supabase/migrations/20261117_academic_user_management_up.sql  # departments, courses, statistics RPCs
 supabase/migrations/20261118_admin_protection_atomic.sql      # change_user_role, delete_user_guarded, approve_student_account
 supabase/migrations/20261119_notification_email.sql           # notifications.emailed_at (only needed for e-mail notices)
+supabase/migrations/20261120_course_department.sql            # courses.department_id (course ↔ department integrity)
+```
+
+Then verify (read-only; exits 1 and names the missing file if anything is absent):
+
+```bash
+npm run db:check
 ```
 
 `schema.sql` alone is **not** enough: the Fines, Holds/borrow requests, item barcodes, circulation rules, Staff and Admin insights pages query tables and functions created by the later files. `npm run db:apply-schema` applies only `schema.sql`. The `BOOK_ITEMS_INTEGRATION*.sql` and `FIX_RPC_CALLS.sql` files are one-off hotfixes for older databases. Check them against your live functions before running them.
@@ -65,6 +72,8 @@ Then seed the two demo accounts so login actually works:
 ```bash
 npm run seed:users
 ```
+
+> **Development only.** These passwords are published in this repository. Never create them in production. If they already exist there, change those passwords or delete the accounts. The app now refuses to set any of them as a new password.
 
 This inserts (and updates on re-run):
 
@@ -139,9 +148,13 @@ On first sign-in, a row is created in the `users` table for the Google account (
 
 | Account role | Can do |
 | --- | --- |
-| Student, Faculty, Teacher, Community | Patron access: catalog, holds, borrow requests, personal alerts (no staff capabilities) |
-| Librarian | Catalog, members, circulation, alerts |
-| Admin | Everything a librarian can, plus user accounts, role assignment and statistics |
+| Student, Faculty, Teacher, Community | Patron self-service: catalog, borrow requests, **own** loans, holds, fines and alerts. Every patron role gets the same scope; no patron can see another member's records. |
+| Librarian | Catalog, circulation, holds queue, fines desk, reports; can view (not edit) member records |
+| Admin | Everything a librarian can, plus member records, user accounts, role assignment, departments & courses, and statistics |
+
+**Adding a student (admin).** Student ID, department, course, year level and section are required. The server rejects a department or course that doesn't exist or is inactive, a course its department doesn't offer, a year level the course's program length doesn't offer (a 4-year course allows 1st–4th Year, plus Irregular and Graduate Student), a malformed Student ID, and a duplicate Student ID. All checks run before the account is created. If a member record with the same email already exists (for example, registered at the desk), it is linked and updated to the student's details. If that record is already linked to another account, the request is refused.
+
+**Departments & courses** are managed on the Administration page. Set each course's department to restrict which courses the student forms offer. Set each course's program length (1–6 years) to control which year levels appear. Rows are deactivated, never deleted. Faculty and teachers may record an optional department. A suggested college/course catalog is in `supabase/seeds/suggested_academic_catalog.sql`. It's optional and isn't your school's official list: rows are inserted inactive and never overwrite existing ones, so activate only what the school actually offers. A member linked to a login account takes its category from the account role and its email is the sign-in address, so neither can be changed from the Patrons page.
 
 Account roles are distinct from member (patron) categories. Legacy `staff` patron records remain valid.
 

@@ -1,4 +1,4 @@
-import type { PublicUser, UserRole } from "./types";
+import { PATRON_ROLES, type PublicUser, type UserRole } from "./types";
 
 export type AppCapability =
   | "dashboard.read"
@@ -72,4 +72,16 @@ export function roleLabel(role: UserRole): string {
 
 export function roleDashboardTitle(role: UserRole): string {
   return `${roleLabel(role)} dashboard`;
+}
+
+/**
+ * True for library patrons (student, faculty, teacher, community). Patrons may
+ * only ever see or act on their OWN member record. Use this instead of
+ * `role === "student"`: every patron role shares the same self-service scope,
+ * and unknown roles are never patrons (they fail closed to the staff checks,
+ * which then require an explicit capability).
+ */
+export function isPatron(actor: UserRole | Pick<PublicUser, "role"> | null | undefined): boolean {
+  if (!actor) return false;
+  return PATRON_ROLES.includes(roleOf(actor));
 }

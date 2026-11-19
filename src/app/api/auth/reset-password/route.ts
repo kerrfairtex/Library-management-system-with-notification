@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { AppCapability } from "@/lib/permissions";
 import { requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
+import { describePasswordProblem } from "@/lib/staff-rules";
 import { db, supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/auth";
 import { clientIp, rateLimitAsync as rateLimit } from "@/lib/rate-limit";
@@ -48,11 +49,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (newPassword.length < 6) {
-    return NextResponse.json(
-      { error: "Password must be at least 6 characters." },
-      { status: 400 }
-    );
+  // Same rule as every other password entry point (length + blocklist).
+  const passwordProblem = describePasswordProblem(newPassword);
+  if (passwordProblem) {
+    return NextResponse.json({ error: passwordProblem }, { status: 400 });
   }
 
   const passwordHash = hashPassword(newPassword);

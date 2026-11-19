@@ -115,6 +115,10 @@ export type Course = {
   code: string;
   name: string;
   active: boolean;
+  /** Owning department; null = offered across departments / not yet mapped. */
+  departmentId: string | null;
+  /** Program length in years (1-6); limits the year levels offered. null = not set. */
+  programYears: number | null;
 };
 
 /** Database-backed administrator statistics (users = authoritative source). */

@@ -1,6 +1,7 @@
 // Force rebuild: 2026-10-03T09:02:55.455202
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
+import { isPatron } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import {
   getMemberByUser,
@@ -36,10 +37,11 @@ export async function POST(request: NextRequest) {
   const { user, response: sessionResponse } = await requireSession();
   if (!user) return sessionResponse;
 
-  // Only students may submit borrow requests.
-  if (user.role !== "student") {
+  // Any patron (student, faculty, teacher, community) may request to borrow
+  // for themselves. Staff check books out directly at the desk instead.
+  if (!isPatron(user)) {
     return NextResponse.json(
-      { error: "Only students can request to borrow books." },
+      { error: "Borrow requests are for library members. Staff check out books at the desk." },
       { status: 403 }
     );
   }
@@ -125,8 +127,8 @@ export async function GET(request: NextRequest) {
   if (!user) return sessionResponse;
 
   try {
-    if (user.role === "student") {
-      // Students see only their own requests.
+    if (isPatron(user)) {
+      // Patrons see only their own requests.
       const member = await getMemberByUser(user);
       const requests = member ? await getBorrowRequests(member.id) : [];
       return NextResponse.json({ requests });
@@ -164,11 +166,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // —— Students: may cancel their own pending/ready request. ——
-    if (user.role === "student") {
+    // —— Patrons: may cancel their own pending/ready request. ——
+    if (isPatron(user)) {
       if (!["cancel"].includes(action)) {
         return NextResponse.json(
-          { error: "Students can only cancel their own borrow requests." },
+          { error: "You can only cancel your own borrow requests." },
           { status: 403 }
         );
       }

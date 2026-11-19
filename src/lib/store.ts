@@ -4,7 +4,16 @@ import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
 import { PATRON_ROLES, type Course, type Department, type StudentCompletenessAudit, type UserStatistics } from "./types";
-import { missingAcademicFields, profileMissingFields, validateAcademicInput } from "./academic";
+import {
+  DEPARTMENT_MEMBER_TYPES,
+  InputError,
+  academicReferenceProblems,
+  missingAcademicFields,
+  profileMissingFields,
+  validateAcademicInput,
+  type CourseRef,
+  type DepartmentRef,
+} from "./academic";
 import type {
   Book,
   BookItem,
@@ -157,7 +166,58 @@ function assertMemberInput(input: {
     yearLevel: input.yearLevel,
     section: input.section,
   });
-  if (problems.length > 0) throw new Error(problems.join(" "));
+  if (problems.length > 0) throw new InputError(problems.join(" "));
+}
+
+/**
+ * Database check of a student's department/course choice: both must exist,
+ * be active (unless unchanged from the member's current value) and match
+ * (course offered by that department). Throws InputError with every problem.
+ */
+async function assertAcademicReferences(
+  chosen: { departmentId: string | null; courseId: string | null; yearLevel?: string | null },
+  current: { departmentId: string | null; courseId: string | null } = { departmentId: null, courseId: null }
+): Promise<void> {
+  if (!chosen.departmentId && !chosen.courseId) return;
+  const [deptRes, courseRes] = await Promise.all([
+    chosen.departmentId
+      ? db(supabase).from("departments").select("*").eq("id", chosen.departmentId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    chosen.courseId
+      ? db(supabase).from("courses").select("*").eq("id", chosen.courseId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  throwIfError(deptRes.error, "Failed to check department.");
+  throwIfError(courseRes.error, "Failed to check course.");
+  const d = deptRes.data as { id: string; code: string; active: boolean } | null;
+  const c = courseRes.data as {
+    id: string; code: string; active: boolean; department_id?: string | null; program_years?: number | null;
+  } | null;
+  const department: DepartmentRef | null = d ? { id: d.id, code: d.code, active: d.active } : null;
+  const course: CourseRef | null = c
+    ? { id: c.id, code: c.code, active: c.active, departmentId: c.department_id ?? null, programYears: c.program_years ?? null }
+    : null;
+
+  let ownerCode: string | undefined;
+  if (course?.departmentId && course.departmentId !== chosen.departmentId) {
+    const { data: owner } = await db(supabase)
+      .from("departments").select("code").eq("id", course.departmentId).maybeSingle();
+    ownerCode = (owner as { code?: string } | null)?.code;
+  }
+  const problems = academicReferenceProblems(chosen, { department, course }, current, () => ownerCode);
+  if (problems.length > 0) throw new InputError(problems.join(" "));
+}
+
+/** Student IDs are unique across members (DB index); pre-check for a clear error. */
+async function assertStudentIdFree(studentId: string | null, exceptMemberId?: string) {
+  if (!studentId) return;
+  let query = db(supabase).from("members").select("id").eq("student_id", studentId).limit(1);
+  if (exceptMemberId) query = query.neq("id", exceptMemberId);
+  const { data, error } = await query;
+  throwIfError(error, "Failed to check Student ID.");
+  if (data && data.length > 0) {
+    throw new InputError("A member with this Student ID already exists.", 409);
+  }
 }
 
 function mapLoan(row: LoanRow): Loan {
@@ -618,8 +678,10 @@ export async function createMember(
     memberType === "student" ? (input.studentId?.trim() || null) : null;
   const grade =
     memberType === "student" ? (input.grade?.trim() || null) : null;
-  const departmentId =
-    memberType === "student" ? (input.departmentId?.trim() || null) : null;
+  // Students require a department; faculty/teachers may record one.
+  const departmentId = DEPARTMENT_MEMBER_TYPES.includes(memberType)
+    ? (input.departmentId?.trim() || null)
+    : null;
   const courseId =
     memberType === "student" ? (input.courseId?.trim() || null) : null;
   const yearLevel =
@@ -629,6 +691,10 @@ export async function createMember(
   assertMemberInput({
     memberType, studentId, grade, departmentId, courseId, yearLevel, section,
   });
+  if (DEPARTMENT_MEMBER_TYPES.includes(memberType)) {
+    await assertAcademicReferences({ departmentId, courseId, yearLevel });
+  }
+  if (memberType === "student") await assertStudentIdFree(studentId);
 
   const row = {
     id: randomUUID(),
@@ -712,10 +778,31 @@ export async function updateMember(
 
   const resolvedStudentId = nextType === "student" ? nextStudentId : null;
   const resolvedGrade = nextType === "student" ? nextGrade : null;
-  const resolvedDepartmentId = nextType === "student" ? nextDepartmentId : null;
+  const resolvedDepartmentId = DEPARTMENT_MEMBER_TYPES.includes(nextType) ? nextDepartmentId : null;
   const resolvedCourseId = nextType === "student" ? nextCourseId : null;
   const resolvedYearLevel = nextType === "student" ? nextYearLevel : null;
   const resolvedSection = nextType === "student" ? nextSection : null;
+
+  // A member linked to a login account takes its category from the account
+  // role (change_user_role keeps them in sync) and its email is the login
+  // identity. Changing either here would desync them, so refuse.
+  if (current.userId) {
+    if (updates.memberType !== undefined && nextType !== current.memberType) {
+      throw new InputError(
+        "This member is linked to a login account. Change the account role in Administration instead.",
+        409
+      );
+    }
+    if (
+      updates.email !== undefined &&
+      updates.email.trim().toLowerCase() !== current.email.trim().toLowerCase()
+    ) {
+      throw new InputError(
+        "This member is linked to a login account; its email is the sign-in address and cannot be changed here.",
+        409
+      );
+    }
+  }
 
   const touchingIdentity =
     updates.memberType !== undefined ||
@@ -738,12 +825,23 @@ export async function updateMember(
         yearLevel: resolvedYearLevel,
         section: resolvedSection,
       });
+      if (DEPARTMENT_MEMBER_TYPES.includes(nextType)) {
+        await assertAcademicReferences(
+          { departmentId: resolvedDepartmentId, courseId: resolvedCourseId, yearLevel: resolvedYearLevel },
+          { departmentId: current.departmentId, courseId: current.courseId }
+        );
+      }
+      if (nextType === "student") {
+        if (resolvedStudentId !== current.studentId) {
+          await assertStudentIdFree(resolvedStudentId, id);
+        }
+      }
     }
   }
 
   const patch: Partial<MemberRow> = {};
   if (updates.name !== undefined) patch.name = updates.name;
-  if (updates.email !== undefined) patch.email = updates.email;
+  if (updates.email !== undefined) patch.email = updates.email.trim().toLowerCase();
   if (updates.phone !== undefined) patch.phone = updates.phone;
   if (updates.active !== undefined) patch.active = updates.active;
   if (updates.userId !== undefined) patch.user_id = updates.userId;
@@ -763,6 +861,14 @@ export async function updateMember(
     .eq("id", id)
     .select("*")
     .single();
+  if (error && error.code === "23505") {
+    throw new InputError(
+      /student_id/i.test(error.message ?? "")
+        ? "A member with this Student ID already exists."
+        : "A member with this email already exists.",
+      409
+    );
+  }
   throwIfError(error, "Failed to update member.");
   return mapMember(data as MemberRow);
 }
@@ -938,14 +1044,48 @@ export async function createStaff(input: {
   };
 }): Promise<PublicUser> {
   const email = input.email.trim().toLowerCase();
+  const isPatronRole = PATRON_ROLES.includes(input.role);
+  const isStudent = input.role === "student";
+  const a = input.academic ?? {};
+  const hasDepartment = DEPARTMENT_MEMBER_TYPES.includes(input.role as MemberType);
+  const academic = {
+    studentId: isStudent ? a.studentId?.trim() || null : null,
+    // Required for students, optional for faculty/teachers, none otherwise.
+    departmentId: hasDepartment ? a.departmentId?.trim() || null : null,
+    courseId: isStudent ? a.courseId?.trim() || null : null,
+    yearLevel: isStudent ? a.yearLevel?.trim() || null : null,
+    section: isStudent ? a.section?.trim() || null : null,
+  };
 
+  // ── Every check runs BEFORE anything is written, so a rejected request
+  //    never leaves a half-created account behind. ──
   const { data: clash, error: clashError } = await db(supabase)
     .from("users")
     .select("id")
     .ilike("email", escapeLike(email))
     .maybeSingle();
   throwIfError(clashError, "Failed to check existing accounts.");
-  if (clash) throw new Error("An account with that email already exists.");
+  if (clash) throw new InputError("An account with that email already exists.", 409);
+
+  let existing: Member | null = null;
+  if (isPatronRole) {
+    if (isStudent) {
+      const missing = missingAcademicFields({ memberType: "student", ...academic });
+      if (missing.length > 0) {
+        throw new InputError(`Missing required student fields: ${missing.join(", ")}.`);
+      }
+      assertMemberInput({ memberType: "student", grade: null, ...academic });
+    }
+    if (hasDepartment) await assertAcademicReferences(academic);
+    existing = await getMemberByEmail(email);
+    if (existing?.userId) {
+      throw new InputError(
+        "A library member with this email is already linked to another account.",
+        409
+      );
+    }
+    if (isStudent) await assertStudentIdFree(academic.studentId, existing?.id);
+  }
 
   const row = {
     id: randomUUID(),
@@ -958,63 +1098,63 @@ export async function createStaff(input: {
   };
 
   const { data, error } = await db(supabase).from("users").insert(row).select("*").single();
+  if (error && error.code === "23505") {
+    throw new InputError("An account with that email already exists.", 409);
+  }
   throwIfError(error, "Failed to create staff account.");
   const created = toPublicUser(mapUser(data as UserRow));
+  if (!isPatronRole) return created;
 
-  if (PATRON_ROLES.includes(input.role)) {
-    const memberType = input.role; // student | faculty | teacher | community
-    const academic = input.academic ?? {};
-    if (memberType === "student") {
-      const problems = missingAcademicFields({
-        memberType,
-        ...academic,
-      });
-      if (problems.length > 0) {
-        const { error: undoError } = await db(supabase).from("users").delete().eq("id", row.id);
-        if (undoError) {
-          console.error("Could not undo account after failed academic validation:", undoError);
-        }
-        throw new Error(
-          `Missing required student fields: ${problems.join(", ")}.`
-        );
-      }
+  // Library membership: the member category always follows the account role,
+  // and a student's academic profile is written whether the member row is new
+  // or pre-existing (e.g. registered at the desk before the account existed).
+  const memberType = input.role as MemberType;
+  const memberFields = {
+    member_type: memberType,
+    student_id: academic.studentId,
+    department_id: academic.departmentId,
+    course_id: academic.courseId,
+    year_level: academic.yearLevel,
+    section: academic.section,
+    active: true,
+    user_id: row.id,
+  };
+  let memberError: { code?: string; message?: string } | null = null;
+  if (existing) {
+    const { data: linked, error: linkError } = await db(supabase)
+      .from("members")
+      .update(memberFields)
+      .eq("id", existing.id)
+      .is("user_id", null)
+      .select("id");
+    memberError = linkError;
+    if (!linkError && (!linked || linked.length === 0)) {
+      memberError = { message: "member was linked concurrently" };
     }
-    const existing = await getMemberByEmail(email);
-    let memberError: unknown = null;
-    if (existing) {
-      const { error: linkError } = await db(supabase)
-        .from("members")
-        .update({ user_id: row.id })
-        .eq("id", existing.id)
-        .is("user_id", null);
-      memberError = linkError;
-    } else {
-      const { error: insertError } = await db(supabase).from("members").insert({
-        id: randomUUID(),
-        name: row.name,
-        email,
-        phone: null,
-        member_type: memberType,
-        student_id: memberType === "student" ? academic.studentId?.trim() || null : null,
-        grade: null,
-        department_id: memberType === "student" ? academic.departmentId?.trim() || null : null,
-        course_id: memberType === "student" ? academic.courseId?.trim() || null : null,
-        year_level: memberType === "student" ? academic.yearLevel?.trim() || null : null,
-        section: memberType === "student" ? academic.section?.trim() || null : null,
-        joined_at: new Date().toISOString(),
-        active: true,
-        user_id: row.id,
-      });
-      memberError = insertError;
-    }
-    if (memberError) {
-      const { error: undoError } = await db(supabase).from("users").delete().eq("id", row.id);
+  } else {
+    const { error: insertError } = await db(supabase).from("members").insert({
+      id: randomUUID(),
+      name: row.name,
+      email,
+      phone: null,
+      grade: null,
+      joined_at: new Date().toISOString(),
+      ...memberFields,
+    });
+    memberError = insertError;
+  }
+  if (memberError) {
+    console.error("createStaff: membership step failed:", memberError.message);
+    const { error: undoError } = await db(supabase).from("users").delete().eq("id", row.id);
+    if (undoError) {
       throw new Error(
-        undoError
-          ? "The account was created but its library membership could not be, and the account could not be removed. Delete it and try again."
-          : `Could not create the library membership for this ${memberType}, so the account was not created.`
+        "The account was created but its library membership could not be, and the account could not be removed. Delete it and try again."
       );
     }
+    if (memberError.code === "23505") {
+      throw new InputError("A member with this Student ID already exists.", 409);
+    }
+    throw new Error(`Could not create the library membership for this ${memberType}, so the account was not created.`);
   }
   return created;
 }
@@ -1640,17 +1780,113 @@ export async function listDepartments(includeInactive = false): Promise<Departme
 }
 
 export async function listCourses(includeInactive = false): Promise<Course[]> {
-  let query = db(supabase).from("courses").select("id,code,name,active")
+  // select("*") so this keeps working before migration 20261120 adds
+  // courses.department_id (departmentId is then null = unmapped).
+  let query = db(supabase).from("courses").select("*")
     .order("code", { ascending: true });
   if (!includeInactive) query = query.eq("active", true);
   const { data, error } = await query;
   throwIfError(error, "Failed to load courses.");
-  return ((data ?? []) as Course[]).map((c) => ({
-    id: c.id,
-    code: c.code,
-    name: c.name,
-    active: c.active,
-  }));
+  return ((data ?? []) as Parameters<typeof mapCourseRow>[0][]).map(mapCourseRow);
+}
+
+// ── Academic master data administration (admin only; see /api/academic) ──
+
+function masterDataError(error: { code?: string; message?: string } | null, what: string) {
+  if (!error) return;
+  if (error.code === "23505") throw new InputError(`A ${what} with that code already exists.`, 409);
+  if (error.code === "42703") {
+    throw new InputError(
+      "Course department / program length need migration 20261120_course_department.sql. Apply it and retry."
+    );
+  }
+  throwIfError(error, `Failed to save ${what}.`);
+}
+
+export async function createDepartment(input: { code: string; name: string }): Promise<Department> {
+  const { data, error } = await db(supabase)
+    .from("departments")
+    .insert({ code: input.code, name: input.name, active: true })
+    .select("id,code,name,active")
+    .single();
+  masterDataError(error, "department");
+  return data as Department;
+}
+
+export async function updateDepartment(
+  id: string,
+  updates: { code?: string; name?: string; active?: boolean }
+): Promise<Department | null> {
+  const { data, error } = await db(supabase)
+    .from("departments").update(updates).eq("id", id)
+    .select("id,code,name,active").maybeSingle();
+  masterDataError(error, "department");
+  return (data as Department | null) ?? null;
+}
+
+async function assertDepartmentExists(departmentId: string | null | undefined) {
+  if (!departmentId) return;
+  const { data, error } = await db(supabase).from("departments").select("id").eq("id", departmentId).maybeSingle();
+  throwIfError(error, "Failed to check department.");
+  if (!data) throw new InputError("Selected department does not exist.");
+}
+
+function mapCourseRow(row: {
+  id: string; code: string; name: string; active: boolean; department_id?: string | null; program_years?: number | null;
+}): Course {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    active: row.active,
+    departmentId: row.department_id ?? null,
+    programYears: row.program_years ?? null,
+  };
+}
+
+export async function createCourse(input: {
+  code: string; name: string; departmentId?: string | null; programYears?: number | null;
+}): Promise<Course> {
+  await assertDepartmentExists(input.departmentId);
+  const row: Record<string, unknown> = { code: input.code, name: input.name, active: true };
+  if (input.departmentId !== undefined) row.department_id = input.departmentId;
+  if (input.programYears !== undefined) row.program_years = input.programYears;
+  const { data, error } = await db(supabase).from("courses").insert(row).select("*").single();
+  masterDataError(error, "course");
+  return mapCourseRow(data as Parameters<typeof mapCourseRow>[0]);
+}
+
+export async function updateCourse(
+  id: string,
+  updates: { code?: string; name?: string; active?: boolean; departmentId?: string | null; programYears?: number | null }
+): Promise<Course | null> {
+  await assertDepartmentExists(updates.departmentId);
+  const patch: Record<string, unknown> = {};
+  if (updates.code !== undefined) patch.code = updates.code;
+  if (updates.name !== undefined) patch.name = updates.name;
+  if (updates.active !== undefined) patch.active = updates.active;
+  if (updates.departmentId !== undefined) patch.department_id = updates.departmentId;
+  if (updates.programYears !== undefined) patch.program_years = updates.programYears;
+  const { data, error } = await db(supabase).from("courses").update(patch).eq("id", id).select("*").maybeSingle();
+  masterDataError(error, "course");
+  return data ? mapCourseRow(data as Parameters<typeof mapCourseRow>[0]) : null;
+}
+
+/**
+ * Students whose course is mapped to a different department than the one on
+ * their record — surfaced to admins after a course is (re)assigned.
+ */
+export async function countDepartmentCourseMismatches(): Promise<number> {
+  const [{ data: members, error: mErr }, courses] = await Promise.all([
+    db(supabase).from("members").select("department_id,course_id").eq("member_type", "student"),
+    listCourses(true),
+  ]);
+  throwIfError(mErr, "Failed to load members.");
+  const owner = new Map(courses.map((c) => [c.id, c.departmentId]));
+  return ((members ?? []) as { department_id: string | null; course_id: string | null }[]).filter((m) => {
+    const dept = m.course_id ? owner.get(m.course_id) : null;
+    return Boolean(dept && m.department_id && dept !== m.department_id);
+  }).length;
 }
 
 /**

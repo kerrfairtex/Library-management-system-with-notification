@@ -29,9 +29,27 @@ export function describeRoleAssignmentProblem({
   return null;
 }
 
+/**
+ * Passwords that are published in this repository (README, seed scripts) or
+ * are among the most common ones. An account using any of them is effectively
+ * public, so they are refused whenever a password is set or changed.
+ */
+const BLOCKED_PASSWORDS = new Set([
+  "admin123", "librarian123", "student123",
+  "password", "password1", "password123", "12345678", "123456789", "1234567890",
+  "qwerty123", "qwertyuiop", "11111111", "00000000", "iloveyou", "abc12345",
+  "admin1234", "welcome1", "library123", "changeme", "change-me-in-production",
+]);
+
 export function describePasswordProblem(password: string): string | null {
   if (password.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (password.length > 128) {
+    return "Password must be at most 128 characters.";
+  }
+  if (BLOCKED_PASSWORDS.has(password.toLowerCase()) || /^(.)\1+$/.test(password)) {
+    return "That password is too common or publicly known. Choose a different one.";
   }
   return null;
 }
