@@ -8,7 +8,10 @@ import {
   DEPARTMENT_MEMBER_TYPES,
   InputError,
   academicReferenceProblems,
+  acceptsIdNumber,
+  duplicateIdNumberMessage,
   missingAcademicFields,
+  normalizeIdNumber,
   profileMissingFields,
   validateAcademicInput,
   type CourseRef,
@@ -208,16 +211,36 @@ async function assertAcademicReferences(
   if (problems.length > 0) throw new InputError(problems.join(" "));
 }
 
-/** Student IDs are unique across members (DB index); pre-check for a clear error. */
-async function assertStudentIdFree(studentId: string | null, exceptMemberId?: string) {
-  if (!studentId) return;
-  let query = db(supabase).from("members").select("id").eq("student_id", studentId).limit(1);
+/**
+ * ID numbers (members.student_id) are unique per member type, ignoring case
+ * and surrounding spaces (DB index members_type_id_number_unique). Pre-check
+ * for a clear 409 instead of a raw constraint error.
+ */
+async function assertIdNumberFree(
+  memberType: MemberType,
+  idNumber: string | null,
+  exceptMemberId?: string
+) {
+  if (!idNumber) return;
+  let query = db(supabase)
+    .from("members")
+    .select("id")
+    .eq("member_type", memberType)
+    .ilike("student_id", escapeLike(idNumber.trim()))
+    .limit(1);
   if (exceptMemberId) query = query.neq("id", exceptMemberId);
   const { data, error } = await query;
-  throwIfError(error, "Failed to check Student ID.");
+  throwIfError(error, "Failed to check ID number.");
   if (data && data.length > 0) {
-    throw new InputError("A member with this Student ID already exists.", 409);
+    throw new InputError(duplicateIdNumberMessage(memberType), 409);
   }
+}
+
+/** Maps a unique violation on members to a readable 409 message. */
+function memberUniqueViolationMessage(message: string | undefined, memberType: MemberType): string {
+  return /student_id|id_number/i.test(message ?? "")
+    ? duplicateIdNumberMessage(memberType)
+    : "A member with this email already exists.";
 }
 
 function mapLoan(row: LoanRow): Loan {
@@ -674,8 +697,8 @@ export async function createMember(
   input: Omit<Member, "id" | "joinedAt" | "active">
 ): Promise<Member> {
   const memberType = normalizeMemberType(input.memberType);
-  const studentId =
-    memberType === "student" ? (input.studentId?.trim() || null) : null;
+  // ID number (student/employee/presented ID) for every patron type.
+  const studentId = acceptsIdNumber(memberType) ? normalizeIdNumber(input.studentId) : null;
   const grade =
     memberType === "student" ? (input.grade?.trim() || null) : null;
   // Students require a department; faculty/teachers may record one.
@@ -694,7 +717,7 @@ export async function createMember(
   if (DEPARTMENT_MEMBER_TYPES.includes(memberType)) {
     await assertAcademicReferences({ departmentId, courseId, yearLevel });
   }
-  if (memberType === "student") await assertStudentIdFree(studentId);
+  await assertIdNumberFree(memberType, studentId);
 
   const row = {
     id: randomUUID(),
@@ -715,11 +738,7 @@ export async function createMember(
 
   const { data, error } = await db(supabase).from("members").insert(row).select("*").single();
   if (error && error.code === "23505") {
-    throw new Error(
-      /student_id/i.test(error.message ?? "")
-        ? "A member with this Student ID already exists."
-        : "A member with this email already exists."
-    );
+    throw new InputError(memberUniqueViolationMessage(error.message, memberType), 409);
   }
   throwIfError(error, "Failed to create member.");
 
@@ -776,7 +795,7 @@ export async function updateMember(
       ? updates.section?.trim() || null
       : current.section;
 
-  const resolvedStudentId = nextType === "student" ? nextStudentId : null;
+  const resolvedStudentId = acceptsIdNumber(nextType) ? normalizeIdNumber(nextStudentId) : null;
   const resolvedGrade = nextType === "student" ? nextGrade : null;
   const resolvedDepartmentId = DEPARTMENT_MEMBER_TYPES.includes(nextType) ? nextDepartmentId : null;
   const resolvedCourseId = nextType === "student" ? nextCourseId : null;
@@ -831,10 +850,8 @@ export async function updateMember(
           { departmentId: current.departmentId, courseId: current.courseId }
         );
       }
-      if (nextType === "student") {
-        if (resolvedStudentId !== current.studentId) {
-          await assertStudentIdFree(resolvedStudentId, id);
-        }
+      if (resolvedStudentId !== current.studentId || nextType !== current.memberType) {
+        await assertIdNumberFree(nextType, resolvedStudentId, id);
       }
     }
   }
@@ -862,12 +879,7 @@ export async function updateMember(
     .select("*")
     .single();
   if (error && error.code === "23505") {
-    throw new InputError(
-      /student_id/i.test(error.message ?? "")
-        ? "A member with this Student ID already exists."
-        : "A member with this email already exists.",
-      409
-    );
+    throw new InputError(memberUniqueViolationMessage(error.message, nextType), 409);
   }
   throwIfError(error, "Failed to update member.");
   return mapMember(data as MemberRow);
@@ -1049,7 +1061,8 @@ export async function createStaff(input: {
   const a = input.academic ?? {};
   const hasDepartment = DEPARTMENT_MEMBER_TYPES.includes(input.role as MemberType);
   const academic = {
-    studentId: isStudent ? a.studentId?.trim() || null : null,
+    // ID number for every patron type (required for student/faculty/teacher).
+    studentId: acceptsIdNumber(input.role as MemberType) ? normalizeIdNumber(a.studentId) : null,
     // Required for students, optional for faculty/teachers, none otherwise.
     departmentId: hasDepartment ? a.departmentId?.trim() || null : null,
     courseId: isStudent ? a.courseId?.trim() || null : null,
@@ -1074,8 +1087,8 @@ export async function createStaff(input: {
       if (missing.length > 0) {
         throw new InputError(`Missing required student fields: ${missing.join(", ")}.`);
       }
-      assertMemberInput({ memberType: "student", grade: null, ...academic });
     }
+    assertMemberInput({ memberType: input.role as MemberType, grade: null, ...academic });
     if (hasDepartment) await assertAcademicReferences(academic);
     existing = await getMemberByEmail(email);
     if (existing?.userId) {
@@ -1084,7 +1097,7 @@ export async function createStaff(input: {
         409
       );
     }
-    if (isStudent) await assertStudentIdFree(academic.studentId, existing?.id);
+    await assertIdNumberFree(input.role as MemberType, academic.studentId, existing?.id);
   }
 
   const row = {
@@ -1152,7 +1165,7 @@ export async function createStaff(input: {
       );
     }
     if (memberError.code === "23505") {
-      throw new InputError("A member with this Student ID already exists.", 409);
+      throw new InputError(memberUniqueViolationMessage(memberError.message, memberType), 409);
     }
     throw new Error(`Could not create the library membership for this ${memberType}, so the account was not created.`);
   }

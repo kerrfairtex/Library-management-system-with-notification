@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertPrivilegedRoleAssignment, requireAdmin } from "@/lib/authz";
+import { assertPrivilegedRoleAssignment, requireAdmin, requireCapability } from "@/lib/authz";
 import { changeUserRoleAtomically } from "@/lib/role-transition";
 import {
   approveStudentAtomically,
@@ -15,13 +15,20 @@ import {
   updateStaff,
 } from "@/lib/store";
 import {
+  describeAccountManagementProblem,
   describeDeleteProblem,
+  isUserRole,
 } from "@/lib/staff-rules";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { user: actor, response } = await requireAdmin();
+  // Librarians may edit patron accounts only (checked below once the target
+  // is loaded); admins may edit any account. Delete stays admin-only.
+  const { user: actor, response } = await requireCapability(
+    "members.write",
+    "Only librarians and admins can manage accounts."
+  );
   if (!actor) return response;
 
   try {
@@ -31,6 +38,22 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: "Staff account not found." }, { status: 404 });
     }
     const body = (await request.json()) as Record<string, unknown>;
+
+    const scopeProblem = describeAccountManagementProblem({
+      actorRole: actor.role,
+      targetRole: target.role,
+      nextRole: isUserRole(body.role) ? body.role : undefined,
+    });
+    if (scopeProblem) {
+      return NextResponse.json({ error: scopeProblem }, { status: 403 });
+    }
+    // Setting another person's password stays admin-only, like reset-password.
+    if (body.password !== undefined && actor.role !== "admin") {
+      return NextResponse.json(
+        { error: "Only an admin can set a password for another account." },
+        { status: 403 }
+      );
+    }
 
     const result = await applyUserPatch({
       actor,
@@ -48,9 +71,9 @@ export async function PATCH(request: Request, { params }: Params) {
             });
         return rpc.ok ? { ok: true, data: rpc.data } : { ok: false, error: rpc.error };
       },
-      mutateRole: async (nextRole) => {
+      mutateRole: async (nextRole, idNumber) => {
         const rpc = await changeUserRoleAtomically(supabase, {
-          userId: id, nextRole, actorId: actor.id,
+          userId: id, nextRole, actorId: actor.id, idNumber,
         });
         return rpc.error
           ? { ok: false, error: rpc.error.message }

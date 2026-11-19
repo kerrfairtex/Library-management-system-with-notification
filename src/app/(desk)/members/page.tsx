@@ -58,6 +58,8 @@ export default function MembersPage() {
   }, []);
 
   const canManageMembers = canAccess(me?.user, "members.write");
+  // Deleting a member is admin-only; librarians register and edit patrons.
+  const canDeleteMembers = canAccess(me?.user, "staff.manage");
   const canViewMembers = canAccess(me?.user, "members.read");
 
   // Deep link from the completeness audit: /members?edit=<memberId>.
@@ -139,7 +141,8 @@ export default function MembersPage() {
       email: form.email,
       phone: form.phone,
       memberType: form.memberType,
-      studentId: form.memberType === "student" ? form.studentId : null,
+      // ID number for every patron type (student, faculty, teacher, community).
+      studentId: form.memberType === "staff" ? null : form.studentId,
       grade: form.memberType === "student" ? form.grade : null,
       // Students require a department; faculty/teachers may record one.
       departmentId:
@@ -185,7 +188,7 @@ export default function MembersPage() {
   }
 
   async function onDelete(id: string) {
-    if (!canManageMembers) return;
+    if (!canDeleteMembers) return;
     if (!window.confirm("Remove this member?")) return;
     try {
       await apiJson(`/api/members/${id}`, { method: "DELETE" });
@@ -261,7 +264,7 @@ export default function MembersPage() {
                 <tr>
                   <th>Name</th>
                   <th>Type</th>
-                  <th>Student details</th>
+                  <th>ID number</th>
                   <th>Contact</th>
                   <th>Joined</th>
                   <th>Status</th>
@@ -289,6 +292,8 @@ export default function MembersPage() {
                             {member.grade || "No grade set"}
                           </p>
                         </>
+                      ) : member.studentId ? (
+                        <p>{member.studentId}</p>
                       ) : (
                         <span className="text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
                           —
@@ -325,13 +330,15 @@ export default function MembersPage() {
                             >
                               {member.active ? "Deactivate" : "Activate"}
                             </button>
-                            <button
-                              type="button"
-                              className="btn btn-danger"
-                              onClick={() => onDelete(member.id)}
-                            >
-                              Delete
-                            </button>
+                            {canDeleteMembers && (
+                              <button
+                                type="button"
+                                className="btn btn-danger"
+                                onClick={() => onDelete(member.id)}
+                              >
+                                Delete
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -423,6 +430,10 @@ export default function MembersPage() {
           {(form.memberType === "faculty" || form.memberType === "teacher") && (
             <AcademicFields mode="department" master={master} value={form}
               onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+          )}
+          {form.memberType !== "student" && (
+            <StudentIdField memberType={form.memberType} value={form.studentId}
+              onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
           )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>

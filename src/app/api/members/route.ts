@@ -32,7 +32,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { user, response } = await requireCapability(
     "members.write",
-    "Only admins can add members."
+    "Only librarians and admins can add members."
   );
   if (!user) return response;
 

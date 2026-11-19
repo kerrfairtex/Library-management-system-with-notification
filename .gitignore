@@ -44,3 +44,7 @@ supabase-go
 supabase.tar.gz
 *.tar.gz
 supabase/.temp/
+.env
+.env.*
+.claude/settings.local.json
+node_modules/

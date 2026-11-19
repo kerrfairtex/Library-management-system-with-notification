@@ -13,7 +13,15 @@
  * The server re-checks every rule (src/lib/academic.ts), so this is guidance,
  * not the enforcement point.
  */
-import { DEFAULT_SECTIONS, coursesForDepartment, yearLevelsForProgram } from "@/lib/academic";
+import {
+  DEFAULT_SECTIONS,
+  acceptsIdNumber,
+  coursesForDepartment,
+  idNumberLabel,
+  isIdNumberRequired,
+  yearLevelsForProgram,
+} from "@/lib/academic";
+import type { MemberType } from "@/lib/types";
 
 export type AcademicMaster = {
   departments: { id: string; code: string; name?: string }[];
@@ -112,16 +120,32 @@ export function AcademicFields({
   );
 }
 
-/** Student ID Number input: text (leading zeros kept), never auto-generated. */
-export function StudentIdField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/**
+ * ID number input for every patron type (stored in members.student_id):
+ * Student ID, Employee/Faculty ID, or the ID a community member presented.
+ * Text (leading zeros kept), never auto-generated; the server re-validates.
+ */
+export function StudentIdField({
+  value,
+  onChange,
+  memberType = "student",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  memberType?: MemberType;
+}) {
+  if (!acceptsIdNumber(memberType)) return null;
+  const required = isIdNumberRequired(memberType);
   return (
     <div>
-      <label className="label" htmlFor="studentId">Student ID Number *</label>
-      <input id="studentId" className="field" required type="text" inputMode="text" autoComplete="off"
+      <label className="label" htmlFor="studentId">
+        {idNumberLabel(memberType)}{required ? " *" : " (optional)"}
+      </label>
+      <input id="studentId" className="field" required={required} type="text" inputMode="text" autoComplete="off"
         spellCheck={false} maxLength={30} pattern="[A-Za-z0-9][A-Za-z0-9\-\/.]{2,29}"
-        placeholder="Enter official student ID" value={value} onChange={(e) => onChange(e.target.value)} />
+        placeholder="2026-00125" value={value} onChange={(e) => onChange(e.target.value)} />
       <p className="text-xs" style={{ marginTop: "0.25rem" }}>
-        Must be unique. Saved exactly as typed, leading zeros included (example format only: 2026-00125).
+        Enter the official ID exactly as issued. Leading zeros are kept.
       </p>
     </div>
   );

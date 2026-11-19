@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/authz";
+import { requireCapability } from "@/lib/authz";
 import { createStaff, listStaff } from "@/lib/store";
-import { describePasswordProblem, isUserRole } from "@/lib/staff-rules";
+import { describeAccountManagementProblem, describePasswordProblem, isUserRole } from "@/lib/staff-rules";
 import { InputError, missingAcademicFields, validateAcademicInput } from "@/lib/academic";
 
+// Librarians and admins (members.write). Librarians are limited to patron
+// accounts by describeAccountManagementProblem below.
+const ACCOUNTS_DENIED = "Only librarians and admins can manage accounts.";
+
 export async function GET() {
-  const { user, response } = await requireAdmin();
+  const { user, response } = await requireCapability("members.write", ACCOUNTS_DENIED);
   if (!user) return response;
 
   try {
@@ -19,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireAdmin();
+  const { user, response } = await requireCapability("members.write", ACCOUNTS_DENIED);
   if (!user) return response;
 
   try {
@@ -40,6 +44,10 @@ export async function POST(request: Request) {
         { error: "Role must be student, faculty, teacher, community, librarian, or admin." },
         { status: 400 }
       );
+    }
+    const scopeProblem = describeAccountManagementProblem({ actorRole: user.role, nextRole: role });
+    if (scopeProblem) {
+      return NextResponse.json({ error: scopeProblem }, { status: 403 });
     }
     const passwordProblem = describePasswordProblem(password);
     if (passwordProblem) {

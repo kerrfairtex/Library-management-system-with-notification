@@ -1,4 +1,4 @@
-import type { PublicUser, UserRole, UserStatus } from "./types";
+import { PATRON_ROLES, type PublicUser, type UserRole, type UserStatus } from "./types";
 
 export const MIN_PASSWORD_LENGTH = 8;
 
@@ -24,6 +24,35 @@ export function describeRoleAssignmentProblem({
 }): string | null {
   if (actorRole === "admin") return null;
   if (nextRole === "admin" || nextRole === "librarian") {
+    return "Only an admin can assign privileged roles.";
+  }
+  return null;
+}
+
+/**
+ * Who may create or edit which ACCOUNT. An admin can do everything. A
+ * librarian may create and edit patron accounts (student, faculty, teacher,
+ * community) but may not touch librarian/admin accounts, nor move anyone
+ * into or out of those roles. Everyone else is refused.
+ *
+ * `targetRole` is the account's current role (omit when creating);
+ * `nextRole` is the role being created or assigned (omit when unchanged).
+ */
+export function describeAccountManagementProblem({
+  actorRole,
+  targetRole,
+  nextRole,
+}: {
+  actorRole: UserRole;
+  targetRole?: UserRole;
+  nextRole?: UserRole;
+}): string | null {
+  if (actorRole === "admin") return null;
+  if (actorRole !== "librarian") return "Only librarians and admins can manage accounts.";
+  if (targetRole !== undefined && !PATRON_ROLES.includes(targetRole)) {
+    return "Only an admin can edit librarian or admin accounts.";
+  }
+  if (nextRole !== undefined && !PATRON_ROLES.includes(nextRole)) {
     return "Only an admin can assign privileged roles.";
   }
   return null;

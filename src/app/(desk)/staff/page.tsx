@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { roleLabel } from "@/lib/permissions";
+import { canAccess, isPatron, roleLabel } from "@/lib/permissions";
 import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
@@ -9,6 +9,8 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 import { AcademicSetup } from "@/components/AcademicSetup";
 import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
+import { acceptsIdNumber, idNumberLabel, isIdNumberRequired, sharesIdNumberKind } from "@/lib/academic";
+import { memberTypeForRole } from "@/lib/role-transition";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -26,26 +28,41 @@ const emptyForm = {
 };
 
 const academicRoles: UserRole[] = ["student", "faculty", "teacher", "community"];
+const allRoles: UserRole[] = [...academicRoles, "librarian", "admin"];
 
 const roleBlurbs: Record<UserRole, string> = {
-  admin: "Full system control: users, roles, books, members, and circulation.",
-  librarian: "Runs the desk: catalog, circulation, holds, fines and reports. Cannot manage accounts or edit member records.",
-  student: "Student patron: catalog, own loans, holds, fines and borrow requests. Requires Student ID, department, course, year and section.",
-  faculty: "Faculty patron: catalog, alerts, holds, and borrow requests.",
-  teacher: "Teacher patron: catalog, alerts, holds, and borrow requests.",
-  community: "Community patron: catalog, alerts, holds, and borrow requests.",
+  admin: "Full control, including staff accounts, roles and settings.",
+  librarian: "Runs the desk and registers patrons. Cannot manage staff accounts.",
+  student: "Borrows books. Needs a Student ID, department, course, year and section.",
+  faculty: "Borrows books. Needs an Employee/Faculty ID.",
+  teacher: "Borrows books. Needs an Employee/Faculty ID.",
+  community: "Borrows books. ID presented is optional.",
 };
 
 function roleBlurb(role: UserRole): string {
   return roleBlurbs[role];
 }
 
+/**
+ * True when changing `from` -> `to` needs a new ID number entered: the new
+ * type uses a different kind of ID (a Student ID is not an Employee ID).
+ * Faculty <-> teacher keep theirs. Mirrors the server rule.
+ */
+function roleChangeNeedsId(from: UserRole, to: UserRole): boolean {
+  const next = memberTypeForRole(to);
+  return from !== to && acceptsIdNumber(next) && !sharesIdNumberKind(memberTypeForRole(from), next);
+}
+
 export default function StaffPage() {
   const { session: me } = useDeskSession();
   const isAdmin = me?.user?.role === "admin";
+  // Librarians manage patron accounts only; the API enforces the same scope.
+  const canManageAccounts = canAccess(me?.user, "members.write");
+  const roleOptions = isAdmin ? allRoles : academicRoles;
+  const canEditPerson = (person: PublicUser) => isAdmin || isPatron(person);
 
   const { data, loading, error, reload } = useApi<PublicUser[]>(
-    isAdmin ? "/api/users" : null
+    canManageAccounts ? "/api/users" : null
   );
 
   const [open, setOpen] = useState(false);
@@ -70,16 +87,16 @@ export default function StaffPage() {
   const adminCount = staff.filter((person) => person.role === "admin").length;
   const pending = useMemo(() => staff.filter((p) => p.status === "pending"), [staff]);
 
-  if (me && !isAdmin) {
+  if (me && !canManageAccounts) {
     return (
       <div>
         <PageHeader
           title="User accounts"
-          subtitle="Only an admin can create accounts and assign student, librarian, or admin access."
+          subtitle="Librarians and admins create and manage sign-in accounts."
         />
         <div className="panel p-4 md:p-5">
           <EmptyState
-            title="Admins only"
+            title="Librarians and admins only"
             body="Ask an admin to change your role if you need to manage user accounts."
           />
         </div>
@@ -110,21 +127,27 @@ export default function StaffPage() {
     setFormError(null);
     try {
       if (editing) {
-        const body: Record<string, unknown> = { name: form.name, role: form.role };
-        if (form.role === "student") {
-          Object.assign(body, {
-            studentId: form.studentId,
-            departmentId: form.departmentId,
-            courseId: form.courseId,
-            yearLevel: form.yearLevel,
-            section: form.section,
+        // The API takes profile changes and a role change as separate
+        // requests, so send each only when it actually changed.
+        const profile: Record<string, unknown> = {};
+        if (form.name.trim() !== editing.name) profile.name = form.name;
+        if (form.password) profile.password = form.password;
+        if (Object.keys(profile).length > 0) {
+          await apiJson(`/api/users/${editing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(profile),
           });
         }
-        if (form.password) body.password = form.password;
-        await apiJson(`/api/users/${editing.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(body),
-        });
+        if (form.role !== editing.role) {
+          const roleBody: Record<string, unknown> = { role: form.role };
+          if (roleChangeNeedsId(editing.role, form.role) && form.studentId.trim()) {
+            roleBody.studentId = form.studentId;
+          }
+          await apiJson(`/api/users/${editing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(roleBody),
+          });
+        }
       } else {
         // Send only the academic fields the chosen role uses.
         const body: Record<string, unknown> = {
@@ -135,8 +158,12 @@ export default function StaffPage() {
             studentId: form.studentId, departmentId: form.departmentId, courseId: form.courseId,
             yearLevel: form.yearLevel, section: form.section,
           });
-        } else if ((form.role === "faculty" || form.role === "teacher") && form.departmentId) {
-          body.departmentId = form.departmentId;
+        } else if (academicRoles.includes(form.role)) {
+          // Faculty/teacher need an Employee/Faculty ID; community's is optional.
+          if (form.studentId.trim()) body.studentId = form.studentId;
+          if ((form.role === "faculty" || form.role === "teacher") && form.departmentId) {
+            body.departmentId = form.departmentId;
+          }
         }
         await apiJson("/api/users", {
           method: "POST",
@@ -153,10 +180,17 @@ export default function StaffPage() {
   }
 
   async function changeRole(person: PublicUser, role: UserRole) {
+    const body: Record<string, unknown> = { role };
+    const next = memberTypeForRole(role);
+    if (roleChangeNeedsId(person.role, role) && isIdNumberRequired(next)) {
+      const entered = window.prompt(`Enter ${person.name}'s ${idNumberLabel(next)} exactly as issued.`);
+      if (entered === null) return;
+      body.studentId = entered;
+    }
     try {
       await apiJson(`/api/users/${person.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(body),
       });
       await reload();
     } catch (err) {
@@ -190,7 +224,11 @@ export default function StaffPage() {
     <div>
       <PageHeader
       title="User accounts"
-      subtitle="Create accounts, assign the student/librarian/admin role, and control sign-in access."
+      subtitle={
+        isAdmin
+          ? "Create accounts, assign roles, and control sign-in access."
+          : "Create and edit patron accounts: students, faculty, teachers and community members."
+      }
         action={
           <button type="button" className="btn btn-primary" onClick={openCreate}>
           Add user
@@ -222,29 +260,33 @@ export default function StaffPage() {
                     {person.email} · {person.role}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => approvePending(person)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => onDelete(person)}
-                  >
-                    Reject
-                  </button>
-                </div>
+                {canEditPerson(person) && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => approvePending(person)}
+                    >
+                      Approve
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => onDelete(person)}
+                      >
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </section>
         )}
 
         {!loading && staff.length === 0 ? (
-          <EmptyState title="No user accounts" body="Add a student, librarian, or admin to get started." />
+          <EmptyState title="No user accounts" body="Add a student, faculty member, teacher or community member to get started." />
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -285,6 +327,7 @@ export default function StaffPage() {
                         </p>
                       </td>
                       <td>
+                        {canEditPerson(person) && (
                         <div className="flex flex-wrap justify-end gap-2">
                           <button
                             type="button"
@@ -293,7 +336,7 @@ export default function StaffPage() {
                           >
                             Edit
                           </button>
-                          {person.role === "librarian" ? (
+                          {!isAdmin ? null : person.role === "librarian" ? (
                             <button
                               type="button"
                               className="btn btn-ghost"
@@ -326,6 +369,7 @@ export default function StaffPage() {
                                 Make {r}
                               </button>
                             ))}
+                          {isAdmin && (
                           <button
                             type="button"
                             className="btn btn-danger"
@@ -341,7 +385,9 @@ export default function StaffPage() {
                           >
                             Delete
                           </button>
+                          )}
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -405,18 +451,16 @@ export default function StaffPage() {
               value={form.role}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
-              <option value="student">Student</option>
-              <option value="faculty">Faculty</option>
-              <option value="teacher">Teacher</option>
-              <option value="community">Community</option>
-              <option value="librarian">Librarian</option>
-              <option value="admin">Admin</option>
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>{roleLabel(r)}</option>
+              ))}
             </select>
             <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
               {roleBlurb(form.role)}
             </p>
           </div>
 
+          {(isAdmin || !editing) && (
           <div>
             <label className="label" htmlFor="password">
               {editing ? "New password (optional)" : "Password"}
@@ -435,9 +479,19 @@ export default function StaffPage() {
               At least {MIN_PASSWORD_LENGTH} characters.
             </p>
           </div>
+          )}
 
 
-          {form.role === "student" && (
+          {editing && roleChangeNeedsId(editing.role, form.role) && (
+            <StudentIdField memberType={memberTypeForRole(form.role)} value={form.studentId}
+              onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+          )}
+          {editing && isPatron(form.role) && (
+            <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+              Edit ID numbers and academic details on the Members page.
+            </p>
+          )}
+          {form.role === "student" && !editing && (
             <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
               <p className="text-xs font-semibold">Student information (required)</p>
               <StudentIdField value={form.studentId}
@@ -449,9 +503,15 @@ export default function StaffPage() {
           {(form.role === "faculty" || form.role === "teacher") && !editing && (
             <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
               <p className="text-xs font-semibold">{roleLabel(form.role)} information</p>
+              <StudentIdField memberType={form.role} value={form.studentId}
+                onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
               <AcademicFields mode="department" master={master} value={form}
                 onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
             </div>
+          )}
+          {form.role === "community" && !editing && (
+            <StudentIdField memberType="community" value={form.studentId}
+              onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
           )}
 
           <div className="flex justify-end gap-2 pt-2">

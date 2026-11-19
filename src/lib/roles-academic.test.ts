@@ -87,7 +87,8 @@ const goodStudent = {
 
 test("valid student passes; non-students skip academic rules", () => {
   assert.deepEqual(validateAcademicInput(goodStudent), []);
-  assert.deepEqual(validateAcademicInput({ memberType: "faculty", yearLevel: "nope" }), []);
+  // Faculty skip course/year/section rules but still need their ID number.
+  assert.deepEqual(validateAcademicInput({ memberType: "faculty", studentId: "EMP-001", yearLevel: "nope" }), []);
 });
 
 test("student fields are validated server-side", () => {
@@ -158,7 +159,7 @@ test("createStaff checks everything before writing the account", () => {
   const store = read("src/lib/store.ts");
   const fn = store.slice(store.indexOf("export async function createStaff"), store.indexOf("export async function updateStaff"));
   const insertAt = fn.indexOf('.from("users").insert(row)');
-  for (const check of ["assertAcademicReferences(academic)", "assertStudentIdFree(", "already linked to another account"]) {
+  for (const check of ["assertAcademicReferences(academic)", "assertIdNumberFree(", "already linked to another account"]) {
     const at = fn.indexOf(check);
     assert.ok(at > 0 && at < insertAt, `${check} must run before the users insert`);
   }
@@ -223,8 +224,8 @@ test("student year levels: 1st-6th, Irregular, Graduate Student", () => {
 });
 
 test("faculty and teachers may record a department; it is shape-checked", () => {
-  assert.deepEqual(validateAcademicInput({ memberType: "faculty", departmentId: D1 }), []);
-  assert.deepEqual(validateAcademicInput({ memberType: "faculty" }), [], "department optional for faculty");
+  assert.deepEqual(validateAcademicInput({ memberType: "faculty", studentId: "EMP-001", departmentId: D1 }), []);
+  assert.deepEqual(validateAcademicInput({ memberType: "faculty", studentId: "EMP-001" }), [], "department optional for faculty");
   assert.match(validateAcademicInput({ memberType: "teacher", departmentId: "CIT" }).join(), /valid department ID/);
   assert.deepEqual(validateAcademicInput({ memberType: "community", departmentId: "junk" }), [], "community carries none");
   const store = read("src/lib/store.ts");
@@ -255,4 +256,44 @@ test("both admin forms use the shared cascading academic fields", () => {
   const fields = read("src/components/AcademicFields.tsx");
   assert.match(fields, /disabled=\{!value\.departmentId\}/);
   assert.match(fields, /yearLevelsForProgram\(course\?\.programYears\)/);
+});
+
+// ── ID numbers per patron type (members.student_id) ─────────────────────────
+test("ID number is required for student, faculty and teacher; optional for community", async () => {
+  const { idNumberLabel } = await import("./academic.ts");
+  assert.match(validateAcademicInput({ memberType: "faculty" }).join(), /Employee\/Faculty ID is required/);
+  assert.match(validateAcademicInput({ memberType: "teacher", studentId: "   " }).join(), /Employee\/Faculty ID is required/);
+  assert.deepEqual(validateAcademicInput({ memberType: "community" }), []);
+  assert.deepEqual(validateAcademicInput({ memberType: "community", studentId: "BRGY-0042" }), []);
+  assert.match(validateAcademicInput({ memberType: "community", studentId: "x" }).join(), /ID presented must be 3-30/);
+  assert.deepEqual(validateAcademicInput({ memberType: "staff", studentId: "anything goes" }), [], "staff carry no ID");
+  assert.equal(idNumberLabel("student"), "Student ID");
+  assert.equal(idNumberLabel("teacher"), "Employee/Faculty ID");
+});
+
+test("ID numbers are trimmed text: leading zeros survive, never coerced", async () => {
+  const { normalizeIdNumber } = await import("./academic.ts");
+  assert.equal(normalizeIdNumber("  00125 "), "00125");
+  assert.equal(normalizeIdNumber("   "), null);
+  assert.equal(normalizeIdNumber(null), null);
+});
+
+test("duplicate ID is per member type and ignores case/spaces", async () => {
+  const { hasIdNumberConflict, duplicateIdNumberMessage } = await import("./academic.ts");
+  const rows = [{ id: "m1", memberType: "student" as const, idNumber: "2026-00125" }];
+  assert.equal(hasIdNumberConflict(rows, { memberType: "student", idNumber: " 2026-00125 " }), true);
+  assert.equal(hasIdNumberConflict(rows, { memberType: "student", idNumber: "2026-00125", exceptMemberId: "m1" }), false, "editing yourself");
+  assert.equal(hasIdNumberConflict(rows, { memberType: "faculty", idNumber: "2026-00125" }), false, "same ID, other type");
+  const caseRows = [{ id: "m2", memberType: "faculty" as const, idNumber: "EMP-7" }];
+  assert.equal(hasIdNumberConflict(caseRows, { memberType: "faculty", idNumber: "emp-7" }), true);
+  assert.equal(duplicateIdNumberMessage("faculty"), "A faculty with this ID number already exists.");
+});
+
+test("per-type ID index migration checks duplicates before swapping indexes", () => {
+  const up = read("supabase/migrations/20261121_member_id_per_type.sql");
+  assert.match(up, /raise exception 'Duplicate ID numbers/);
+  assert.match(up, /on public\.members \(member_type, lower\(btrim\(student_id\)\)\)/);
+  assert.ok(up.indexOf("raise exception") < up.indexOf("drop index if exists public.members_student_id_unique"));
+  assert.match(read("supabase/migrations/20261121_member_id_per_type_down.sql"), /create unique index if not exists members_student_id_unique/);
+  assert.match(read("supabase/schema.sql"), /members_type_id_number_unique/);
 });

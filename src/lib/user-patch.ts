@@ -11,6 +11,14 @@ import {
   isUserRole,
   isUserStatus,
 } from "./staff-rules";
+import {
+  describeIdNumberProblems,
+  idNumberLabel,
+  isIdNumberRequired,
+  normalizeIdNumber,
+  sharesIdNumberKind,
+} from "./academic";
+import { memberTypeForRole } from "./role-transition";
 import type { PublicUser, UserRole, UserStatus } from "./types";
 
 export type MutationResult<T> =
@@ -29,7 +37,8 @@ export type UserPatchDeps = {
   privilegedAssignmentDenied: (actorRole: UserRole, nextRole: UserRole) => boolean;
   mutateProfile: (updates: { name?: string; password?: string }) => Promise<PublicUser | null>;
   mutateStatus: (nextStatus: UserStatus, studentActivation: boolean) => Promise<MutationResult<PublicUser>>;
-  mutateRole: (nextRole: UserRole) => Promise<MutationResult<PublicUser>>;
+  /** idNumber: the new ID entered with the role change, or null to keep/clear per the rule. */
+  mutateRole: (nextRole: UserRole, idNumber: string | null) => Promise<MutationResult<PublicUser>>;
 };
 
 export type ApplyPatchResult =
@@ -92,6 +101,25 @@ export async function applyUserPatch(deps: UserPatchDeps): Promise<ApplyPatchRes
       adminCount: await deps.countAdmins(),
     });
     if (problem) return { kind: "error", status: 409, error: problem };
+
+    // 3b. ID number for the new member type. A Student ID is not an Employee
+    // ID, so changing to a type that needs a different kind of ID must come
+    // with the new ID; faculty <-> teacher keep theirs (checked again in SQL).
+    const nextType = memberTypeForRole(nextRole);
+    const entered = normalizeIdNumber(body.studentId);
+    if (entered) {
+      const idProblems = describeIdNumberProblems(nextType, entered);
+      if (idProblems.length > 0) return { kind: "error", status: 400, error: idProblems.join(" ") };
+    } else if (
+      target.role !== nextRole &&
+      isIdNumberRequired(nextType) &&
+      !sharesIdNumberKind(memberTypeForRole(target.role), nextType)
+    ) {
+      return {
+        kind: "error", status: 400,
+        error: `Enter the ${idNumberLabel(nextType)} to make this person ${nextType}.`,
+      };
+    }
   }
 
   // 4. Validate status.
@@ -123,7 +151,7 @@ export async function applyUserPatch(deps: UserPatchDeps): Promise<ApplyPatchRes
     return { kind: "success", data: result.data };
   }
   if (hasRole) {
-    const result = await deps.mutateRole(body.role as UserRole);
+    const result = await deps.mutateRole(body.role as UserRole, normalizeIdNumber(body.studentId));
     if (!result.ok) {
       const failure = result as FailedResult;
       return {

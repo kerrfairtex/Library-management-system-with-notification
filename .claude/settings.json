@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(cat ./.env:*)",
+      "Bash(cat .env:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(vercel deploy --prod:*)"
+    ],
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git switch:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test:*)",
+      "Bash(php -l:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
