@@ -71,7 +71,7 @@ export type BookItem = {
   createdAt: string;
 };
 
-export type MemberType = "student" | "staff" | "community";
+export type MemberType = "student" | "faculty" | "teacher" | "community" | "staff";
 
 export type Member = {
   id: string;
@@ -171,6 +171,8 @@ export type Notification = {
   title: string;
   message: string;
   relatedId?: string;
+  recipient_member_id?: string;
+  audience?: "member" | "staff";
   read: boolean;
   createdAt: string;
 };

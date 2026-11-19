@@ -493,6 +493,8 @@ export default function SettingsPage() {
               disabled={!!editingRule}
             >
               <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="teacher">Teacher</option>
               <option value="staff">Staff</option>
               <option value="community">Community</option>
             </select>

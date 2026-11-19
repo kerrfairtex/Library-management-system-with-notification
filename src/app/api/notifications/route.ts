@@ -6,6 +6,7 @@ import {
   getNotificationsData,
   markAllNotificationsRead,
   markNotificationRead,
+  type NotificationScope,
 } from "@/lib/store";
 import { sortNotifications } from "@/lib/utils";
 
@@ -15,18 +16,19 @@ export async function GET() {
 
   try {
     let notifications = await getNotificationsData();
-    // Students see only notifications relevant to them (matched by member email
-    // appearing in the message or their member id in related metadata); staff
-    // keep the full desk feed.
     if (user.role === "student") {
       const me = await getMemberByUser(user);
-      const myName = (me as { name: string } | null)?.name ?? "";
+      const myMemberId = (me as { id: string } | null)?.id;
+      // No member record means nothing is addressed to this account.
+      notifications = myMemberId
+        ? notifications.filter(
+            (n) => n.audience === "member" && n.recipient_member_id === myMemberId
+          )
+        : [];
+    } else {
+      // Staff inbox: staff-addressed alerts plus legacy rows with no recipient.
       notifications = notifications.filter(
-        (n) =>
-          myName &&
-          (n.message.includes(myName) || n.title === "Due soon" ||
-            n.title === "Overdue loan" || n.title === "Book checked out" ||
-            n.title === "Book returned" || n.title === "Loan renewed")
+        (n) => n.audience === "staff" || !n.recipient_member_id
       );
     }
     return NextResponse.json(sortNotifications(notifications));
@@ -44,12 +46,21 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
+    let scope: NotificationScope | null;
+    if (user.role === "student") {
+      const me = await getMemberByUser(user);
+      const memberId = (me as { id: string } | null)?.id;
+      scope = memberId ? { kind: "member", memberId } : null;
+    } else {
+      scope = { kind: "staff" };
+    }
+
     if (body.action === "mark_all_read") {
-      const count = await markAllNotificationsRead();
+      const count = scope ? await markAllNotificationsRead(scope) : 0;
       return NextResponse.json({ count });
     }
-    if (body.id) {
-      const notification = await markNotificationRead(body.id);
+    if (typeof body.id === "string") {
+      const notification = scope ? await markNotificationRead(body.id, scope) : null;
       if (!notification) {
         return NextResponse.json({ error: "Notification not found." }, { status: 404 });
       }

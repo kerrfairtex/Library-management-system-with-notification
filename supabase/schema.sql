@@ -134,7 +134,7 @@ create table if not exists public.members (
   name text not null,
   email text not null,
   phone text,
-  member_type text not null default 'student' check (member_type in ('student', 'staff', 'community')),
+  member_type text not null default 'student' check (member_type in ('student', 'faculty', 'teacher', 'community', 'staff')),
   student_id text,
   grade text,
   joined_at timestamptz not null default now(),
@@ -170,7 +170,7 @@ begin
     drop constraint if exists members_member_type_check;
   alter table public.members
     add constraint members_member_type_check
-    check (member_type in ('student', 'staff', 'community'));
+    check (member_type in ('student', 'faculty', 'teacher', 'community', 'staff'));
 exception
   when others then
     raise notice 'Could not apply members_member_type_check: %', sqlerrm;
@@ -245,6 +245,9 @@ create or replace function enforce_loan_capacity() returns trigger
 language plpgsql
 set search_path = public
 as $$
+declare
+  v_type text;
+  v_max integer := 3;
 begin
   perform 1 from books where id = new.book_id for update;
   perform 1 from members where id = new.member_id for update;
@@ -252,8 +255,17 @@ begin
      (select total_copies from books where id = new.book_id) then
     raise exception 'No copies available.';
   end if;
-  if (select count(*) from loans where member_id = new.member_id and status <> 'returned') >= 3 then
-    raise exception 'Member already has the maximum of 3 active loans.';
+
+  -- Per-category limit from circulation_rules; falls back to 3 when the table
+  -- or a rule for this member type does not exist.
+  if to_regclass('public.circulation_rules') is not null then
+    select member_type into v_type from members where id = new.member_id;
+    select max_loans into v_max from public.circulation_rules where member_type = v_type;
+    v_max := coalesce(v_max, 3);
+  end if;
+
+  if (select count(*) from loans where member_id = new.member_id and status <> 'returned') >= v_max then
+    raise exception 'Member already has the maximum of % active loans.', v_max;
   end if;
   return new;
 end;
@@ -596,3 +608,46 @@ create policy "Admins can insert settings"
   with check (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
 
 -- ── Holds & borrow requests ─────────────────────────────────────────────────
+
+-- Notification ownership (recipient + audience)
+alter table public.notifications
+  add column if not exists recipient_member_id uuid references public.members (id) on delete set null;
+alter table public.notifications
+  add column if not exists audience text check (audience in ('member', 'staff'));
+create index if not exists notifications_recipient_read_idx
+  on public.notifications (recipient_member_id, read);
+
+-- Notification ownership defaults (loan alerts -> borrower + staff copy; rest -> staff)
+create or replace function public.set_notification_ownership() returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_member uuid;
+begin
+  if new.audience is not null then
+    return new;
+  end if;
+
+  if new.type in ('overdue', 'due_soon')
+     and new.related_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    select member_id into v_member from loans where id = new.related_id::uuid;
+    if v_member is not null then
+      -- Staff copy (explicit audience, so this insert does not re-enter the trigger path).
+      insert into notifications (type, title, message, related_id, read, created_at, audience)
+      values (new.type, new.title, new.message, new.related_id, false, new.created_at, 'staff');
+      new.recipient_member_id := v_member;
+      new.audience := 'member';
+      return new;
+    end if;
+  end if;
+
+  new.audience := 'staff';
+  return new;
+end;
+$$;
+
+drop trigger if exists notifications_set_ownership on public.notifications;
+create trigger notifications_set_ownership
+  before insert on public.notifications
+  for each row execute function public.set_notification_ownership();

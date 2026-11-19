@@ -106,6 +106,8 @@ export async function POST(request: NextRequest) {
       title: "Borrow request submitted",
       message: "You requested \"" + (bookRow.title ?? "the item") + "\". A librarian will review your request.",
       related_id: hold.id,
+      recipient_member_id: member.id,
+      audience: "member",
       read: false,
     });
 

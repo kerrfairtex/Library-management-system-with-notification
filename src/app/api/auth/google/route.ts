@@ -113,6 +113,7 @@ export async function POST(request: Request) {
           `${name} (${email}) signed up with Google and needs approval. ` +
           `Open Users → approve to activate their membership.`,
         related_id: userId,
+        audience: "staff",
         read: false,
         created_at: new Date().toISOString(),
       });

@@ -35,13 +35,13 @@ Copy `.env.example` to `.env.local` and fill in your Supabase project details:
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_your-secret-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-publishable-key
 AUTH_SECRET=a-long-random-string
 ```
 
-Supabase is migrating from legacy JWT `anon`/`service_role` keys to new `sb_publishable_...`/`sb_secret_...` keys ([docs](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)). The app accepts either — `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` server-side, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the browser.
+Supabase is migrating from legacy JWT `anon`/`service_role` keys to new `sb_publishable_...`/`sb_secret_...` keys ([docs](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)). The app uses `SUPABASE_SERVICE_ROLE_KEY` server-side, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` in the browser.
 
 `AUTH_SECRET` signs the session cookie and is **required in production** — the app refuses to sign anyone in without it, because the development fallback is public in this repository and could be used to forge sessions. Generate one with `openssl rand -base64 32`.
 
@@ -183,7 +183,7 @@ Covers overdue derivation and the Google allowlist, including lookalike domains 
 ## Notes
 
 - Column names in Supabase are snake_case; the store layer maps them to the camelCase types in `src/lib/types.ts`.
-- On Vercel, set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), `AUTH_SECRET`, and `CRON_SECRET` in project environment variables.
+- On Vercel, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), `AUTH_SECRET`, and `CRON_SECRET` in project environment variables.
 - Vercel project settings (Settings → General): **Root Directory** blank (repo root — not `public` or `src`), **Framework Preset** Next.js, **Output Directory** blank. `package.json` (with `"next"`) lives at the repo root; pointing Root Directory at `public` or `src` produces “No Next.js version detected” and can serve a static folder listing instead of the app.
 - `vercel.json` pins `"framework": "nextjs"`, `"buildCommand": "next build"`, and `"outputDirectory": null` so a dashboard Output Directory of `public` cannot turn the deploy into a static file listing.
 
@@ -209,7 +209,7 @@ The repo already lists `"next"` under `dependencies` in the root `package.json`.
 
 This is a PostgREST error meaning the Supabase Data API can't see the table — almost always because `supabase/schema.sql` hasn't been run against this project yet.
 
-**Important:** having `SUPABASE_URL` and an API key (`SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`/publishable/anon) configured is *not* enough on its own. Those keys let the app read and write **rows** in tables that already exist — they don't have permission to create tables. The schema still has to be applied once, either by hand or with a separate, more powerful credential (see option B below).
+**Important:** having `SUPABASE_URL` and an API key (`SUPABASE_SERVICE_ROLE_KEY`/publishable/anon) configured is *not* enough on its own. Those keys let the app read and write **rows** in tables that already exist — they don't have permission to create tables. The schema still has to be applied once, either by hand or with a separate, more powerful credential (see option B below).
 
 **Option A — run it by hand (fastest, no extra credentials):**
 

@@ -112,16 +112,15 @@ function CallbackInner() {
       <section className="login-stage login-callback-stage">
         <div className="login-panel">
           <div className="mb-4 flex justify-center">
-            <div className="login-seal" style={{ width: "5.5rem", marginBottom: 0 }}>
-              <Image
-                src="/branding/trac-library-seal.jpg"
-                alt="Tawi-Tawi Regional Agricultural College Library seal"
-                width={88}
-                height={88}
-                className="login-seal-image"
-                priority
-              />
-            </div>
+            <div className="login-seals login-seals-sm">
+        <div className="login-seal">
+          <Image src="/brand/trac-logo-192.png" alt="Tawi-Tawi Regional Agricultural College seal" width={64} height={64} priority className="login-seal-image" />
+        </div>
+        <span className="login-seals-divider" aria-hidden />
+        <div className="login-seal">
+          <Image src="/branding/seal-192.png" alt="TRAC Library seal" width={64} height={64} priority className="login-seal-image" />
+        </div>
+      </div>
           </div>
           {error ? (
             <>

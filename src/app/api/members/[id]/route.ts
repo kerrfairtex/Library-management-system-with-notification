@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> };
 
 function parseMemberType(value: unknown): MemberType | undefined {
   if (value === undefined) return undefined;
-  if (value === "staff" || value === "community" || value === "student") {
+  if (value === "staff" || value === "community" || value === "student" || value === "faculty" || value === "teacher") {
     return value;
   }
   return "student";

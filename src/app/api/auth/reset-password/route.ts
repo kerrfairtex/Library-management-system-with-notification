@@ -72,6 +72,7 @@ export async function POST(request: Request) {
     title: "Password reset",
     message: `Your password was reset by ${user.name || user.email}.`,
     related_id: user.id,
+    audience: "staff",
     read: false,
     created_at: new Date().toISOString(),
   });

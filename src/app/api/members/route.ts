@@ -4,7 +4,7 @@ import { createMember, listMembers } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
 
 function parseMemberType(value: unknown): MemberType {
-  if (value === "staff" || value === "community" || value === "student") {
+  if (value === "staff" || value === "community" || value === "student" || value === "faculty" || value === "teacher") {
     return value;
   }
   return "student";
