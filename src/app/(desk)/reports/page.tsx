@@ -11,6 +11,7 @@ import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess } from "@/lib/permissions";
+import { KpiRow } from "@/components/dashboard/DashboardKit";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -80,19 +81,15 @@ export default function ReportsPage() {
         <h1 className="page-title">Reports</h1>
       </div>
 
-      <div className="circ-grid" style={{ marginBottom: "1.25rem" }}>
-        <section className="circ-card">
-          <h3>Catalogue stats</h3>
-          <p><strong>{books.length}</strong> titles · <strong>{totalCopies}</strong> copies · <strong>{availableCopies}</strong> on shelf</p>
-        </section>
-        <section className="circ-card">
-          <h3>Issues stats</h3>
-          <p><strong>{openLoans.length}</strong> out · <strong>{loans.length}</strong> all-time · <strong style={{ color: "#8c1d1d" }}>{overdue.length}</strong> overdue</p>
-        </section>
-        <section className="circ-card">
-          <h3>Patron stats</h3>
-          <p><strong>{members.length}</strong> patrons · <strong>{members.filter((m) => m.active).length}</strong> active</p>
-        </section>
+      <div className="mb-5">
+        <KpiRow
+          items={[
+            { label: "Titles", value: books.length, hint: `${totalCopies} copies · ${availableCopies} on shelf` },
+            { label: "Loans out", value: openLoans.length, hint: `${loans.length} all-time` },
+            { label: "Overdue", value: overdue.length, tone: overdue.length ? "danger" : undefined, hint: "Open loans past due" },
+            { label: "Patrons", value: members.length, hint: `${members.filter((m) => m.active).length} active` },
+          ]}
+        />
       </div>
 
       <div className="circ-grid">

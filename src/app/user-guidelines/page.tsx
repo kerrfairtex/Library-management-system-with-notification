@@ -256,7 +256,7 @@ export default function UserGuidelinesPage() {
           <h2 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: "1.6rem", margin: "0 0 0.75rem", letterSpacing: "-0.02em", borderBottom: "2px solid #1f7a5c", paddingBottom: "0.5rem" }}>
             7. Dashboard &amp; Navigation
           </h2>
-          <p style={{ lineHeight: 1.7 }}>The system has two navigation shells. The <strong>AppShell</strong> (sidebar) is used for profile and login pages. The <strong>KohaShell</strong> (sticky green navbar) is used for all library desk pages.</p>
+          <p style={{ lineHeight: 1.7 }}>The system has two navigation shells. The <strong>AppShell</strong> (sidebar) is used for profile and login pages. The <strong>KohaShell</strong> (slim header with a sidebar on wide screens and a slide-over menu on phones and tablets) is used for all library desk pages.</p>
           <p style={{ lineHeight: 1.7, marginTop: "0.75rem" }}>Both shells include a <strong>notification bell</strong> that shows unread alerts with a badge count and a dropdown preview. The KohaShell navbar also includes a <strong>3D Bookshelf</strong> button (opens <Link href="/shelf" style={{ color: "#1f7a5c" }}>/shelf</Link> in a new tab) and a user account dropdown.</p>
         </section>
 
@@ -716,15 +716,8 @@ export default function UserGuidelinesPage() {
         </div>
         <div style={{ maxWidth: 1200, margin: "1.5rem auto 0", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1rem", textAlign: "center" }}>
           <p style={{ margin: "0 0 0.5rem" }}>
-            <strong>Developers</strong>
+            <a href="/about#developers" style={{ color: "#fff", textDecoration: "underline" }}>About TRAC Library and its developers</a>
           </p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1rem" }}>
-            <li>Aisha W. Daluddin</li>
-            <li>Analyn L. Husain</li>
-            <li>Lowza A. Abdul</li>
-            <li>Dainel M. Al-basri</li>
-            <li>Adzlina A. Sahidjuan</li>
-          </ul>
           <p style={{ margin: "1rem 0 0 0" }}>© {new Date().getFullYear()} TRAC Library. Source: <code>docs/USER_GUIDE.md</code> in the project repository.</p>
         </div>
       </footer>

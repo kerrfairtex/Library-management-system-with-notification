@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 import type { StudentCompletenessAudit, UserStatistics } from "@/lib/types";
+import { StatGrid } from "@/components/dashboard/DashboardKit";
 
 export const dynamic = "force-dynamic";
 
@@ -65,14 +66,7 @@ export default function AdminInsightsPage() {
     <div className="space-y-5">
       <PageHeader title="Admin insights" subtitle="Account statistics and student data completeness (database-backed)." />
       {error && <ErrorBanner message={error} />}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {cards.map(([label, value]) => (
-          <div key={label} className="panel p-4">
-            <p className="text-xs uppercase tracking-wide opacity-70">{label}</p>
-            <p className="display text-2xl">{value ?? "—"}</p>
-          </div>
-        ))}
-      </div>
+      <StatGrid items={cards.map(([label, value]) => ({ label: String(label), value: value ?? "—" }))} />
       <div className="panel p-4">
         <h2 className="display text-lg">Student data completeness audit</h2>
         {audit && (

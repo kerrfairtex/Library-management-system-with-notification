@@ -39,12 +39,48 @@ export function Greeting({ name, role, subtitle }: { name: string; role: UserRol
   );
 }
 
-export type Kpi = { label: string; value: ReactNode; hint: string; tone?: "danger" | "warn" | "ok" };
+export type Kpi = { label: string; value: ReactNode; hint?: string; tone?: "danger" | "warn" | "ok" };
 
-export function KpiRow({ items, loading }: { items: Kpi[]; loading?: boolean }) {
+/** The one stat-card style used site-wide (dashboards, My loans, Reports, Insights). */
+export function StatCard({ item, index = 0 }: { item: Kpi; index?: number }) {
+  return (
+    <article className={`panel p-4 md:p-5 fade-up fade-up-delay-${Math.min(index, 3)}`}>
+      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+        {item.label}
+      </p>
+      <p
+        className={`display mt-2 text-3xl md:text-4xl ${
+          item.tone === "danger" ? "text-[var(--danger)]" : item.tone === "warn" ? "text-[var(--warn)]" : ""
+        }`}
+      >
+        {item.value}
+      </p>
+      {item.hint && <p className={`mt-1 text-xs md:text-sm ${muted}`}>{item.hint}</p>}
+    </article>
+  );
+}
+
+/** Any number of stat cards: 2 per row on phones, `wide` per row from 1024px. */
+export function StatGrid({ items, wide = 4 }: { items: Kpi[]; wide?: 2 | 3 | 4 }) {
+  const cols = wide === 2 ? "lg:grid-cols-2" : wide === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4";
+  return (
+    <section className={`grid grid-cols-2 gap-3 ${cols}`}>
+      {items.map((item, i) => (
+        <StatCard key={item.label} item={item} index={i} />
+      ))}
+    </section>
+  );
+}
+
+/**
+ * Up to four headline figures. `layout="square"` keeps a 2×2 grid at every
+ * width (My loans); the default spreads to one row of four from 1024px.
+ */
+export function KpiRow({ items, loading, layout = "row" }: { items: Kpi[]; loading?: boolean; layout?: "row" | "square" }) {
+  const cols = layout === "square" ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4";
   if (loading) {
     return (
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy="true" aria-label="Loading figures">
+      <section className={`grid gap-3 ${cols}`} aria-busy="true" aria-label="Loading figures">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="panel p-4 md:p-5">
             <div className="skeleton h-3 w-20" />
@@ -56,21 +92,9 @@ export function KpiRow({ items, loading }: { items: Kpi[]; loading?: boolean }) 
     );
   }
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section className={`grid gap-3 ${cols}`}>
       {items.slice(0, 4).map((item, i) => (
-        <article key={item.label} className={`panel p-4 md:p-5 fade-up fade-up-delay-${Math.min(i, 3)}`}>
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
-            {item.label}
-          </p>
-          <p
-            className={`display mt-2 text-3xl md:text-4xl ${
-              item.tone === "danger" ? "text-[var(--danger)]" : item.tone === "warn" ? "text-[var(--warn)]" : ""
-            }`}
-          >
-            {item.value}
-          </p>
-          <p className={`mt-1 text-xs md:text-sm ${muted}`}>{item.hint}</p>
-        </article>
+        <StatCard key={item.label} item={item} index={i} />
       ))}
     </section>
   );
@@ -100,7 +124,8 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <article className={`panel p-4 md:p-5 ${className}`}>
+    // min-w-0 lets a grid column shrink instead of being pushed wider by a table.
+    <article className={`panel min-w-0 p-4 md:p-5 ${className}`}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="display text-xl md:text-2xl">{title}</h2>
         {href && linkLabel && (

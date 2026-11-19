@@ -1,370 +1,397 @@
 "use client";
 
 /*
- * Koha-style staff chrome for TRAC Library.
- * Reproduces Koha's intranet layout (GPL-3 structure reference, rebuilt in React):
- *   - Green top navbar (#408540) with brand, module links, search, cart, account
- *   - Breadcrumb sub-header
- *   - Content container below
+ * Desk shell for TRAC Library.
+ *   - Slim solid header: menu button (<1024px), brand, notifications, account.
+ *   - Navigation grouped by role (src/lib/nav.ts), one lucide icon set.
+ *     ≥1024px: persistent left sidebar. <1024px: slide-over drawer with a
+ *     backdrop that closes on navigation, Esc or backdrop click.
+ *   - On phones every table turns into a card list; this shell copies each
+ *     column heading into td[data-label] so the CSS can label the values.
  */
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { canAccess, isPatron, type AppCapability } from "@/lib/permissions";
-import type { Notification, PublicUser } from "@/lib/types";
-import { apiJson, useApi } from "@/lib/hooks";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  BarChart3,
+  Bell,
+  BookOpen,
+  ClipboardList,
+  Hourglass,
+  Info,
+  Library,
+  LifeBuoy,
+  LineChart,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  Home,
+  User,
+  UserCog,
+  Users,
+  Wallet,
+  X,
+  type LucideProps,
+} from "lucide-react";
+import { isPatron } from "@/lib/permissions";
+import { activeHref, navSectionsFor, type NavIcon, type NavSection } from "@/lib/nav";
+import type { Notification } from "@/lib/types";
+import { useApi } from "@/lib/hooks";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
 import { useDeskSession } from "./DeskSessionProvider";
 
-/* Top-nav modules — mirrors Koha's header.inc nav items */
-// Fail closed: no production fallback. Staging must configure its own origin.
-const SHELF_CONFIG = resolveDeploymentOrigin(
-  process.env.NEXT_PUBLIC_SHELF_ORIGIN,
-  "NEXT_PUBLIC_SHELF_ORIGIN"
-);
+// Fail closed: no production fallback. When the origin is missing the link
+// is simply not shown; admins see the configuration notice in Settings.
+const SHELF_CONFIG = resolveDeploymentOrigin(process.env.NEXT_PUBLIC_SHELF_ORIGIN, "NEXT_PUBLIC_SHELF_ORIGIN");
 const SHELF_ORIGIN = SHELF_CONFIG.ok ? SHELF_CONFIG.value : "";
 
-const primaryNav: { href: string; label: string; icon?: string; capability: string; children?: { href: string; label: string; capability: string }[] }[] = [
-  { href: "/", label: "Home", capability: "dashboard.read" },
-  { 
-    href: "/circulation", 
-    label: "Circulation", 
-    icon: "⇄", 
-    capability: "loans.manage",
-    children: [
-      { href: "/circulation", label: "Overview", capability: "loans.manage" },
-      { href: "/circulation/checkout", label: "Check out", capability: "loans.manage" },
-      { href: "/circulation/checkin", label: "Check in", capability: "loans.manage" },
-    ]
-  },
-  { href: "/books", label: "Search", icon: "🔍", capability: "books.read" },
-  { href: "/members", label: "Patrons", icon: "👤", capability: "members.read" },
-  { href: "/reports", label: "Reports", icon: "📊", capability: "loans.manage" },
-] as const;
-
-/* "More" dropdown — mirrors Koha's overflow modules */
-const moreNav = [
-  { href: "/my-loans", label: "My record" },
-  { href: "/about", label: "About & Privacy" },
-  { href: "/notifications", label: "Notifications" },
-  { href: "/holds", label: "Holds queue", capability: "loans.manage" },
-  { href: "/fines", label: "Fines desk", capability: "loans.manage" },
-  { href: "/staff", label: "Administration", capability: "staff.manage" },
-  { href: "/admin-insights", label: "Insights", capability: "staff.manage" },
-  { href: "/profile", label: "My profile" },
-];
-
-type ShellNavItem = {
-  href: string;
-  label: string;
-  icon?: string;
-  capability: string;
-  children?: readonly { href: string; label: string; capability: string }[];
+const ICONS: Record<NavIcon, ComponentType<LucideProps>> = {
+  home: Home,
+  search: Search,
+  book: BookOpen,
+  hourglass: Hourglass,
+  wallet: Wallet,
+  bell: Bell,
+  user: User,
+  help: LifeBuoy,
+  info: Info,
+  exchange: ArrowLeftRight,
+  checkout: ArrowUpFromLine,
+  checkin: ArrowDownToLine,
+  loans: ClipboardList,
+  users: Users,
+  chart: BarChart3,
+  accounts: UserCog,
+  insights: LineChart,
+  settings: Settings,
+  library: Library,
 };
 
-/* Student menu: self-service only, no staff modules */
-const studentNav: readonly ShellNavItem[] = [
-  { href: "/", label: "Home", icon: "🏠", capability: "dashboard.read" },
-  { href: "/books", label: "Search Catalog", icon: "🔍", capability: "books.read" },
-  { href: "/my-loans", label: "My Loans", icon: "📚", capability: "dashboard.read" },
-  { href: "/holds", label: "My Holds", icon: "⏳", capability: "dashboard.read" },
-  { href: "/fines", label: "My Fines", icon: "💳", capability: "dashboard.read" },
-  { href: "/notifications", label: "Notifications", icon: "🔔", capability: "notifications.read" },
-  { href: "/profile", label: "My Profile", icon: "👤", capability: "dashboard.read" },
-];
-
-const studentMore: readonly { href: string; label: string; capability?: string }[] = [
-  { href: "/user-guidelines", label: "User guidelines" },
-  { href: "/about", label: "About & Privacy" },
-];
-
-export function KohaShell({ children }: {
-  children: React.ReactNode;
-}) {
+export function KohaShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  // Use the shared session context (seeded with server-side session)
-  const { session: sessionData, loading: sessionLoading } = useDeskSession();
-  const session = sessionData;
+  const { session } = useDeskSession();
   const user = session?.user;
-  const moreRef = useRef<HTMLDivElement>(null);
-  const accountRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  const can = (cap: string) =>
-    canAccess(user, cap as AppCapability);
   // All patron roles (student, faculty, teacher, community) get the
-  // self-service nav: My Loans / My Holds / My Fines.
+  // self-service navigation; staff get the desk navigation.
   const isStudent = isPatron(user);
-  const navItems: readonly ShellNavItem[] = isStudent ? studentNav : primaryNav;
-  const moreItems: readonly { href: string; label: string; capability?: string }[] =
-    isStudent ? studentMore : moreNav;
+  const sections = navSectionsFor(user, SHELF_ORIGIN);
+
+  // The drawer remembers the path it was opened on, so any navigation (link,
+  // back button) closes it without an extra effect.
+  const [drawerPath, setDrawerPath] = useState<string | null>(null);
+  const drawerOpen = drawerPath === pathname;
+  const closeDrawer = useCallback(() => setDrawerPath(null), []);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useTableCardLabels(mainRef);
 
   return (
-    <div className="koha-shell">
-      {/* ── Koha green navbar ─────────────────────────────────────── */}
-      <header className="koha-topbar">
-        <div className="koha-topbar-inner">
-          <Link href="/" className="koha-brand">
-            <Image src="/branding/trac-library-seal.jpg" alt="" width={30} height={30} priority />
-            <span>
-              <strong>TRAC</strong> <span className="koha-brand-sub">Library</span>
-            </span>
-          </Link>
-
-          <nav className={`koha-nav ${mobileOpen ? "open" : ""}`}>
-            {navItems.map((item) => {
-              if (!can(item.capability)) return null;
-              const hasChildren = item.children && item.children.length > 0;
-              const isActive = hasChildren
-                ? pathname.startsWith(item.href)
-                : item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-
-              return (
-                <div key={item.href} className="koha-nav-item">
-                  <Link
-                    href={hasChildren ? item.href : item.href}
-                    className={`koha-nav-link ${isActive ? "active" : ""}`}
-                    onClick={() => {
-                      if (!hasChildren) setMobileOpen(false);
-                      setOpenSubmenu(openSubmenu === item.href ? null : item.href);
-                    }}
-                  >
-                    {item.icon && (
-                      <span className="koha-nav-icon" aria-hidden>
-                        {item.icon}
-                      </span>
-                    )}
-                    {item.label}
-                    {hasChildren && <span className="koha-nav-chevron">{openSubmenu === item.href ? "▲" : "▼"}</span>}
-                  </Link>
-                  {hasChildren && openSubmenu === item.href && (
-                    <div className="koha-submenu">
-                      {item.children!.map((child) => {
-                        if (!can(child.capability)) return null;
-                        const childActive = pathname === child.href;
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            className={`koha-submenu-item ${childActive ? "active" : ""}`}
-                            onClick={() => setMobileOpen(false)}
-                          >
-                            {child.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* More dropdown */}
-            <div className="koha-dropdown-wrap" ref={moreRef}>
-              <button
-                type="button"
-                className={`koha-nav-link ${moreOpen ? "active" : ""}`}
-                onClick={() => setMoreOpen((v) => !v)}
-                aria-expanded={moreOpen}
-              >
-                <span className="koha-nav-icon" aria-hidden>
-                  ☰
-                </span>
-                More
-              </button>
-              {moreOpen && (
-                <div className="koha-dropdown koha-dropdown-dark">
-                  {moreItems.map((item) => {
-                    if (item.capability && !can(item.capability)) return null;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className="koha-dropdown-item"
-                        onClick={() => setMoreOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </nav>
-
-          <div className="koha-topbar-right">
-            {SHELF_CONFIG.ok ? (
-              <a
-                className="koha-shelf-btn"
-                href={SHELF_ORIGIN}
-                target="_blank"
-                rel="noreferrer noopener"
-                title="Browse the 3D bookshelf"
-              >
-                📚 3D Bookshelf
-              </a>
-            ) : (
-              <span className="koha-shelf-btn" role="status" title={SHELF_CONFIG.error}>
-                📚 Bookshelf not configured
-              </span>
-            )}
-            <NotificationBell />
-            <div className="koha-dropdown-wrap" ref={accountRef}>
-              <button
-                type="button"
-                className="koha-account-btn"
-                onClick={() => setAccountOpen((v) => !v)}
-                aria-expanded={accountOpen}
-              >
-                <span className="koha-avatar" aria-hidden>
-                  {(user?.name ?? "?").slice(0, 1).toUpperCase()}
-                </span>
-                <span className="koha-account-name">{user?.name ?? "Log in"}</span>
-                <span aria-hidden>▾</span>
-              </button>
-              {accountOpen && (
-                <div className="koha-dropdown">
-                  {user ? (
-                    <>
-                      <Link href="/profile" className="koha-dropdown-item">
-                        My profile
-                      </Link>
-                      <form action="/api/auth/logout" method="post">
-                        <button type="submit" className="koha-dropdown-item koha-danger">
-                          Log out
-                        </button>
-                      </form>
-                    </>
-                  ) : (
-                    <Link href="/login" className="koha-dropdown-item">
-                      Sign in
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              className="koha-burger md:hidden"
-              onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Toggle navigation"
-            >
-              ☰
-            </button>
-          </div>
+    <div className="desk-shell">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[70] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
+        Skip to content
+      </a>
+      <header className="desk-header">
+        <button
+          ref={menuButton}
+          type="button"
+          className="desk-icon-btn desk-menu-btn"
+          onClick={() => setDrawerPath(pathname)}
+          aria-label="Open menu"
+          aria-expanded={drawerOpen}
+          aria-controls="desk-drawer"
+        >
+          <Menu size={22} aria-hidden />
+        </button>
+        <Link href="/" className="desk-brand">
+          <Image src="/branding/trac-library-seal.jpg" alt="" width={30} height={30} priority />
+          <span>
+            TRAC <span className="desk-brand-sub">Library</span>
+          </span>
+        </Link>
+        <div className="desk-header-actions">
+          {user && <NotificationBell />}
+          <AccountMenu name={user?.name} signedIn={Boolean(user)} />
         </div>
       </header>
 
-      {/* ── Breadcrumb sub-header ─────────────────────────────────── */}
-      <div className="koha-subheader">
-        <Breadcrumb path={pathname} />
+      <div className="desk-body">
+        <aside className="desk-sidebar" aria-label={isStudent ? "My library" : "Desk navigation"}>
+          <NavList sections={sections} pathname={pathname} />
+        </aside>
+
+        {drawerOpen && (
+          <Drawer onClose={closeDrawer} returnFocusTo={menuButton}>
+            <NavList sections={sections} pathname={pathname} onNavigate={closeDrawer} />
+          </Drawer>
+        )}
+
+        <div className="desk-content">
+          <main id="main" ref={mainRef} className="desk-main" tabIndex={-1}>
+            {children}
+          </main>
+          <footer className="desk-footer">
+            <p>TRAC Library · Institute of Agricultural Sciences, Bongao, Tawi-Tawi</p>
+            <nav aria-label="About and privacy">
+              <Link href="/about">About</Link>
+              <Link href="/about#privacy">Privacy policy</Link>
+            </nav>
+            <p className="mt-1">© {new Date().getFullYear()} TRAC Library</p>
+          </footer>
+        </div>
       </div>
-
-      <main className="koha-main">{children}</main>
-
-      <footer className="koha-footer">
-        <p className="koha-footer-brand">
-          TRAC Library — Library Management System · Institute of Agricultural
-          Sciences, Bongao, Tawi-Tawi
-        </p>
-        <nav className="koha-footer-links" aria-label="About and privacy">
-                  <Link href="/about">About</Link>
-                  <span aria-hidden>·</span>
-                  <Link href="/about#privacy">Privacy Policy</Link>
-                  <span aria-hidden>·</span>
-                  <a href="tel:+63-XXX-XXX-XXXX">[REDACTED]</a>
-                </nav>
-                <div className="koha-footer-developers">
-                  <p className="koha-footer-dev-title">Developers</p>
-                  <ul>
-                    <li>Aisha W. Daluddin</li>
-                    <li>Analyn L. Husain</li>
-                    <li>Lowza A. Abdul</li>
-                    <li>Dainel M. Al-basri</li>
-                    <li>Adzlina A. Sahidjuan</li>
-                  </ul>
-                </div>
-                <p className="koha-footer-fine">
-                  © {new Date().getFullYear()} TRAC Library. 3D bookshelf powered by Three.js.
-                </p>
-      </footer>
     </div>
   );
 }
 
-function Breadcrumb({ path }: { path: string }) {
-  const parts = path.split("/").filter(Boolean);
+function NavList({
+  sections,
+  pathname,
+  onNavigate,
+}: {
+  sections: NavSection[];
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const current = activeHref(
+    pathname,
+    sections.flatMap((s) => s.links.filter((l) => !l.external).map((l) => l.href))
+  );
   return (
-    <ol className="koha-breadcrumbs">
-      <li>
-        <Link href="/">Home</Link>
-      </li>
-      {parts.map((part, i) => (
-        <li key={i} aria-current={i === parts.length - 1 ? "page" : undefined}>
-          {part.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-        </li>
+    <nav className="desk-nav">
+      {sections.map((section) => (
+        <div key={section.heading} className="desk-nav-section">
+          <p className="desk-nav-heading" id={`nav-${section.heading}`}>{section.heading}</p>
+          <ul aria-labelledby={`nav-${section.heading}`}>
+            {section.links.map((link) => {
+              const Icon = ICONS[link.icon];
+              const content = (
+                <>
+                  <Icon size={18} strokeWidth={1.9} aria-hidden />
+                  <span>{link.label}</span>
+                </>
+              );
+              return (
+                <li key={link.href}>
+                  {link.external ? (
+                    <a href={link.href} target="_blank" rel="noreferrer noopener" className="desk-nav-link" onClick={onNavigate}>
+                      {content}
+                    </a>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      className="desk-nav-link"
+                      aria-current={current === link.href ? "page" : undefined}
+                      onClick={onNavigate}
+                    >
+                      {content}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ))}
-    </ol>
+    </nav>
+  );
+}
+
+/** Slide-over drawer: backdrop, Esc to close, focus kept inside, focus restored. */
+function Drawer({
+  children,
+  onClose,
+  returnFocusTo,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  returnFocusTo: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const panel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const opener = returnFocusTo.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel.current?.querySelector<HTMLElement>("button, a")?.focus();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panel.current) return;
+      const focusable = panel.current.querySelectorAll<HTMLElement>("a[href], button");
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      opener?.focus();
+    };
+  }, [onClose, returnFocusTo]);
+
+  return (
+    <>
+      <div className="desk-drawer-backdrop" onClick={onClose} aria-hidden />
+      <div ref={panel} id="desk-drawer" className="desk-drawer" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="desk-drawer-head">
+          <span className="font-semibold">Menu</span>
+          <button type="button" className="desk-icon-btn" onClick={onClose} aria-label="Close menu">
+            <X size={20} aria-hidden />
+          </button>
+        </div>
+        {children}
+      </div>
+    </>
+  );
+}
+
+/** A popover that closes on outside click, Esc, or navigation. */
+function usePopover() {
+  const pathname = usePathname();
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const open = openPath === pathname;
+  const setOpen = useCallback(
+    (next: boolean | ((was: boolean) => boolean)) =>
+      setOpenPath((current) => {
+        const was = current === pathname;
+        return (typeof next === "function" ? next(was) : next) ? pathname : null;
+      }),
+    [pathname]
+  );
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen]);
+  return { open, setOpen, ref };
+}
+
+function AccountMenu({ name, signedIn }: { name?: string; signedIn: boolean }) {
+  const { open, setOpen, ref } = usePopover();
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className="desk-account-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={signedIn ? `Account menu for ${name}` : "Account"}
+      >
+        <span className="desk-avatar" aria-hidden>{(name ?? "?").slice(0, 1).toUpperCase()}</span>
+        <span className="desk-account-name hidden sm:inline">{name ?? "Sign in"}</span>
+      </button>
+      {open && (
+        <div className="desk-popover" role="menu">
+          {signedIn ? (
+            <>
+              <Link href="/profile" className="desk-popover-item" role="menuitem">
+                <User size={16} aria-hidden /> My profile
+              </Link>
+              <form action="/api/auth/logout" method="post">
+                <button type="submit" className="desk-popover-item danger" role="menuitem">
+                  <LogOut size={16} aria-hidden /> Log out
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link href="/login" className="desk-popover-item" role="menuitem">Sign in</Link>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 function NotificationBell() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const { data } = useApi<{ notifications: Notification[] }>("/api/notifications");
-  const unread = (data?.notifications ?? []).filter((n) => !n.read).length;
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  const { open, setOpen, ref } = usePopover();
+  // GET /api/notifications returns the caller's notifications as an array.
+  const { data } = useApi<Notification[]>("/api/notifications");
+  const notifications = Array.isArray(data) ? data : [];
+  const unread = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="koha-dropdown-wrap" ref={ref}>
+    <div className="relative" ref={ref}>
       <button
         type="button"
-        className="koha-bell"
+        className="desk-icon-btn"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
       >
-        🔔
-        {unread > 0 && <span className="koha-badge">{unread}</span>}
+        <Bell size={20} aria-hidden />
+        {unread > 0 && <span className="desk-count">{unread > 99 ? "99+" : unread}</span>}
       </button>
       {open && (
-        <div className="koha-dropdown koha-dropdown-wide">
-          {(data?.notifications ?? []).slice(0, 6).map((n) => (
-            <div key={n.id} className={`koha-notif ${!n.read ? "unread" : ""}`}>
+        <div className="desk-popover desk-popover-wide">
+          {notifications.slice(0, 6).map((n) => (
+            <div key={n.id} className={`desk-notif ${!n.read ? "unread" : ""}`}>
               <strong>{n.title}</strong>
               <p>{n.message}</p>
             </div>
           ))}
-          {(data?.notifications ?? []).length === 0 && (
-            <div className="koha-notif">No notifications.</div>
-          )}
-          <Link href="/notifications" className="koha-dropdown-item all">
+          {notifications.length === 0 && <p className="desk-notif">No notifications.</p>}
+          <Link href="/notifications" className="desk-popover-item justify-center font-semibold text-[var(--jade)]">
             See all notifications
           </Link>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * Copies each table's column headings into its cells' data-label so the
+ * mobile CSS can show every row as a labelled card. Re-runs when pages
+ * render new rows.
+ */
+function useTableCardLabels(root: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const label = () => {
+      el.querySelectorAll<HTMLTableElement>("table.data-table, table.koha-table").forEach((table) => {
+        const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent?.trim() ?? "");
+        table.querySelectorAll("tbody tr").forEach((tr) => {
+          Array.from(tr.children).forEach((cell, i) => {
+            const text = headings[i] ?? "";
+            if (cell.getAttribute("data-label") !== text) cell.setAttribute("data-label", text);
+          });
+        });
+      });
+    };
+    label();
+    const observer = new MutationObserver(label);
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [root]);
 }

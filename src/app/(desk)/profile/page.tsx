@@ -19,6 +19,9 @@ type ProfileUser = PublicUser & { createdAt: string };
 export default function ProfilePage() {
   const { session: data, reload } = useDeskSession();
   const user = data?.user as ProfileUser | undefined;
+  // The server-rendered session has no createdAt; /api/auth/me does.
+  const account = useApi<{ user: ProfileUser }>("/api/auth/me");
+  const memberSince = account.data?.user?.createdAt;
   const patron = isPatron(user);
   const ownMember = useApi<{ member: OwnMemberDetails | null }>(patron ? "/api/auth/me/member" : null);
   const master = useApi<AcademicMaster>(patron ? "/api/academic" : null);
@@ -94,7 +97,7 @@ export default function ProfilePage() {
             </dd>
 
             <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Member since</dt>
-            <dd className="text-sm">{formatDate(user.createdAt)}</dd>
+            <dd className="text-sm">{account.loading ? "…" : formatDate(memberSince)}</dd>
 
             {detailRows.map((row) => (
               <div key={row.label} className="contents">

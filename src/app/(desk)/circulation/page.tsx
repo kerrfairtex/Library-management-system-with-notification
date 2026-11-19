@@ -71,11 +71,6 @@ export default function CirculationHomePage() {
           <h3>Holds</h3>
           <ul className="circ-links">
             <li>
-              <Link href="/loans">
-                Holds queue <span className="circ-count">{loading ? "…" : open.length}</span>
-              </Link>
-            </li>
-            <li>
               <Link href="/loans?filter=active">
                 Active loans <span className="circ-count">{open.length}</span>
               </Link>
