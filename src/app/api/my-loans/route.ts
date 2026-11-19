@@ -2,11 +2,12 @@ import { getMemberByUser } from "@/lib/store";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
-import { getBorrowRequests } from "@/lib/store";
+import { getBorrowRequests, getMaxLoansForMemberType } from "@/lib/store";
 
 /*
  * GET /api/my-loans — self-service view for the signed-in member:
- * their loans, holds, and fines (matched members row by email).
+ * their loans, holds, and fines (matched members row by email), plus the
+ * loan limit for their OWN member type. Nothing here is chosen by the client.
  */
 
 export async function GET() {
@@ -17,11 +18,11 @@ export async function GET() {
     const me = await getMemberByUser(user);
 
     if (!me) {
-      return NextResponse.json({ loans: [], holds: [], fines: [] });
+      return NextResponse.json({ loans: [], holds: [], fines: [], loanLimit: null });
     }
     const memberId = (me as { id: string }).id;
 
-    const [loans, holds, borrowRequests, fines] = await Promise.all([
+    const [loans, holds, borrowRequests, fines, loanLimit] = await Promise.all([
       db(supabase)
         .from("loans")
         .select("*, books(title, author, isbn)")
@@ -40,6 +41,7 @@ export async function GET() {
         .eq("member_id", memberId)
         .gt("amount_outstanding", 0)
         .order("created_at", { ascending: false }),
+      getMaxLoansForMemberType(me.memberType),
     ]);
 
     return NextResponse.json({
@@ -47,6 +49,7 @@ export async function GET() {
       holds: holds.data ?? [],
       borrowRequests: borrowRequests ?? [],
       fines: fines.data ?? [],
+      loanLimit,
     });
   } catch (error) {
     return NextResponse.json(

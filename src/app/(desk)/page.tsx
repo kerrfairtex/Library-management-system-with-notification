@@ -8,6 +8,8 @@ import { useApi } from "@/lib/hooks";
 import { daysUntil, formatDate, notificationTone } from "@/lib/utils";
 import { ErrorBanner, PageHeader } from "@/components/ui";
 import { AcademicShelvesSection } from "@/components/AcademicShelves";
+import { KpiRow, Panel } from "@/components/dashboard/DashboardKit";
+import { PatronDashboard } from "@/components/dashboard/PatronDashboard";
 
 type DashboardResponse = {
   user: PublicUser;
@@ -40,12 +42,26 @@ function categorySummary(
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true" aria-label="Loading dashboard">
+      <div>
+        <div className="skeleton h-9 w-64 max-w-full" />
+        <div className="skeleton mt-2 h-4 w-80 max-w-full" />
+      </div>
+      <KpiRow items={[]} loading />
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Panel className="lg:col-span-2" title="Loading" loading />
+        <Panel title="Loading" loading />
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data, loading, error } = useApi<DashboardResponse>("/api/dashboard");
 
-  if (loading) {
-    return <p className="panel p-6 text-sm">Loading desk…</p>;
-  }
+  if (loading) return <DashboardSkeleton />;
 
   if (error || !data) {
     return <ErrorBanner message={error || "Failed to load dashboard."} />;
@@ -56,6 +72,10 @@ export default function DashboardPage() {
   // member registry or loan history to these roles.
   const isStudent = isPatron(user);
   const isAdmin = user.role === "admin";
+
+  if (isStudent) {
+    return <PatronDashboard user={user} notifications={notifications} />;
+  }
 
   return (
     <div className="space-y-5">

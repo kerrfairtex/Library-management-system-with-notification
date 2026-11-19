@@ -1712,6 +1712,21 @@ function mapCirculationRule(row: CirculationRuleRow): CirculationRule {
   };
 }
 
+/**
+ * Loan limit for one member type, or null when no rule exists (the loans
+ * trigger then falls back to 3; see DEFAULT_MAX_LOANS in dashboard-stats.ts).
+ */
+export async function getMaxLoansForMemberType(memberType: MemberType): Promise<number | null> {
+  const { data, error } = await db(supabase)
+    .from("circulation_rules")
+    .select("max_loans")
+    .eq("member_type", memberType)
+    .maybeSingle();
+  if (error) return null; // table absent on older installs: same fallback as the trigger
+  const max = (data as { max_loans?: number } | null)?.max_loans;
+  return typeof max === "number" ? max : null;
+}
+
 export async function listCirculationRules(): Promise<CirculationRule[]> {
   const { data, error } = await db(supabase)
     .from("circulation_rules")
