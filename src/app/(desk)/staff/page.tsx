@@ -9,6 +9,8 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 import { AcademicSetup } from "@/components/AcademicSetup";
 import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
+import { acceptsIdNumber, idNumberLabel, isIdNumberRequired, sharesIdNumberKind } from "@/lib/academic";
+import { memberTypeForRole } from "@/lib/role-transition";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -39,6 +41,16 @@ const roleBlurbs: Record<UserRole, string> = {
 
 function roleBlurb(role: UserRole): string {
   return roleBlurbs[role];
+}
+
+/**
+ * True when changing `from` -> `to` needs a new ID number entered: the new
+ * type uses a different kind of ID (a Student ID is not an Employee ID).
+ * Faculty <-> teacher keep theirs. Mirrors the server rule.
+ */
+function roleChangeNeedsId(from: UserRole, to: UserRole): boolean {
+  const next = memberTypeForRole(to);
+  return from !== to && acceptsIdNumber(next) && !sharesIdNumberKind(memberTypeForRole(from), next);
 }
 
 export default function StaffPage() {
@@ -127,9 +139,13 @@ export default function StaffPage() {
           });
         }
         if (form.role !== editing.role) {
+          const roleBody: Record<string, unknown> = { role: form.role };
+          if (roleChangeNeedsId(editing.role, form.role) && form.studentId.trim()) {
+            roleBody.studentId = form.studentId;
+          }
           await apiJson(`/api/users/${editing.id}`, {
             method: "PATCH",
-            body: JSON.stringify({ role: form.role }),
+            body: JSON.stringify(roleBody),
           });
         }
       } else {
@@ -164,10 +180,17 @@ export default function StaffPage() {
   }
 
   async function changeRole(person: PublicUser, role: UserRole) {
+    const body: Record<string, unknown> = { role };
+    const next = memberTypeForRole(role);
+    if (roleChangeNeedsId(person.role, role) && isIdNumberRequired(next)) {
+      const entered = window.prompt(`Enter ${person.name}'s ${idNumberLabel(next)} exactly as issued.`);
+      if (entered === null) return;
+      body.studentId = entered;
+    }
     try {
       await apiJson(`/api/users/${person.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(body),
       });
       await reload();
     } catch (err) {
@@ -459,6 +482,10 @@ export default function StaffPage() {
           )}
 
 
+          {editing && roleChangeNeedsId(editing.role, form.role) && (
+            <StudentIdField memberType={memberTypeForRole(form.role)} value={form.studentId}
+              onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
+          )}
           {editing && isPatron(form.role) && (
             <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
               Edit ID numbers and academic details on the Members page.

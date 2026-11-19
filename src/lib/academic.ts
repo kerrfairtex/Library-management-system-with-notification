@@ -177,6 +177,39 @@ function idNumberProblems(memberType: MemberType, value: unknown): string[] {
   return [];
 }
 
+/** Format/required problems for an ID number of the given type (any patron type). */
+export function describeIdNumberProblems(memberType: MemberType, value: unknown): string[] {
+  return idNumberProblems(memberType, value);
+}
+
+/**
+ * True when two member types use the same kind of ID, so an existing ID stays
+ * valid across the change (faculty <-> teacher share the Employee/Faculty ID).
+ */
+export function sharesIdNumberKind(previous: MemberType, next: MemberType): boolean {
+  return previous === next || (acceptsIdNumber(previous) && acceptsIdNumber(next) && ID_LABELS[previous] === ID_LABELS[next]);
+}
+
+/**
+ * The ID number a member ends up with when their account type changes.
+ * Mirrors change_user_role (supabase/migrations/20261122_role_change_keeps_id.sql):
+ *  - a newly entered ID wins;
+ *  - otherwise the current ID is kept if both types use the same kind of ID;
+ *  - otherwise it is cleared (a Student ID is not an Employee ID).
+ * `missing` is true when the new type requires an ID and none results.
+ */
+export function idNumberAfterTypeChange(
+  previous: MemberType,
+  next: MemberType,
+  currentId: string | null,
+  enteredId: unknown
+): { idNumber: string | null; missing: boolean } {
+  if (!acceptsIdNumber(next)) return { idNumber: null, missing: false };
+  const entered = normalizeIdNumber(enteredId);
+  const idNumber = entered ?? (sharesIdNumberKind(previous, next) ? normalizeIdNumber(currentId) : null);
+  return { idNumber, missing: idNumber === null && isIdNumberRequired(next) };
+}
+
 /** The 409 message for an ID already used by another member of the same type. */
 export function duplicateIdNumberMessage(memberType: MemberType): string {
   return `A ${memberType} with this ID number already exists.`;

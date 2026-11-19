@@ -71,9 +71,9 @@ export async function PATCH(request: Request, { params }: Params) {
             });
         return rpc.ok ? { ok: true, data: rpc.data } : { ok: false, error: rpc.error };
       },
-      mutateRole: async (nextRole) => {
+      mutateRole: async (nextRole, idNumber) => {
         const rpc = await changeUserRoleAtomically(supabase, {
-          userId: id, nextRole, actorId: actor.id,
+          userId: id, nextRole, actorId: actor.id, idNumber,
         });
         return rpc.error
           ? { ok: false, error: rpc.error.message }
