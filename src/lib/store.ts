@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
+import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
 import { PATRON_ROLES, type Course, type Department, type StudentCompletenessAudit, type UserStatistics } from "./types";
 import {
@@ -234,6 +235,25 @@ async function assertIdNumberFree(
   if (data && data.length > 0) {
     throw new InputError(duplicateIdNumberMessage(memberType), 409);
   }
+}
+
+/** Loans not yet returned for one member. */
+export async function countOpenLoansForMember(memberId: string): Promise<number> {
+  const { count, error } = await db(supabase)
+    .from("loans")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", memberId)
+    .neq("status", "returned");
+  throwIfError(error, "Failed to count open loans.");
+  return count ?? 0;
+}
+
+/** Open loans of the member linked to a login account (0 when none is linked). */
+export async function countOpenLoansForUser(userId: string): Promise<number> {
+  const { data, error } = await db(supabase).from("members").select("id").eq("user_id", userId).limit(1);
+  throwIfError(error, "Failed to load member.");
+  const memberId = (data as { id: string }[] | null)?.[0]?.id;
+  return memberId ? countOpenLoansForMember(memberId) : 0;
 }
 
 /** Maps a unique violation on members to a readable 409 message. */
@@ -821,6 +841,11 @@ export async function updateMember(
         409
       );
     }
+  }
+
+  if (nextType !== current.memberType) {
+    const problem = describeOpenLoansTypeChangeProblem(await countOpenLoansForMember(id));
+    if (problem) throw new InputError(problem, 409);
   }
 
   const touchingIdentity =

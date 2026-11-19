@@ -297,3 +297,16 @@ test("per-type ID index migration checks duplicates before swapping indexes", ()
   assert.match(read("supabase/migrations/20261121_member_id_per_type_down.sql"), /create unique index if not exists members_student_id_unique/);
   assert.match(read("supabase/schema.sql"), /members_type_id_number_unique/);
 });
+
+test("member type changes are blocked while loans are open, on both paths", async () => {
+  const { describeOpenLoansTypeChangeProblem } = await import("./staff-rules.ts");
+  assert.equal(describeOpenLoansTypeChangeProblem(0), null);
+  assert.equal(
+    describeOpenLoansTypeChangeProblem(1),
+    "Return or transfer this member's 1 open loan before changing their account type."
+  );
+  const store = read("src/lib/store.ts");
+  const update = store.slice(store.indexOf("export async function updateMember"), store.indexOf("export async function deleteMember"));
+  assert.match(update, /if \(nextType !== current\.memberType\)[\s\S]*?countOpenLoansForMember\(id\)[\s\S]*?InputError\(problem, 409\)/);
+  assert.match(read("src/app/api/users/[id]/route.ts"), /countOpenLoans: \(\) => countOpenLoansForUser\(id\)/);
+});

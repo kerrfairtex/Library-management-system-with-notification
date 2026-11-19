@@ -17,6 +17,7 @@ function deps(body: Record<string, unknown>, calls: Calls): UserPatchDeps {
     target,
     body,
     countAdmins: async () => { calls.counts += 1; return 2; },
+    countOpenLoans: async () => 0,
     privilegedAssignmentDenied: (_actorRole: UserRole, nextRole: UserRole) =>
       nextRole === "admin" || nextRole === "librarian",
     mutateProfile: async () => { calls.profile += 1; return target; },
@@ -117,4 +118,39 @@ test("moving to community needs no ID; a malformed ID is refused", async () => {
   const bad = await applyUserPatch(roleDeps("community", { role: "student", studentId: "a b" }, seen));
   assert.equal(bad.kind, "error");
   assert.equal(seen.calls, 0);
+});
+
+// ── Open loans block account-type changes ───────────────────────────────────
+test("a role change that moves the member type is refused while loans are open", async () => {
+  const seen = { calls: 0 } as { id?: string | null; calls: number };
+  const result = await applyUserPatch({
+    ...roleDeps("student", { role: "faculty", studentId: "EMP-1" }, seen),
+    countOpenLoans: async () => 2,
+  });
+  assert.equal(result.kind, "error");
+  assert.equal(result.kind === "error" && result.status, 409);
+  assert.match(result.kind === "error" ? result.error : "", /Return or transfer this member's 2 open loans/);
+  assert.equal(seen.calls, 0, "no RPC call");
+});
+
+test("the same change goes through once loans are returned", async () => {
+  const seen = { calls: 0 } as { id?: string | null; calls: number };
+  const result = await applyUserPatch({
+    ...roleDeps("student", { role: "faculty", studentId: "EMP-1" }, seen),
+    countOpenLoans: async () => 0,
+  });
+  assert.equal(result.kind, "success");
+  assert.equal(seen.calls, 1);
+});
+
+test("librarian <-> admin keeps the staff category, so open loans don't block it", async () => {
+  let counted = 0;
+  const result = await applyUserPatch({
+    ...deps({ role: "admin" }, { profile: 0, status: 0, role: 0, counts: 0 }),
+    target: { ...target, role: "librarian" },
+    privilegedAssignmentDenied: () => false,
+    countOpenLoans: async () => { counted += 1; return 3; },
+  });
+  assert.equal(result.kind, "success");
+  assert.equal(counted, 0);
 });

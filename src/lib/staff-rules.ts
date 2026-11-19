@@ -59,6 +59,15 @@ export function describeAccountManagementProblem({
 }
 
 /**
+ * A member with books out keeps their account type until those loans are
+ * returned or transferred: loan limits, due dates and fines follow the type.
+ */
+export function describeOpenLoansTypeChangeProblem(openLoans: number): string | null {
+  if (openLoans <= 0) return null;
+  return `Return or transfer this member's ${openLoans} open loan${openLoans === 1 ? "" : "s"} before changing their account type.`;
+}
+
+/**
  * Passwords that are published in this repository (README, seed scripts) or
  * are among the most common ones. An account using any of them is effectively
  * public, so they are refused whenever a password is set or changed.
