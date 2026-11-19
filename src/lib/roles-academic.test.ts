@@ -297,3 +297,31 @@ test("per-type ID index migration checks duplicates before swapping indexes", ()
   assert.match(read("supabase/migrations/20261121_member_id_per_type_down.sql"), /create unique index if not exists members_student_id_unique/);
   assert.match(read("supabase/schema.sql"), /members_type_id_number_unique/);
 });
+
+test("member type changes are blocked while loans are open, on both paths", async () => {
+  const { describeOpenLoansTypeChangeProblem } = await import("./staff-rules.ts");
+  assert.equal(describeOpenLoansTypeChangeProblem(0), null);
+  assert.equal(
+    describeOpenLoansTypeChangeProblem(1),
+    "Return or transfer this member's 1 open loan before changing their account type."
+  );
+  const store = read("src/lib/store.ts");
+  const update = store.slice(store.indexOf("export async function updateMember"), store.indexOf("export async function deleteMember"));
+  assert.match(update, /if \(nextType !== current\.memberType\)[\s\S]*?countOpenLoansForMember\(id\)[\s\S]*?InputError\(problem, 409\)/);
+  assert.match(read("src/app/api/users/[id]/route.ts"), /countOpenLoans: \(\) => countOpenLoansForUser\(id\)/);
+});
+
+test("optional phone on new patron accounts is validated and saved to the member", async () => {
+  const { describePhoneProblem, normalizePhone } = await import("./staff-rules.ts");
+  assert.equal(describePhoneProblem(""), null, "optional");
+  assert.equal(describePhoneProblem("0917 123 4567"), null);
+  assert.equal(describePhoneProblem("+63 (2) 8123-4567"), null);
+  assert.match(describePhoneProblem("call me") ?? "", /7-20 digits/);
+  assert.match(describePhoneProblem("12-34") ?? "", /7-20 digits/);
+  assert.equal(normalizePhone("  0917  "), "0917");
+  const users = read("src/app/api/users/route.ts");
+  assert.match(users, /describePhoneProblem\(body\.phone\)/);
+  assert.match(users, /phone: normalizePhone\(body\.phone\)/);
+  assert.match(read("src/lib/store.ts"), /\.\.\.\(input\.phone \? \{ phone: input\.phone \} : \{\}\)/);
+  assert.match(read("src/app/(desk)/staff/page.tsx"), /htmlFor="phone">Phone \(optional\)/);
+});

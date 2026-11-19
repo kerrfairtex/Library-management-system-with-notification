@@ -7,6 +7,8 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
+import { YEAR_LEVELS, coursesForDepartment } from "@/lib/academic";
+import { filterMembers, membersToCsv } from "@/lib/member-export";
 import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
@@ -41,6 +43,9 @@ export default function MembersPage() {
   const { data, loading, error, reload } = useApi<Member[]>("/api/members");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | MemberType>("all");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -89,16 +94,42 @@ export default function MembersPage() {
     return () => { cancelled = true; };
   }, [data, canManageMembers]);
 
-  const members = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (data ?? []).filter((m) => {
-      if (typeFilter !== "all" && m.memberType !== typeFilter) return false;
-      if (!q) return true;
-      return [m.name, m.email, m.phone, m.studentId ?? "", m.grade ?? ""].some((v) =>
-        v.toLowerCase().includes(q)
-      );
-    });
-  }, [data, query, typeFilter]);
+  const members = useMemo(
+    () =>
+      filterMembers(data ?? [], {
+        query,
+        type: typeFilter,
+        departmentId: departmentFilter,
+        courseId: courseFilter,
+        yearLevel: yearFilter,
+      }),
+    [data, query, typeFilter, departmentFilter, courseFilter, yearFilter]
+  );
+  const filterCourses = coursesForDepartment(master.courses, departmentFilter);
+  const deptCode = useMemo(() => new Map(master.departments.map((d) => [d.id, d.code])), [master]);
+  const courseCode = useMemo(() => new Map(master.courses.map((c) => [c.id, c.code])), [master]);
+  const filtersActive = Boolean(query || typeFilter !== "all" || departmentFilter || courseFilter || yearFilter);
+
+  function clearFilters() {
+    setQuery("");
+    setTypeFilter("all");
+    setDepartmentFilter("");
+    setCourseFilter("");
+    setYearFilter("");
+  }
+
+  /** Downloads exactly the rows on screen (the filtered list). */
+  function downloadCsv() {
+    const csv = membersToCsv(members, master);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `members-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   // Restricted view rendered after all hooks (rules of hooks): the previous
   // early return before useMemo crashed React when session data arrived late.
@@ -207,7 +238,7 @@ export default function MembersPage() {
             ? "Only librarians and admins can open the member registry."
             : canManageMembers
               ? "Register students with a student ID and grade, plus faculty, teacher, staff or community patrons."
-              : "View the member registry. Only admins can add, edit, activate, or delete members."
+              : "View the member registry. Only librarians and admins can add or edit members."
         }
         action={
           canManageMembers ? (
@@ -231,7 +262,8 @@ export default function MembersPage() {
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <input
             className="field max-w-md"
-            placeholder="Search name, email, phone, student ID, or grade"
+            aria-label="Search members"
+            placeholder="Search name, email, phone or ID number"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -249,13 +281,53 @@ export default function MembersPage() {
           </div>
         </div>
 
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto_auto] lg:items-end">
+          <div>
+            <label className="label" htmlFor="filter-department">Department</label>
+            <select id="filter-department" className="field" value={departmentFilter}
+              onChange={(e) => {
+                const next = e.target.value;
+                setDepartmentFilter(next);
+                // Drop a course that doesn't belong to the new department.
+                if (courseFilter && !coursesForDepartment(master.courses, next).some((c) => c.id === courseFilter)) {
+                  setCourseFilter("");
+                }
+              }}>
+              <option value="">All departments</option>
+              {master.departments.map((d) => <option key={d.id} value={d.id}>{d.code}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-course">Course</label>
+            <select id="filter-course" className="field" value={courseFilter}
+              onChange={(e) => setCourseFilter(e.target.value)}>
+              <option value="">All courses</option>
+              {filterCourses.map((c) => <option key={c.id} value={c.id}>{c.code}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-year">Year level</label>
+            <select id="filter-year" className="field" value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}>
+              <option value="">All year levels</option>
+              {YEAR_LEVELS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <button type="button" className="btn btn-ghost" onClick={clearFilters} disabled={!filtersActive}>
+            Clear filters
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={downloadCsv} disabled={members.length === 0}>
+            Download CSV ({members.length})
+          </button>
+        </div>
+
         {error && <ErrorBanner message={error} />}
         {loading && <p className="text-sm">Loading members…</p>}
 
         {!loading && members.length === 0 ? (
           <EmptyState
-            title="No students or members found"
-            body="Add a student to start lending books."
+            title={filtersActive ? "No members match these filters" : "No students or members yet"}
+            body={filtersActive ? "Clear the filters or try a different search." : "Add a student to start lending books."}
           />
         ) : (
           <div className="table-wrap">
@@ -289,11 +361,23 @@ export default function MembersPage() {
                         <>
                           <p>{member.studentId || "—"}</p>
                           <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
-                            {member.grade || "No grade set"}
+                            {[
+                              member.departmentId ? deptCode.get(member.departmentId) : null,
+                              member.courseId ? courseCode.get(member.courseId) : null,
+                              member.yearLevel,
+                              member.section,
+                            ].filter(Boolean).join(" · ") || member.grade || "No academic details"}
                           </p>
                         </>
                       ) : member.studentId ? (
-                        <p>{member.studentId}</p>
+                        <>
+                          <p>{member.studentId}</p>
+                          {member.departmentId && deptCode.get(member.departmentId) && (
+                            <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                              {deptCode.get(member.departmentId)}
+                            </p>
+                          )}
+                        </>
                       ) : (
                         <span className="text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
                           —

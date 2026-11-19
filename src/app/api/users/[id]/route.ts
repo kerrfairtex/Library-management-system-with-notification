@@ -11,6 +11,7 @@ import { applyUserPatch } from "@/lib/user-patch";
 import type { PublicUser } from "@/lib/types";
 import {
   countAdmins,
+  countOpenLoansForUser,
   getPublicUserById,
   updateStaff,
 } from "@/lib/store";
@@ -60,6 +61,7 @@ export async function PATCH(request: Request, { params }: Params) {
       target,
       body,
       countAdmins,
+      countOpenLoans: () => countOpenLoansForUser(id),
       privilegedAssignmentDenied: (actorRole, nextRole) =>
         assertPrivilegedRoleAssignment(actorRole, nextRole) !== null,
       mutateProfile: async (updates) => updateStaff(id, updates),

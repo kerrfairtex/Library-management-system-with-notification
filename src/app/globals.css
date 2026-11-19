@@ -126,6 +126,26 @@ a {
     color: var(--danger);
   }
 
+  /* Loading placeholder for dashboard panels and KPI cards. */
+  .skeleton {
+    border-radius: 0.6rem;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 6%, transparent) 25%,
+      color-mix(in srgb, var(--ink) 11%, transparent) 50%,
+      color-mix(in srgb, var(--ink) 6%, transparent) 75%
+    );
+    background-size: 200% 100%;
+    animation: trac-skeleton 1.4s ease-in-out infinite;
+  }
+
+  /* Date-due stamp on dashboard loan rows (color set inline per status). */
+  .due-stamp {
+    border: 2px solid currentColor;
+    background: color-mix(in srgb, currentColor 7%, white);
+    transform: rotate(-3deg);
+  }
+
   .tone-warn {
     background: var(--warn-soft);
     color: var(--warn);
@@ -591,6 +611,7 @@ a {
   .fade-up-delay-1,
   .fade-up-delay-2,
   .fade-up-delay-3,
+  .skeleton,
   .pulse-dot,
   .slide-in {
     animation: none !important;
@@ -1307,3 +1328,8 @@ table.koha-table {
 .login-seals-sm { justify-content: center; margin-bottom: 0; }
 .login-seals-sm .login-seal { width: 4rem; }
 .login-seals-sm .login-seals-divider { background: rgba(0, 0, 0, 0.15); }
+
+@keyframes trac-skeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}

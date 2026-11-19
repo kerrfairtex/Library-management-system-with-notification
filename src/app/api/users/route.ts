@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
 import { createStaff, listStaff } from "@/lib/store";
-import { describeAccountManagementProblem, describePasswordProblem, isUserRole } from "@/lib/staff-rules";
+import {
+  describeAccountManagementProblem,
+  describePasswordProblem,
+  describePhoneProblem,
+  isUserRole,
+  normalizePhone,
+} from "@/lib/staff-rules";
 import { InputError, missingAcademicFields, validateAcademicInput } from "@/lib/academic";
 
 // Librarians and admins (members.write). Librarians are limited to patron
@@ -53,6 +59,10 @@ export async function POST(request: Request) {
     if (passwordProblem) {
       return NextResponse.json({ error: passwordProblem }, { status: 400 });
     }
+    const phoneProblem = describePhoneProblem(body.phone);
+    if (phoneProblem) {
+      return NextResponse.json({ error: phoneProblem }, { status: 400 });
+    }
     if (role === "student") {
       const missing = missingAcademicFields({
         memberType: "student",
@@ -86,6 +96,7 @@ export async function POST(request: Request) {
     try {
       const created = await createStaff({
         name, email, password, role,
+        phone: normalizePhone(body.phone),
         academic: {
           studentId: body.studentId,
           departmentId: body.departmentId,

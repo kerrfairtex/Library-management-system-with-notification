@@ -20,6 +20,7 @@ const emptyForm = {
   email: "",
   password: "",
   role: "student" as UserRole,
+  phone: "",
   studentId: "",
   departmentId: "",
   courseId: "",
@@ -85,6 +86,14 @@ export default function StaffPage() {
 
   const staff = useMemo(() => data ?? [], [data]);
   const adminCount = staff.filter((person) => person.role === "admin").length;
+
+  // Edit modal: a staff account only moves between librarian and admin, and
+  // nobody changes their own role or demotes the last admin from here.
+  const editingSelf = Boolean(editing && editing.id === me?.user?.id);
+  const editingLastAdmin = editing?.role === "admin" && adminCount <= 1;
+  const roleLocked = editingSelf || editingLastAdmin;
+  const editRoleOptions: UserRole[] =
+    editing && !isPatron(editing) ? ["librarian", "admin"] : roleOptions;
   const pending = useMemo(() => staff.filter((p) => p.status === "pending"), [staff]);
 
   if (me && !canManageAccounts) {
@@ -114,7 +123,7 @@ export default function StaffPage() {
   function openEdit(person: PublicUser) {
     setEditing(person);
     setForm({
-      name: person.name, email: person.email, password: "", role: person.role,
+      name: person.name, email: person.email, password: "", role: person.role, phone: "",
       studentId: "", departmentId: "", courseId: "", yearLevel: "", section: "",
     });
     setFormError(null);
@@ -153,6 +162,7 @@ export default function StaffPage() {
         const body: Record<string, unknown> = {
           name: form.name, email: form.email, password: form.password, role: form.role,
         };
+        if (academicRoles.includes(form.role) && form.phone.trim()) body.phone = form.phone;
         if (form.role === "student") {
           Object.assign(body, {
             studentId: form.studentId, departmentId: form.departmentId, courseId: form.courseId,
@@ -174,6 +184,9 @@ export default function StaffPage() {
       await reload();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Save failed");
+      // An edit is up to two requests (profile, then role); if the second
+      // fails the first may already be saved, so refresh the list.
+      void reload();
     } finally {
       setBusy(false);
     }
@@ -361,11 +374,19 @@ export default function StaffPage() {
                               Make librarian
                             </button>
                           )}
-                          {academicRoles
+                          {isPatron(person) && academicRoles
                             .filter((r) => r !== person.role)
                             .map((r) => (
                               <button key={r} type="button" className="btn btn-ghost"
-                                onClick={() => changeRole(person, r)}>
+                                onClick={() => changeRole(person, r)}
+                                disabled={isSelf || lastAdmin}
+                                title={
+                                  isSelf
+                                    ? "Another admin has to change your role"
+                                    : lastAdmin
+                                      ? "The library needs at least one admin"
+                                      : undefined
+                                }>
                                 Make {r}
                               </button>
                             ))}
@@ -449,16 +470,41 @@ export default function StaffPage() {
               id="role"
               className="field"
               value={form.role}
+              disabled={roleLocked}
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
             >
-              {roleOptions.map((r) => (
+              {editRoleOptions.map((r) => (
                 <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
+            {roleLocked && (
+              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                {editingSelf
+                  ? "Another admin has to change your role."
+                  : "The library needs at least one admin, so this role can't change."}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
               {roleBlurb(form.role)}
             </p>
           </div>
+
+          {!editing && academicRoles.includes(form.role) && (
+            <div>
+              <label className="label" htmlFor="phone">Phone (optional)</label>
+              <input
+                id="phone"
+                className="field"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={20}
+                placeholder="0917 123 4567"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+          )}
 
           {(isAdmin || !editing) && (
           <div>

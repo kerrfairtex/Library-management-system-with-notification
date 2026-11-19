@@ -5,6 +5,7 @@
  * without a database. The route passes the real mutators.
  */
 import {
+  describeOpenLoansTypeChangeProblem,
   describePasswordProblem,
   describeRoleChangeProblem,
   describeStatusTransitionProblem,
@@ -39,6 +40,8 @@ export type UserPatchDeps = {
   mutateStatus: (nextStatus: UserStatus, studentActivation: boolean) => Promise<MutationResult<PublicUser>>;
   /** idNumber: the new ID entered with the role change, or null to keep/clear per the rule. */
   mutateRole: (nextRole: UserRole, idNumber: string | null) => Promise<MutationResult<PublicUser>>;
+  /** Open loans of the target's linked member; checked when the role changes its member type. */
+  countOpenLoans: () => Promise<number>;
 };
 
 export type ApplyPatchResult =
@@ -119,6 +122,15 @@ export async function applyUserPatch(deps: UserPatchDeps): Promise<ApplyPatchRes
         kind: "error", status: 400,
         error: `Enter the ${idNumberLabel(nextType)} to make this person ${nextType}.`,
       };
+    }
+  }
+
+  // 3c. No member type change while books are out.
+  if (hasRole) {
+    const nextRole = body.role as UserRole;
+    if (memberTypeForRole(target.role) !== memberTypeForRole(nextRole)) {
+      const problem = describeOpenLoansTypeChangeProblem(await deps.countOpenLoans());
+      if (problem) return { kind: "error", status: 409, error: problem };
     }
   }
 

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { deriveLoanStatus } from "./loan-status";
+import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
 import { PATRON_ROLES, type Course, type Department, type StudentCompletenessAudit, type UserStatistics } from "./types";
 import {
@@ -234,6 +235,25 @@ async function assertIdNumberFree(
   if (data && data.length > 0) {
     throw new InputError(duplicateIdNumberMessage(memberType), 409);
   }
+}
+
+/** Loans not yet returned for one member. */
+export async function countOpenLoansForMember(memberId: string): Promise<number> {
+  const { count, error } = await db(supabase)
+    .from("loans")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", memberId)
+    .neq("status", "returned");
+  throwIfError(error, "Failed to count open loans.");
+  return count ?? 0;
+}
+
+/** Open loans of the member linked to a login account (0 when none is linked). */
+export async function countOpenLoansForUser(userId: string): Promise<number> {
+  const { data, error } = await db(supabase).from("members").select("id").eq("user_id", userId).limit(1);
+  throwIfError(error, "Failed to load member.");
+  const memberId = (data as { id: string }[] | null)?.[0]?.id;
+  return memberId ? countOpenLoansForMember(memberId) : 0;
 }
 
 /** Maps a unique violation on members to a readable 409 message. */
@@ -823,6 +843,11 @@ export async function updateMember(
     }
   }
 
+  if (nextType !== current.memberType) {
+    const problem = describeOpenLoansTypeChangeProblem(await countOpenLoansForMember(id));
+    if (problem) throw new InputError(problem, 409);
+  }
+
   const touchingIdentity =
     updates.memberType !== undefined ||
     updates.studentId !== undefined ||
@@ -1047,6 +1072,8 @@ export async function createStaff(input: {
   email: string;
   password: string;
   role: UserRole;
+  /** Optional; saved to members.phone for patron accounts. */
+  phone?: string | null;
   academic?: {
     studentId?: string | null;
     departmentId?: string | null;
@@ -1131,6 +1158,8 @@ export async function createStaff(input: {
     section: academic.section,
     active: true,
     user_id: row.id,
+    // Only set when entered, so linking never blanks a phone already on file.
+    ...(input.phone ? { phone: input.phone } : {}),
   };
   let memberError: { code?: string; message?: string } | null = null;
   if (existing) {
@@ -1710,6 +1739,21 @@ function mapCirculationRule(row: CirculationRuleRow): CirculationRule {
     maxLoans: row.max_loans,
     finePerDay: row.fine_per_day,
   };
+}
+
+/**
+ * Loan limit for one member type, or null when no rule exists (the loans
+ * trigger then falls back to 3; see DEFAULT_MAX_LOANS in dashboard-stats.ts).
+ */
+export async function getMaxLoansForMemberType(memberType: MemberType): Promise<number | null> {
+  const { data, error } = await db(supabase)
+    .from("circulation_rules")
+    .select("max_loans")
+    .eq("member_type", memberType)
+    .maybeSingle();
+  if (error) return null; // table absent on older installs: same fallback as the trigger
+  const max = (data as { max_loans?: number } | null)?.max_loans;
+  return typeof max === "number" ? max : null;
 }
 
 export async function listCirculationRules(): Promise<CirculationRule[]> {
