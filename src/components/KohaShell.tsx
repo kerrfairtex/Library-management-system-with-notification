@@ -6,8 +6,8 @@
  *   - Navigation grouped by role (src/lib/nav.ts), one lucide icon set.
  *     ≥1024px: persistent left sidebar. <1024px: slide-over drawer with a
  *     backdrop that closes on navigation, Esc or backdrop click.
- *   - On phones every table turns into a card list; this shell copies each
- *     column heading into td[data-label] so the CSS can label the values.
+ *   - Pages build from the shared UI kit (src/components/ui); its Table
+ *     turns into a labelled card list on phones.
  */
 
 import Image from "next/image";
@@ -90,9 +90,6 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
   const drawerOpen = drawerPath === pathname;
   const closeDrawer = useCallback(() => setDrawerPath(null), []);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
-
-  useTableCardLabels(mainRef);
 
   return (
     <div className="desk-shell">
@@ -135,7 +132,7 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="desk-content">
-          <main id="main" ref={mainRef} className="desk-main" tabIndex={-1}>
+          <main id="main" className="desk-main" tabIndex={-1}>
             {children}
           </main>
           <footer className="desk-footer">
@@ -383,31 +380,4 @@ function NotificationBell() {
       )}
     </div>
   );
-}
-
-/**
- * Copies each table's column headings into its cells' data-label so the
- * mobile CSS can show every row as a labelled card. Re-runs when pages
- * render new rows.
- */
-function useTableCardLabels(root: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const label = () => {
-      el.querySelectorAll<HTMLTableElement>("table.data-table:not([data-managed]), table.koha-table").forEach((table) => {
-        const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent?.trim() ?? "");
-        table.querySelectorAll("tbody tr").forEach((tr) => {
-          Array.from(tr.children).forEach((cell, i) => {
-            const text = headings[i] ?? "";
-            if (cell.getAttribute("data-label") !== text) cell.setAttribute("data-label", text);
-          });
-        });
-      });
-    };
-    label();
-    const observer = new MutationObserver(label);
-    observer.observe(el, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [root]);
 }
