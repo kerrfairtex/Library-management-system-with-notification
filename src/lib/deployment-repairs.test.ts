@@ -11,10 +11,12 @@ function src(rel: string): string {
   );
 }
 
-test("logout redirects to the request origin login, never a production host", () => {
+test("logout redirects to the visitor's own host via a relative /login, never a production host", () => {
   const text = src("src/app/api/auth/logout/route.ts");
-  assert.match(text, /new URL\("\/login", origin\)/);
-  assert.match(text, /new URL\(request\.url\)\.origin/);
+  // Relative Location: behind Render's proxy request.url is the internal
+  // origin (http://localhost:10000), so it must not be used.
+  assert.match(text, /localRedirectInit\("\/login", 303\)/);
+  assert.equal(text.includes("request.url"), false);
   assert.equal(text.includes("trac-library-bookshelf.vercel.app"), false);
 });
 
