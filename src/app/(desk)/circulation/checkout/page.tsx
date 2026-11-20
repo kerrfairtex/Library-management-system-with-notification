@@ -271,7 +271,7 @@ export default function CheckoutPage() {
                   const book = books.find((b) => b.id === l.bookId);
                   return (
                     <tr key={l.id}>
-                      <td>{book?.title ?? l.bookId}</td>
+                      <td>{book?.title ?? "Unknown title"}</td>
                       <td>{book?.isbn}</td>
                       <td>{formatDate(l.dueAt)}</td>
                       <td>

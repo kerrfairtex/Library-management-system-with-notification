@@ -631,200 +631,8 @@ a {
   --koha-green: #408540;
   --koha-green-dark: #357035;
   --koha-green-light: #4d9c4d;
-  --koha-header-h: 46px;
-}
-
-.koha-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f3f4f4;
-  color: #212529;
-  font-family: Poppins, var(--font-body), "Segoe UI", sans-serif;
-}
-
-/* ── Top navbar ── */
-.koha-topbar {
-  background: var(--koha-green);
-  color: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-}
-.koha-topbar-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 1rem;
-  height: var(--koha-header-h);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.koha-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #fff;
-  font-size: 1rem;
-}
-.koha-brand-sub { opacity: 0.85; font-weight: 300; }
-.koha-nav {
-  display: flex;
-  align-items: stretch;
-  gap: 0.15rem;
-  flex: 1;
-}
-.koha-nav-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.9rem;
-  height: var(--koha-header-h);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 0.92rem;
-  border-bottom: 3px solid transparent;
-  transition: background 0.15s, border-color 0.15s;
-}
-.koha-nav-link:hover,
-.koha-nav-link.active {
-  background: var(--koha-green-dark);
-  border-bottom-color: #fff;
-}
-.koha-nav-icon { font-style: normal; }
-
-.koha-dropdown-wrap { position: relative; display: inline-flex; }
-.koha-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  min-width: 200px;
-  background: #fff;
-  color: #212529;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-  padding: 0.35rem;
-  z-index: 60;
-}
-.koha-dropdown-dark { background: #343a40; color: #fff; }
-.koha-dropdown-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.45rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-.koha-dropdown-item:hover { background: rgba(64, 133, 64, 0.14); }
-.koha-dropdown-dark .koha-dropdown-item:hover { background: rgba(255, 255, 255, 0.1); }
-.koha-dropdown-item.koha-danger { color: #b02a37; }
-.koha-dropdown-wide { min-width: 320px; }
-.koha-notif {
-  padding: 0.55rem 0.75rem;
-  font-size: 0.85rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-.koha-notif.unread { background: rgba(64, 133, 64, 0.07); }
-.koha-notif p { margin: 0.15rem 0 0; opacity: 0.8; }
-.koha-dropdown-item.all { text-align: center; color: var(--koha-green); font-weight: 600; }
-
-.koha-topbar-right { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
-.koha-account-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #fff;
-  font-size: 0.9rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-.koha-account-btn:hover { background: rgba(255, 255, 255, 0.22); }
-.koha-avatar {
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--koha-green);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 0.78rem;
-}
-.koha-bell {
-  position: relative;
-  color: #fff;
-  font-size: 1.05rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-}
-.koha-bell:hover { background: var(--koha-green-dark); }
-.koha-badge {
-  position: absolute;
-  top: -2px; right: -2px;
-  min-width: 17px; height: 17px;
-  border-radius: 999px;
-  background: #dc3545;
-  color: #fff;
-  font-size: 0.68rem;
-  display: grid;
-  place-items: center;
-  padding: 0 4px;
-}
-.koha-burger { display: none; }
-
-/* ── Sub-header breadcrumbs ── */
-.koha-subheader {
-  background: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-.koha-breadcrumbs {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0.45rem 1rem;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  font-size: 0.82rem;
-  color: #6c757d;
-}
-.koha-breadcrumbs li:not(:last-child)::after { content: "›"; margin-left: 0.35rem; opacity: 0.6; }
-.koha-breadcrumbs a:hover { color: var(--koha-green); }
-.koha-breadcrumbs li:last-child { color: #212529; font-weight: 500; }
-
-.koha-main {
-  flex: 1;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
-}
-
-.koha-footer {
-  background: transparent;
-  text-align: center;
-  font-size: 0.75rem;
-  color: #8a938f;
-  padding: 0.9rem;
-}
-
-@media (max-width: 900px) {
-  .koha-nav {
-    display: none;
-    position: absolute;
-    top: var(--koha-header-h);
-    left: 0; right: 0;
-    background: var(--koha-green-dark);
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0.4rem;
-  }
-  .koha-nav.open { display: flex; }
-  .koha-nav-link { height: auto; padding: 0.65rem 0.9rem; border-radius: 6px; }
-  .koha-nav-link.active { border-bottom-color: transparent; }
-  .koha-dropdown { position: static; box-shadow: none; }
-  .koha-burger { display: block; color: #fff; padding: 0.3rem 0.6rem; }
+  --header-h: 56px;
+  --sidebar-w: 248px;
 }
 
 /* ── Circulation home (Koha circulation-home.tt look) ── */
@@ -989,31 +797,8 @@ table.koha-table {
 }
 
 
-/* ── Footer (TRAC Library) ── */
-.koha-footer-brand { margin: 0 0 0.35rem; font-weight: 600; color: #4a5551; }
-.koha-footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.45rem;
-  align-items: center;
-  font-size: 0.8rem;
-}
-.koha-footer-links a {
-  color: var(--koha-green);
-  font-weight: 500;
-}
-.koha-footer-links a:hover { text-decoration: underline; }
-.koha-footer-fine {
-  margin-top: 0.35rem;
-  font-size: 0.75rem;
-  color: #9aa39e;
-}
-.koha-footer-fine a { color: #7c8a83; }
-.koha-footer-fine a:hover { text-decoration: underline; }
-
 @media (prefers-reduced-motion: reduce) {
-  .koha-nav-link, .circ-button, .btn-koha, .koha-footer a { transition: none !important; }
+  .circ-button, .btn-koha { transition: none !important; }
 }
 
 
@@ -1037,7 +822,7 @@ table.koha-table {
 .circ-grid > :nth-child(2) { animation-delay: 0.07s; }
 .circ-grid > :nth-child(3) { animation-delay: 0.14s; }
 
-.btn-koha, .circ-button, .koha-nav-link {
+.btn-koha, .circ-button {
   transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 .btn-koha:active, .circ-button:active { transform: scale(0.97); }
@@ -1052,26 +837,7 @@ table.koha-table {
 }
 
 
-/* ── 3D Bookshelf topbar button ── */
-.koha-shelf-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  font-size: 0.84rem;
-  font-weight: 600;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  transition: background 0.15s ease, transform 0.12s ease;
-}
-.koha-shelf-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  transform: translateY(-1px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .koha-shelf-btn { transition: none; }
-}
+
 
 
 /* ── Login help row + forgot panel ── */
@@ -1333,3 +1099,283 @@ table.koha-table {
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Desk shell: slim solid header, sidebar (≥1024px) / slide-over
+   drawer (<1024px). See src/components/KohaShell.tsx.
+   ═══════════════════════════════════════════════════════════════ */
+.desk-shell { min-height: 100vh; display: flex; flex-direction: column; }
+
+.desk-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  background: var(--jade-deep);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+.desk-brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; letter-spacing: 0.01em; }
+.desk-brand img { border-radius: 999px; }
+.desk-brand-sub { font-weight: 400; opacity: 0.85; }
+.desk-header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.25rem; }
+.desk-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: inherit;
+}
+.desk-icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.desk-count {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--jade-deep);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.desk-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 40px;
+  padding: 0 0.5rem 0 0.25rem;
+  border-radius: 10px;
+}
+.desk-account-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.desk-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.desk-account-name { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+
+.desk-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  min-width: 220px;
+  max-width: calc(100vw - 1.5rem);
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 0.35rem;
+}
+.desk-popover-wide { width: 340px; }
+.desk-popover-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: left;
+}
+.desk-popover-item:hover { background: var(--mist); }
+.desk-popover-item.danger { color: var(--danger); }
+.desk-notif { padding: 0.55rem 0.7rem; border-radius: 8px; font-size: 0.85rem; }
+.desk-notif.unread { background: var(--jade-soft); }
+.desk-notif p { margin-top: 0.15rem; color: color-mix(in srgb, var(--ink) 65%, transparent); }
+
+.desk-body { flex: 1; display: flex; min-height: 0; }
+
+.desk-sidebar {
+  display: none;
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  position: sticky;
+  top: var(--header-h);
+  height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 92%, white);
+}
+@media (min-width: 1024px) {
+  .desk-sidebar { display: block; }
+  .desk-menu-btn { display: none; }
+}
+
+.desk-nav { padding: 0.75rem 0.6rem 1.5rem; }
+.desk-nav-heading {
+  margin: 1rem 0.6rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.desk-nav-section:first-child .desk-nav-heading { margin-top: 0.25rem; }
+.desk-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.desk-nav-link:hover { background: color-mix(in srgb, var(--jade) 8%, transparent); color: var(--ink); }
+.desk-nav-link[aria-current="page"] {
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-weight: 600;
+}
+.desk-nav-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -0.6rem;
+  top: 0.45rem;
+  bottom: 0.45rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--jade);
+}
+.desk-nav-link svg { flex-shrink: 0; }
+
+.desk-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(18, 36, 31, 0.45);
+  animation: desk-fade 0.18s ease-out both;
+}
+.desk-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 61;
+  width: min(300px, 86vw);
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--paper) 96%, white);
+  box-shadow: 8px 0 30px rgba(18, 36, 31, 0.2);
+  animation: desk-slide 0.22s ease-out both;
+}
+.desk-drawer-head {
+  height: var(--header-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.6rem 0 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+.desk-drawer .desk-nav { overflow-y: auto; }
+.desk-drawer .desk-icon-btn:hover { background: var(--mist); }
+@keyframes desk-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes desk-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+.desk-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.desk-main { flex: 1; width: 100%; max-width: 1400px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+@media (min-width: 768px) { .desk-main { padding: 1.5rem 1.5rem 3rem; } }
+
+.desk-footer {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.desk-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 0.25rem; }
+.desk-footer a { color: var(--jade); font-weight: 600; }
+.desk-footer a:hover { text-decoration: underline; }
+
+.desk-header :focus-visible,
+.desk-nav :focus-visible,
+.desk-drawer :focus-visible {
+  outline: 2px solid var(--jade);
+  outline-offset: 2px;
+}
+.desk-header :focus-visible { outline-color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-drawer, .desk-drawer-backdrop { animation: none !important; }
+}
+
+/* ── One card style site-wide: legacy cards match .panel ── */
+.circ-card,
+.koha-table-wrap {
+  background: color-mix(in srgb, var(--paper) 88%, white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* ── Tables become card lists on phones ──
+ * KohaShell copies each column heading into td[data-label]; rows then stack
+ * as cards with "Label  value" lines. Cells spanning the whole row (loading,
+ * empty) stay full width without a label. */
+@media (max-width: 767px) {
+  .data-table, .koha-table { min-width: 0 !important; width: 100%; border-collapse: separate; }
+  .data-table thead, .koha-table thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .data-table tbody, .koha-table tbody { display: grid; gap: 0.6rem; }
+  .data-table tr, .koha-table tbody tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    padding: 0.35rem 0.85rem;
+  }
+  .koha-table tbody tr:nth-child(even) { background: #fff; }
+  .data-table td, .koha-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.45rem 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 6%, transparent) !important;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .data-table td:last-child, .koha-table tbody td:last-child { border-bottom: 0 !important; }
+  .data-table td[data-label]::before, .koha-table tbody td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--ink) 50%, transparent);
+  }
+  .data-table td[data-label=""]::before, .koha-table tbody td[data-label=""]::before { content: none; }
+  .data-table td[data-label=""], .koha-table tbody td[data-label=""] { justify-content: flex-end; }
+  .data-table td[colspan], .koha-table tbody td[colspan] { display: block; text-align: left; }
+  .table-wrap, .koha-table-wrap { overflow: visible; border: 0; box-shadow: none; background: transparent; padding: 0; }
+}
+
+/* Compact tables (dashboard panels) fit their column instead of forcing 640px. */
+.data-table.data-table-compact { min-width: 0; }
+
+/* Anchored headings land below the sticky header instead of under it. */
+html { scroll-padding-top: calc(var(--header-h) + 12px); }

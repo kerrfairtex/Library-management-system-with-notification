@@ -143,7 +143,7 @@ export default function FinesPage() {
               )}
               {fines.map((f) => (
                 <tr key={f.id}>
-                  <td>{members.find((m) => m.id === f.memberId)?.name ?? f.memberId}</td>
+                  <td>{members.find((m) => m.id === f.memberId)?.name ?? "Unknown patron"}</td>
                   <td><span className="badge tone-info">{f.type}</span></td>
                   <td>{f.description ?? "—"}</td>
                   <td>{formatDate(f.createdAt)}</td>

@@ -10,6 +10,7 @@ import { useApi } from "@/lib/hooks";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import Link from "next/link";
+import { KpiRow } from "@/components/dashboard/DashboardKit";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -83,32 +84,18 @@ export default function MyLoansPage() {
         </Link>
       </div>
 
-      {/* Summary cards */}
-      <div className="circ-grid" style={{ marginBottom: "1.25rem" }}>
-        <section className="circ-card">
-          <h3>Books out</h3>
-          <p style={{ fontSize: "1.6rem", fontWeight: 700 }}>{open.length}</p>
-        </section>
-        <section className="circ-card">
-          <h3>Holds waiting</h3>
-          <p style={{ fontSize: "1.6rem", fontWeight: 700 }}>{holds.length}</p>
-        </section>
-        <section className="circ-card">
-          <h3>Fines owed</h3>
-          <p
-            style={{
-              fontSize: "1.6rem",
-              fontWeight: 700,
-              color: totalOwed > 0 ? "#8c1d1d" : undefined,
-            }}
-          >
-            {peso(totalOwed)}
-          </p>
-        </section>
-        <section className="circ-card">
-          <h3>Borrow requests</h3>
-          <p style={{ fontSize: "1.6rem", fontWeight: 700 }}>{borrowRequests.length}</p>
-        </section>
+      {/* Summary cards: 2×2 at every width */}
+      <div className="mb-5">
+        <KpiRow
+          layout="square"
+          loading={loading}
+          items={[
+            { label: "Books out", value: open.length },
+            { label: "Holds waiting", value: holds.length },
+            { label: "Fines owed", value: peso(totalOwed), tone: totalOwed > 0 ? "danger" : undefined },
+            { label: "Borrow requests", value: borrowRequests.length },
+          ]}
+        />
       </div>
 
       {error && <p className="chip chip-overdue">{error}</p>}

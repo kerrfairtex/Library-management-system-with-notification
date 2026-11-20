@@ -88,7 +88,7 @@ export default function AboutPage() {
         </dl>
       </Section>
 
-      <Section title="Contact & developers">
+      <Section title="Contact & developers" id="developers">
         <ul>
           <li>Contact number: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
         </ul>
@@ -191,16 +191,6 @@ export default function AboutPage() {
         </p>
         <ul>
           <li>Phone: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
-        </ul>
-        <p style={{ marginTop: "0.75rem" }}>
-          <strong>Developers</strong>
-        </p>
-        <ul>
-          <li>Aisha W. Daluddin</li>
-          <li>Analyn L. Husain</li>
-          <li>Lowza A. Abdul</li>
-          <li>Dainel M. Al-basri</li>
-          <li>Adzlina A. Sahidjuan</li>
         </ul>
       </Section>
 

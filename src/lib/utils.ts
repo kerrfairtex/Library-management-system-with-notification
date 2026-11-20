@@ -1,7 +1,11 @@
 import type { Book, Loan, Member, Notification, NotificationType } from "./types";
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+/** Short date, or "—" when the value is missing or not a date (never "Invalid Date"). */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",

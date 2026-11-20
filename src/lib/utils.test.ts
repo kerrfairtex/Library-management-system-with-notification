@@ -29,3 +29,11 @@ test("fractional days round down but never below one day", () => {
 test("an invalid date yields no fine", () => {
   assert.equal(overdueFine("not-a-date", NOW), 0);
 });
+
+test("formatDate never renders 'Invalid Date'", async () => {
+  const { formatDate } = await import("./utils.ts");
+  assert.equal(formatDate(undefined), "—");
+  assert.equal(formatDate(null), "—");
+  assert.equal(formatDate("not a date"), "—");
+  assert.notEqual(formatDate("2026-11-19T00:00:00Z"), "—");
+});

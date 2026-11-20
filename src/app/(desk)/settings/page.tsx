@@ -6,6 +6,10 @@ import { useDeskSession } from "@/components/DeskSessionProvider";
 import { apiJson } from "@/lib/hooks";
 import { EmptyState, ErrorBanner, PageHeader, Modal } from "@/components/ui";
 import type { CirculationRule, MemberType } from "@/lib/types";
+import { resolveDeploymentOrigin } from "@/lib/deploy-config";
+
+// Same check the shell uses to decide whether to show the 3D bookshelf link.
+const SHELF_CONFIG = resolveDeploymentOrigin(process.env.NEXT_PUBLIC_SHELF_ORIGIN, "NEXT_PUBLIC_SHELF_ORIGIN");
 
 export const dynamic = "force-dynamic";
 
@@ -190,6 +194,29 @@ export default function SettingsPage() {
           </button>
         }
       />
+
+      <section className="panel mb-5 p-4 md:p-5" aria-labelledby="bookshelf-setting">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="bookshelf-setting" className="text-lg font-semibold">3D bookshelf</h2>
+          <span className={`badge ${SHELF_CONFIG.ok ? "tone-ok" : "tone-warn"}`}>
+            {SHELF_CONFIG.ok ? "Connected" : "Not configured"}
+          </span>
+        </div>
+        {SHELF_CONFIG.ok ? (
+          <p className="mt-2 text-sm">
+            Patrons and staff see a &ldquo;3D bookshelf&rdquo; link in the menu that opens{" "}
+            <a className="font-semibold text-[var(--jade)]" href={SHELF_CONFIG.value} target="_blank" rel="noreferrer noopener">
+              {SHELF_CONFIG.value}
+            </a>.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm">
+            The menu link is hidden until the bookshelf address is set. Add{" "}
+            <code>NEXT_PUBLIC_SHELF_ORIGIN</code> (for example <code>https://shelf.example.edu</code>) to the
+            deployment&rsquo;s environment variables and redeploy. ({SHELF_CONFIG.error})
+          </p>
+        )}
+      </section>
 
       <div className="panel p-4 md:p-5">
         {error && <ErrorBanner message={error} />}

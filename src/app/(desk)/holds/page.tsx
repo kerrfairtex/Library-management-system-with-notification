@@ -51,13 +51,19 @@ export default function HoldsPage() {
   const requestsData = requestsApi?.data;
   const reqLoading = requestsApi?.loading ?? false;
   const { data: booksData } = useApi<{ books: { id: string; title: string }[] }>("/api/books");
-  const { data: membersData } = useApi<{ members: { id: string; name: string }[] }>("/api/members");
+  // /api/members returns a plain array (staff only); patrons never load it.
+  const { data: membersData } = useApi<{ id: string; name: string }[]>(canManage ? "/api/members" : null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const holds = data?.holds ?? [];
   const requests = (requestsData && requestsData.requests) ?? [];
   const books = booksData?.books ?? [];
-  const members = membersData?.members ?? [];
+  const members = Array.isArray(membersData) ? membersData : [];
+  const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown patron";
+  const bookTitle = (id: string) => books.find((b) => b.id === id)?.title ?? "Unknown title";
+  // /api/holds also returns open borrow requests; they're listed once, from
+  // /api/borrow-requests, so drop them here to avoid duplicate rows.
+  const staffHolds = holds.filter((h) => h.kind !== "borrow_request");
   const isLoading = loading || reqLoading;
 
   async function act(id: string, action: string, isRequest = false) {
@@ -200,14 +206,14 @@ export default function HoldsPage() {
             {isLoading && (
               <tr><td colSpan={7}>Loading...</td></tr>
             )}
-            {!isLoading && holds.length === 0 && requests.length === 0 && (
+            {!isLoading && staffHolds.length === 0 && requests.length === 0 && (
               <tr><td colSpan={7}>No holds or borrow requests.</td></tr>
             )}
-            {holds.map((h) => (
+            {staffHolds.map((h) => (
               <tr key={h.id}>
                 <td>#{h.priority}</td>
-                <td><strong>{books.find((b) => b.id === h.book_id)?.title ?? h.book_id}</strong></td>
-                <td>{members.find((m) => m.id === h.member_id)?.name ?? h.member_id}</td>
+                <td><strong>{bookTitle(h.book_id)}</strong></td>
+                <td>{memberName(h.member_id)}</td>
                 <td>{formatDate(h.placed_at)}</td>
                 <td><span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Hold</span></td>
                 <td><span className={chipClass(h.status, h.kind)}>{h.status}</span></td>
@@ -238,8 +244,8 @@ export default function HoldsPage() {
               return (
                 <tr key={r.id} style={{ borderTop: "1px dashed #ccc" }}>
                   <td>#{r.priority}</td>
-                  <td><strong>{books.find((b) => b.id === r.bookId)?.title ?? r.bookId}</strong></td>
-                  <td>{members.find((m) => m.id === r.memberId)?.name ?? r.memberId}</td>
+                  <td><strong>{r.bookTitle || bookTitle(r.bookId)}</strong></td>
+                  <td>{r.memberName || memberName(r.memberId)}</td>
                   <td>{formatDate(r.placedAt)}</td>
                   <td><span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Request</span></td>
                   <td><span className={chipClass(r.status, r.kind)}>{r.status}</span></td>

@@ -105,7 +105,7 @@ export function DeskDashboard({
           empty={overdue.length === 0 ? { title: "Nothing overdue", body: "Every open loan is within its due date." } : null}
         >
           <div className="table-wrap">
-            <table className="data-table">
+            <table className="data-table data-table-compact">
               <thead>
                 <tr>
                   <th>Book</th>
@@ -117,8 +117,8 @@ export function DeskDashboard({
               <tbody>
                 {overdue.slice(0, 8).map((l) => (
                   <tr key={l.id}>
-                    <td className="font-semibold">{l.book?.title ?? "Unknown book"}</td>
-                    <td>{l.member?.name ?? "Unknown patron"}</td>
+                    <td className="max-w-[16rem] truncate font-semibold" title={l.book?.title}>{l.book?.title ?? "Unknown book"}</td>
+                    <td className="max-w-[12rem] truncate">{l.member?.name ?? "Unknown patron"}</td>
                     <td className="whitespace-nowrap">{formatDate(l.dueAt)}</td>
                     <td>
                       <span className="badge tone-danger whitespace-nowrap">
@@ -182,7 +182,7 @@ export function DeskDashboard({
             </>
           )}
           {queues.borrowRequests > 0 && (
-            <Link href="/borrow" className="btn btn-ghost mt-3 w-full">
+            <Link href="/holds" className="btn btn-ghost mt-3 w-full">
               Review {queues.borrowRequests} borrow request{queues.borrowRequests === 1 ? "" : "s"}
             </Link>
           )}
