@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import type { Notification } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate, notificationTone } from "@/lib/utils";
-import { EmptyState, ErrorState, PageHeader } from "@/components/ui";
+import { statusLabel } from "@/lib/status-tone";
+import { announceNotificationsChanged } from "@/lib/events";
+import { Button, Card, EmptyState, ErrorState, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -12,111 +14,104 @@ export const dynamic = "force-dynamic";
 export default function NotificationsPage() {
   const { data, loading, error, reload } = useApi<Notification[]>("/api/notifications");
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const notifications = useMemo(() => {
-    return (data ?? []).filter((n) => (filter === "unread" ? !n.read : true));
-  }, [data, filter]);
+  const all = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const unread = all.filter((n) => !n.read).length;
+  const notifications = useMemo(() => all.filter((n) => (filter === "unread" ? !n.read : true)), [all, filter]);
 
-  async function markOne(id: string) {
-    await apiJson("/api/notifications", {
-      method: "PATCH",
-      body: JSON.stringify({ id }),
-    });
-    await reload();
-  }
-
-  async function markAll() {
-    await apiJson("/api/notifications", {
-      method: "PATCH",
-      body: JSON.stringify({ action: "mark_all_read" }),
-    });
-    await reload();
+  async function mark(body: Record<string, unknown>, key: string) {
+    setBusy(key);
+    setActionError(null);
+    try {
+      await apiJson("/api/notifications", { method: "PATCH", body: JSON.stringify(body) });
+      await reload();
+      announceNotificationsChanged();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "That didn’t go through. Try again.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
     <div>
       <PageHeader
-        title="Alerts"
+        title="Notifications"
         subtitle="Overdue loans, due-soon reminders, checkouts, returns, and inventory notices."
         action={
-          <button type="button" className="btn btn-primary" onClick={markAll}>
+          <Button
+            variant="primary"
+            disabled={unread === 0}
+            busy={busy === "all"}
+            busyLabel="Marking…"
+            onClick={() => mark({ action: "mark_all_read" }, "all")}
+          >
             Mark all read
-          </button>
+          </Button>
         }
       />
 
-      <div className="panel p-4 md:p-5">
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={`btn ${filter === "all" ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setFilter("all")}
-          >
+      <Card>
+        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Show notifications">
+          <Button variant={filter === "all" ? "primary" : "ghost"} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>
             All
-          </button>
-          <button
-            type="button"
-            className={`btn ${filter === "unread" ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setFilter("unread")}
-          >
-            Unread
-          </button>
+          </Button>
+          <Button variant={filter === "unread" ? "primary" : "ghost"} aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>
+            Unread{unread ? ` (${unread})` : ""}
+          </Button>
         </div>
 
-        {error && <ErrorState message={error} />}
-        {loading && <p className="text-sm">Loading alerts…</p>}
+        {actionError && <ErrorState message={actionError} />}
 
-        {!loading && notifications.length === 0 ? (
+        {error ? (
+          <ErrorState message={error} onRetry={reload} className="mb-0" />
+        ) : loading ? (
+          <div className="space-y-3" aria-busy="true" aria-label="Loading notifications">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton h-20 w-full" />
+            ))}
+          </div>
+        ) : notifications.length === 0 ? (
           <EmptyState
-            title="Inbox clear"
-            body="No alerts match this filter. New activity will appear here automatically."
+            title={filter === "unread" ? "No unread notifications" : "No notifications yet"}
+            body="New activity on your loans, holds and the catalog shows up here."
           />
         ) : (
-          <div className="space-y-3">
+          <ul className="space-y-3">
             {notifications.map((n, index) => (
-              <article
+              <li
                 key={n.id}
-                className={`rounded-2xl border border-[var(--line)] px-4 py-4 fade-up ${
-                  n.read ? "bg-white/50 opacity-75" : "bg-white"
-                }`}
+                className={`fade-up rounded-2xl border border-[var(--line)] px-4 py-4 ${n.read ? "bg-white/50" : "bg-white"}`}
                 style={{ animationDelay: `${Math.min(index, 8) * 0.04}s` }}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className={`badge ${notificationTone(n.type)}`}>
-                        {n.type.replace("_", " ")}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {formatDate(n.createdAt)}
-                      </span>
+                      <span className={`badge ${notificationTone(n.type)}`}>{statusLabel(n.type)}</span>
+                      <span className="text-muted text-xs">{formatDate(n.createdAt)}</span>
                       {!n.read && (
                         <span className="badge tone-info">
-                          <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
-                          unread
+                          <span className="pulse-dot mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--info)]" aria-hidden />
+                          Unread
                         </span>
                       )}
                     </div>
-                    <h2 className="display text-xl">{n.title}</h2>
-                    <p className="mt-1 text-sm text-muted">
-                      {n.message}
-                    </p>
+                    <h2 className={`display text-xl ${n.read ? "text-muted" : ""}`}>{n.title}</h2>
+                    <p className="text-muted mt-1 text-sm">{n.message}</p>
                   </div>
                   {!n.read && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => markOne(n.id)}
-                    >
+                    <Button variant="ghost" busy={busy === n.id} busyLabel="Marking…" onClick={() => mark({ id: n.id }, n.id)}>
                       Mark read
-                    </button>
+                    </Button>
                   )}
                 </div>
-              </article>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
