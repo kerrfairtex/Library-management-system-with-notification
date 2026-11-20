@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { updateBookItem, deleteBookItem, getBookItemNotes } from "@/lib/store";
 import type { BookItemStatus } from "@/lib/types";
@@ -27,10 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!item) return NextResponse.json({ error: "Book item not found." }, { status: 404 });
     return NextResponse.json(item);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update book item." },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/book-items/[id]", error, { error: error instanceof Error ? error.message : "Failed to update book item." }, 500);
   }
 }
 
@@ -47,10 +45,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (!success) return NextResponse.json({ error: "Book item not found." }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete book item." },
-      { status: 500 }
-    );
+    return serverError("DELETE /api/book-items/[id]", error, { error: error instanceof Error ? error.message : "Failed to delete book item." }, 500);
   }
 }
 
@@ -71,9 +66,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const notes = await getBookItemNotes(barcode);
     return NextResponse.json({ notes });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to get book item notes." },
-      { status: 500 }
-    );
+    return serverError("GET /api/book-items/[id]", error, { error: error instanceof Error ? error.message : "Failed to get book item notes." }, 500);
   }
 }

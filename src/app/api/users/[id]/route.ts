@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { assertPrivilegedRoleAssignment, requireAdmin, requireCapability } from "@/lib/authz";
 import { changeUserRoleAtomically } from "@/lib/role-transition";
 import {
@@ -84,6 +85,9 @@ export async function PATCH(request: Request, { params }: Params) {
     });
 
     if (result.kind === "error") {
+      if (result.status >= 500) {
+        return serverError("PATCH /api/users/[id]", result.log ?? result.error, { error: result.error }, result.status);
+      }
       if (result.log) console.error(result.log);
       return NextResponse.json({ error: result.error }, { status: result.status });
     }

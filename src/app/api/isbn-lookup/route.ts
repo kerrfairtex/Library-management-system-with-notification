@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { isValidIsbn, normalizeIsbn, parseOpenLibrary } from "@/lib/isbn";
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
       }
     );
     if (!res.ok) {
-      return NextResponse.json({ error: `Open Library returned HTTP ${res.status}.` }, { status: 502 });
+      return serverError("GET /api/isbn-lookup", null, { error: `Open Library returned HTTP ${res.status}.` }, 502);
     }
     const meta = parseOpenLibrary(isbn, await res.json());
     if (!meta) {
@@ -41,10 +42,7 @@ export async function GET(request: Request) {
       );
     }
     return NextResponse.json(meta);
-  } catch {
-    return NextResponse.json(
-      { error: "Could not reach Open Library. Enter the details by hand." },
-      { status: 504 }
-    );
+  } catch (error) {
+    return serverError("GET /api/isbn-lookup", error, { error: "Could not reach Open Library. Enter the details by hand." }, 504);
   }
 }

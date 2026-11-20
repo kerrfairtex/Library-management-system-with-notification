@@ -1,4 +1,5 @@
 import { getMemberByUser } from "@/lib/store";
+import { serverError } from "@/lib/server-error";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { db, supabase } from "@/lib/supabase";
@@ -52,9 +53,6 @@ export async function GET() {
       loanLimit,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load your library record." },
-      { status: 500 }
-    );
+    return serverError("GET /api/my-loans", error, { error: error instanceof Error ? error.message : "Failed to load your library record." }, 500);
   }
 }

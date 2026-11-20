@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireSession } from "@/lib/authz";
 import { isPatron } from "@/lib/permissions";
 import { getMemberByUser } from "@/lib/store";
@@ -29,7 +30,6 @@ export async function GET() {
         : null,
     });
   } catch (error) {
-    console.error("GET /api/auth/me/member failed:", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.json({ error: "Failed to load your member details." }, { status: 500 });
+    return serverError("GET /api/auth/me/member", error, { error: "Failed to load your member details." }, 500);
   }
 }

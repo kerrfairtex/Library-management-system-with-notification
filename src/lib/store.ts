@@ -1822,29 +1822,39 @@ export async function getLibraryData(): Promise<LibraryData> {
 }
 
 /** Master data — database-backed dropdown sources. Active-only by default. */
+/**
+ * Rows count as active unless the row says otherwise. Filtering here (not in
+ * SQL) keeps the read working on a database whose table predates a column
+ * (`active`, `department_id`, `program_years`): the same rows come back on
+ * an up-to-date schema, and a missing column no longer turns into a 500.
+ */
+function isActiveRow(row: { active?: boolean | null }): boolean {
+  return row.active !== false;
+}
+
 export async function listDepartments(includeInactive = false): Promise<Department[]> {
-  let query = db(supabase).from("departments").select("id,code,name,active")
+  const { data, error } = await db(supabase).from("departments").select("*")
     .order("code", { ascending: true });
-  if (!includeInactive) query = query.eq("active", true);
-  const { data, error } = await query;
   throwIfError(error, "Failed to load departments.");
-  return ((data ?? []) as Department[]).map((d) => ({
-    id: d.id,
-    code: d.code,
-    name: d.name,
-    active: d.active,
-  }));
+  return ((data ?? []) as (Omit<Department, "active"> & { active?: boolean | null })[])
+    .filter((d) => includeInactive || isActiveRow(d))
+    .map((d) => ({
+      id: d.id,
+      code: d.code,
+      name: d.name ?? d.code,
+      active: isActiveRow(d),
+    }));
 }
 
 export async function listCourses(includeInactive = false): Promise<Course[]> {
   // select("*") so this keeps working before migration 20261120 adds
   // courses.department_id (departmentId is then null = unmapped).
-  let query = db(supabase).from("courses").select("*")
+  const { data, error } = await db(supabase).from("courses").select("*")
     .order("code", { ascending: true });
-  if (!includeInactive) query = query.eq("active", true);
-  const { data, error } = await query;
   throwIfError(error, "Failed to load courses.");
-  return ((data ?? []) as Parameters<typeof mapCourseRow>[0][]).map(mapCourseRow);
+  return ((data ?? []) as Parameters<typeof mapCourseRow>[0][])
+    .filter((c) => includeInactive || isActiveRow(c))
+    .map(mapCourseRow);
 }
 
 // ── Academic master data administration (admin only; see /api/academic) ──
@@ -1889,13 +1899,13 @@ async function assertDepartmentExists(departmentId: string | null | undefined) {
 }
 
 function mapCourseRow(row: {
-  id: string; code: string; name: string; active: boolean; department_id?: string | null; program_years?: number | null;
+  id: string; code: string; name: string; active?: boolean | null; department_id?: string | null; program_years?: number | null;
 }): Course {
   return {
     id: row.id,
     code: row.code,
     name: row.name,
-    active: row.active,
+    active: row.active !== false,
     departmentId: row.department_id ?? null,
     programYears: row.program_years ?? null,
   };

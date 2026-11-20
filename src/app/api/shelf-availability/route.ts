@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { listBooks } from "@/lib/store";
 import { corsAllowed } from "@/lib/cors-policy";
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   const policy = corsAllowed(process.env.SHELF_ALLOWED_ORIGIN, request.headers.get("origin"));
   const sameOrigin = isSameOrigin(request);
   if (!policy.configured && !sameOrigin) {
-    return NextResponse.json({ error: "Shelf availability is not configured." }, { status: 503 });
+    return serverError("GET /api/shelf-availability", null, { error: "Shelf availability is not configured." }, 503);
   }
   if (policy.configured && !policy.allowed && !sameOrigin) {
     return NextResponse.json({ error: "Origin not allowed." }, { status: 403 });
@@ -63,16 +64,15 @@ export async function GET(request: Request) {
       }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load availability." },
-      { status: 500 }
-    );
+    return serverError("GET /api/shelf-availability", error, { error: error instanceof Error ? error.message : "Failed to load availability." }, 500);
   }
 }
 
 export async function OPTIONS(request: Request) {
   const policy = corsAllowed(process.env.SHELF_ALLOWED_ORIGIN, request.headers.get("origin"));
-  if (!policy.configured) return new NextResponse(null, { status: 503 });
+  if (!policy.configured) {
+    return serverError("OPTIONS /api/shelf-availability", "SHELF_ALLOWED_ORIGIN is not configured", { error: "Shelf availability is not configured." }, 503);
+  }
   return new NextResponse(null, {
     status: policy.allowed ? 204 : 403,
     headers: {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { createMember, listMembers } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
@@ -22,10 +23,7 @@ export async function GET() {
     const members = await listMembers();
     return NextResponse.json(members);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load members." },
-      { status: 500 }
-    );
+    return serverError("GET /api/members", error, { error: error instanceof Error ? error.message : "Failed to load members." }, 500);
   }
 }
 
@@ -91,7 +89,6 @@ export async function POST(request: Request) {
     if (message.includes("already exists")) {
       return NextResponse.json({ error: message }, { status: 409 });
     }
-    console.error("createMember failed:", error);
-    return NextResponse.json({ error: "Failed to create member." }, { status: 500 });
+    return serverError("POST /api/members", error, { error: "Failed to create member." }, 500);
   }
 }

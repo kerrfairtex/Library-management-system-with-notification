@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireAdmin, requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
 import { InputError, MAX_PROGRAM_YEARS, isUuid, isValidProgramYears } from "@/lib/academic";
@@ -31,8 +32,7 @@ export async function GET(request: Request) {
     const mismatchedStudents = await countDepartmentCourseMismatches();
     return NextResponse.json({ departments, courses, mismatchedStudents });
   } catch (error) {
-    console.error("Failed to load academic master data:", error);
-    return NextResponse.json({ error: "Failed to load academic master data." }, { status: 500 });
+    return serverError("GET /api/academic", error, { error: "Failed to load academic master data." }, 500);
   }
 }
 
@@ -73,8 +73,7 @@ function fail(error: unknown, fallback: string) {
   if (error instanceof InputError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  console.error(fallback, error);
-  return NextResponse.json({ error: fallback }, { status: 500 });
+  return serverError("POST/PATCH /api/academic", error, { error: fallback }, 500);
 }
 
 export async function POST(request: Request) {

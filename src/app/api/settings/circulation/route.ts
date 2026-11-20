@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { supabase } from "@/lib/supabase";
 
@@ -54,10 +55,7 @@ export async function GET() {
 
     return NextResponse.json(result.circulation);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load settings" },
-      { status: 500 }
-    );
+    return serverError("GET /api/settings/circulation", error, { error: error instanceof Error ? error.message : "Failed to load settings" }, 500);
   }
 }
 
@@ -85,9 +83,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update settings" },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/settings/circulation", error, { error: error instanceof Error ? error.message : "Failed to update settings" }, 500);
   }
 }

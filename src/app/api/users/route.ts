@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { createStaff, listStaff } from "@/lib/store";
 import {
@@ -21,10 +22,7 @@ export async function GET() {
   try {
     return NextResponse.json(await listStaff());
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load staff." },
-      { status: 500 }
-    );
+    return serverError("GET /api/users", error, { error: error instanceof Error ? error.message : "Failed to load staff." }, 500);
   }
 }
 

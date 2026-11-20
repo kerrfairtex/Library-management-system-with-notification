@@ -1,4 +1,5 @@
 import { getMemberByUser } from "@/lib/store";
+import { serverError } from "@/lib/server-error";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
 import { notificationAudienceFor } from "@/lib/notification-policy";
@@ -37,10 +38,7 @@ export async function GET() {
     }
     return NextResponse.json(sortNotifications(notifications));
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load notifications." },
-      { status: 500 }
-    );
+    return serverError("GET /api/notifications", error, { error: error instanceof Error ? error.message : "Failed to load notifications." }, 500);
   }
 }
 
@@ -76,9 +74,6 @@ export async function PATCH(request: Request) {
     }
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update notifications." },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/notifications", error, { error: error instanceof Error ? error.message : "Failed to update notifications." }, 500);
   }
 }
