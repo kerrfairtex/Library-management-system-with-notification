@@ -8,6 +8,7 @@ import { apiJson } from "@/lib/hooks";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { PublicUser } from "@/lib/types";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
+import { LIBRARY_PHONE } from "@/lib/site";
 
 // No silent production fallback: bookshelf links appear only when configured.
 const SHELF = resolveDeploymentOrigin(process.env.NEXT_PUBLIC_SHELF_ORIGIN, "NEXT_PUBLIC_SHELF_ORIGIN");
@@ -241,7 +242,7 @@ function LoginForm() {
         <div className="login-forgot" role="note">
           <p>
             Password resets are handled at the library desk for security.
-            Visit us or call <a href="tel:+639637130812">[REDACTED]</a> and
+            Visit us or <a href={`tel:${LIBRARY_PHONE}`}>call the library desk</a> and
             a librarian will set a temporary password for you.
           </p>
         </div>

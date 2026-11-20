@@ -4,7 +4,7 @@ import type { Book, DashboardStats, Member, Notification, PublicUser } from "@/l
 import { isPatron } from "@/lib/permissions";
 import type { EnrichedLoan } from "@/lib/utils";
 import { useApi } from "@/lib/hooks";
-import { ErrorBanner } from "@/components/ui";
+import { ErrorState } from "@/components/ui";
 import { KpiRow, Panel } from "@/components/dashboard/DashboardKit";
 import { PatronDashboard } from "@/components/dashboard/PatronDashboard";
 import { DeskDashboard } from "@/components/dashboard/DeskDashboard";
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   if (loading) return <DashboardSkeleton />;
 
   if (error || !data) {
-    return <ErrorBanner message={error || "Failed to load dashboard."} />;
+    return <ErrorState message={error || "Failed to load dashboard."} />;
   }
 
   const { notifications, user } = data;

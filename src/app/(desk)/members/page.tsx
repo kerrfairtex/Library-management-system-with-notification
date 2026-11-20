@@ -9,7 +9,7 @@ import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { YEAR_LEVELS, coursesForDepartment } from "@/lib/academic";
 import { filterMembers, membersToCsv } from "@/lib/member-export";
-import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -321,7 +321,7 @@ export default function MembersPage() {
           </button>
         </div>
 
-        {error && <ErrorBanner message={error} />}
+        {error && <ErrorState message={error} />}
         {loading && <p className="text-sm">Loading members…</p>}
 
         {!loading && members.length === 0 ? (
@@ -360,7 +360,7 @@ export default function MembersPage() {
                       {member.memberType === "student" ? (
                         <>
                           <p>{member.studentId || "—"}</p>
-                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <p className="text-xs text-muted">
                             {[
                               member.departmentId ? deptCode.get(member.departmentId) : null,
                               member.courseId ? courseCode.get(member.courseId) : null,
@@ -373,20 +373,20 @@ export default function MembersPage() {
                         <>
                           <p>{member.studentId}</p>
                           {member.departmentId && deptCode.get(member.departmentId) && (
-                            <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                            <p className="text-xs text-muted">
                               {deptCode.get(member.departmentId)}
                             </p>
                           )}
                         </>
                       ) : (
-                        <span className="text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                        <span className="text-muted">
                           —
                         </span>
                       )}
                     </td>
                     <td>
                       <p>{member.email}</p>
-                      <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                      <p className="text-xs text-muted">
                         {member.phone}
                       </p>
                     </td>
@@ -441,7 +441,7 @@ export default function MembersPage() {
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
-          {formError && <ErrorBanner message={formError} />}
+          {formError && <ErrorState message={formError} />}
           <div>
             <label className="label" htmlFor="memberType">
               Patron type

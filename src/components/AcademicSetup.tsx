@@ -10,7 +10,7 @@
 import { useState, type FormEvent } from "react";
 import { apiJson, useApi } from "@/lib/hooks";
 import type { Course, Department } from "@/lib/types";
-import { ErrorBanner } from "@/components/ui";
+import { ErrorState } from "@/components/ui";
 import { MAX_PROGRAM_YEARS } from "@/lib/academic";
 
 const YEAR_CHOICES = Array.from({ length: MAX_PROGRAM_YEARS }, (_, i) => i + 1);
@@ -77,8 +77,8 @@ export function AcademicSetup() {
           their values.
         </p>
       </div>
-      {error && <ErrorBanner message={error} />}
-      {problem && <ErrorBanner message={problem} />}
+      {error && <ErrorState message={error} />}
+      {problem && <ErrorState message={problem} />}
       {data?.mismatchedStudents ? (
         <p className="badge tone-warn" role="status">
           {data.mismatchedStudents} student record(s) have a course from a different department. Fix them in Patrons.

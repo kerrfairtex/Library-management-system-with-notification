@@ -2,26 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   Design tokens — the one source for colour, type, radius, spacing
+   and focus. Components (src/components/ui) use only these.
+   Contrast notes are against white (WCAG AA needs 4.5:1 for text).
+   ═══════════════════════════════════════════════════════════════ */
 :root {
+  /* Ink */
   --ink: #12241f;
   --ink-soft: #243b33;
-  --jade: #1f7a5c;
-  --jade-deep: #165a44;
+  --ink-muted: #596662; /* helper text, labels: 6.0:1 on white */
+
+  /* Brand */
+  --jade: #1f7a5c; /* 5.2:1 */
+  --jade-deep: #165a44; /* 8.1:1 */
   --jade-soft: #d7efe4;
+
+  /* Surfaces */
   --sand: #e8efe9;
   --mist: #f3f7f4;
   --paper: #fbfcfb;
-  --warn: #9a6b1f;
+  --surface: #ffffff;
+  --line: rgba(18, 36, 31, 0.1);
+  --line-strong: rgba(18, 36, 31, 0.22);
+
+  /* Status tones: text colour on its soft background is ≥ 5:1 */
+  --warn: #7a5510;
   --warn-soft: #f5e8c8;
   --danger: #9b3a3a;
   --danger-soft: #f5d9d9;
   --info: #2a5f7a;
   --info-soft: #d7e8f0;
-  --ok: #1f7a5c;
+  --ok: #165a44;
   --ok-soft: #d7efe4;
-  --line: rgba(18, 36, 31, 0.1);
+  --neutral: #4a5551;
+  --neutral-soft: #eceeed;
+
+  /* Shape, depth, sizing */
+  --radius: 18px; /* cards, panels */
+  --radius-md: 12px; /* buttons, fields */
+  --radius-sm: 8px;
   --shadow: 0 18px 40px rgba(18, 36, 31, 0.08);
-  --radius: 18px;
+  --tap: 44px; /* minimum touch target */
+  --focus: 2px solid var(--jade);
+
+  /* Shell */
+  --header-h: 56px;
+  --sidebar-w: 248px;
+
   --background: var(--mist);
   --foreground: var(--ink);
   --login-glass: color-mix(in srgb, #f7fbf8 90%, white);
@@ -60,11 +88,14 @@ a {
   text-decoration: none;
 }
 
-@layer components {
-  .shell {
-    @apply min-h-screen;
-  }
+/* One visible focus ring for every interactive element. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
 
+@layer components {
+  /* ── Card (.panel) ── */
   .panel {
     background: color-mix(in srgb, var(--paper) 88%, white);
     border: 1px solid var(--line);
@@ -73,60 +104,128 @@ a {
     backdrop-filter: blur(8px);
   }
 
+  /* ── Button ── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
+    @apply inline-flex items-center justify-center gap-2 px-4 text-sm font-semibold transition;
+    min-height: var(--tap);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    line-height: 1.2;
   }
-
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
   .btn-primary {
     background: var(--jade);
     color: white;
   }
-
-  .btn-primary:hover {
+  .btn-primary:hover:not(:disabled) {
     background: var(--jade-deep);
   }
-
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--jade-deep);
+    border-color: color-mix(in srgb, var(--jade) 45%, transparent);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--jade-soft);
+  }
   .btn-ghost {
     background: transparent;
     color: var(--ink-soft);
-    border: 1px solid var(--line);
+    border-color: var(--line-strong);
   }
-
-  .btn-ghost:hover {
-    background: rgba(18, 36, 31, 0.04);
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(18, 36, 31, 0.05);
   }
-
   .btn-danger {
     background: var(--danger-soft);
     color: var(--danger);
   }
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 18%, white);
+  }
 
+  /* ── Form field ── */
   .field {
-    @apply w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition;
-    border-color: var(--line);
-    background: white;
+    @apply w-full px-3 py-2.5 text-sm transition;
+    min-height: var(--tap);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
   }
-
-  .field:focus {
-    border-color: color-mix(in srgb, var(--jade) 55%, white);
-    box-shadow: 0 0 0 3px rgba(31, 122, 92, 0.15);
+  .field:focus-visible {
+    outline: var(--focus);
+    outline-offset: 1px;
+    border-color: var(--jade);
   }
-
+  .field[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em];
     color: var(--ink-soft);
   }
-
-  .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  .field-hint {
+    @apply mt-1 text-xs;
+    color: var(--ink-muted);
+  }
+  .field-error {
+    @apply mt-1 text-xs font-semibold;
+    color: var(--danger);
   }
 
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+    white-space: nowrap;
+  }
+  .tone-neutral {
+    background: var(--neutral-soft);
+    color: var(--neutral);
+  }
   .tone-danger {
     background: var(--danger-soft);
     color: var(--danger);
   }
+  .tone-warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+  .tone-ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+  .tone-info {
+    background: var(--info-soft);
+    color: var(--info);
+  }
 
-  /* Loading placeholder for dashboard panels and KPI cards. */
+  /* ── Text helpers ── */
+  .text-muted {
+    color: var(--ink-muted);
+  }
+  .eyebrow {
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.1em];
+    color: var(--ink-muted);
+  }
+  .link {
+    color: var(--jade-deep);
+    font-weight: 600;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Notice (status messages; ErrorState uses tone-danger) ── */
+  .notice {
+    @apply rounded-xl px-4 py-3 text-sm;
+    overflow-wrap: anywhere;
+  }
+
+  /* Loading placeholder for panels, stat cards and table rows. */
   .skeleton {
     border-radius: 0.6rem;
     background: linear-gradient(
@@ -146,46 +245,18 @@ a {
     transform: rotate(-3deg);
   }
 
-  .tone-warn {
-    background: var(--warn-soft);
-    color: var(--warn);
-  }
-
-  .tone-ok {
-    background: var(--ok-soft);
-    color: var(--ok);
-  }
-
-  .tone-info {
-    background: var(--info-soft);
-    color: var(--info);
-  }
-
-  .nav-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition;
-    color: color-mix(in srgb, var(--ink) 72%, transparent);
-  }
-
-  .nav-link:hover,
-  .nav-link.active {
-    background: rgba(31, 122, 92, 0.1);
-    color: var(--jade-deep);
-  }
-
+  /* ── Table ── */
   .table-wrap {
     @apply overflow-x-auto;
   }
-
   .data-table {
     @apply w-full min-w-[640px] text-left text-sm;
   }
-
   .data-table th {
     @apply px-3 py-3 text-xs font-semibold uppercase tracking-[0.06em];
-    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    color: var(--ink-muted);
     border-bottom: 1px solid var(--line);
   }
-
   .data-table td {
     @apply px-3 py-3 align-middle;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
@@ -194,19 +265,15 @@ a {
   .fade-up {
     animation: fadeUp 0.45s ease both;
   }
-
   .fade-up-delay-1 {
     animation-delay: 0.05s;
   }
-
   .fade-up-delay-2 {
     animation-delay: 0.1s;
   }
-
   .fade-up-delay-3 {
     animation-delay: 0.15s;
   }
-
   .pulse-dot {
     animation: pulseDot 1.8s ease-in-out infinite;
   }
@@ -235,20 +302,6 @@ a {
   }
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.slide-in {
-  animation: slideIn 0.35s ease both;
-}
 
 .login-page {
   position: relative;
@@ -612,8 +665,7 @@ a {
   .fade-up-delay-2,
   .fade-up-delay-3,
   .skeleton,
-  .pulse-dot,
-  .slide-in {
+  .pulse-dot {
     animation: none !important;
   }
 
@@ -631,8 +683,6 @@ a {
   --koha-green: #408540;
   --koha-green-dark: #357035;
   --koha-green-light: #4d9c4d;
-  --header-h: 56px;
-  --sidebar-w: 248px;
 }
 
 /* ── Circulation home (Koha circulation-home.tt look) ── */
@@ -1128,8 +1178,8 @@ table.koha-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--tap);
+  height: var(--tap);
   border-radius: 10px;
   color: inherit;
 }
@@ -1153,7 +1203,7 @@ table.koha-table {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  height: 40px;
+  height: var(--tap);
   padding: 0 0.5rem 0 0.25rem;
   border-radius: 10px;
 }
@@ -1191,7 +1241,8 @@ table.koha-table {
   width: 100%;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.7rem;
+  min-height: var(--tap);
+  padding: 0.5rem 0.7rem;
   border-radius: 8px;
   font-size: 0.9rem;
   text-align: left;
@@ -1200,7 +1251,7 @@ table.koha-table {
 .desk-popover-item.danger { color: var(--danger); }
 .desk-notif { padding: 0.55rem 0.7rem; border-radius: 8px; font-size: 0.85rem; }
 .desk-notif.unread { background: var(--jade-soft); }
-.desk-notif p { margin-top: 0.15rem; color: color-mix(in srgb, var(--ink) 65%, transparent); }
+.desk-notif p { margin-top: 0.15rem; color: var(--ink-muted); }
 
 .desk-body { flex: 1; display: flex; min-height: 0; }
 
@@ -1227,7 +1278,7 @@ table.koha-table {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: color-mix(in srgb, var(--ink) 50%, transparent);
+  color: var(--ink-muted);
 }
 .desk-nav-section:first-child .desk-nav-heading { margin-top: 0.25rem; }
 .desk-nav-link {
@@ -1235,7 +1286,8 @@ table.koha-table {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
+  min-height: var(--tap);
+  padding: 0.5rem 0.7rem;
   border-radius: 10px;
   font-size: 0.92rem;
   color: var(--ink-soft);
@@ -1300,10 +1352,10 @@ table.koha-table {
   padding: 1rem;
   text-align: center;
   font-size: 0.78rem;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  color: var(--ink-muted);
 }
-.desk-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 0.25rem; }
-.desk-footer a { color: var(--jade); font-weight: 600; }
+.desk-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.75rem; margin-top: 0.25rem; }
+.desk-footer a { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 0.25rem; color: var(--jade-deep); font-weight: 600; }
 .desk-footer a:hover { text-decoration: underline; }
 
 .desk-header :focus-visible,
@@ -1366,13 +1418,18 @@ table.koha-table {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    color: var(--ink-muted);
   }
   .data-table td[data-label=""]::before, .koha-table tbody td[data-label=""]::before { content: none; }
   .data-table td[data-label=""], .koha-table tbody td[data-label=""] { justify-content: flex-end; }
   .data-table td[colspan], .koha-table tbody td[colspan] { display: block; text-align: left; }
+  .data-table td.table-state { padding: 0 !important; border: 0 !important; }
+  .data-table tr:has(> td.table-state) { border: 0; padding: 0; background: transparent; }
   .table-wrap, .koha-table-wrap { overflow: visible; border: 0; box-shadow: none; background: transparent; padding: 0; }
 }
+
+/* State rows (loading, empty, error) span the table without row chrome. */
+.data-table td.table-state { padding: 0.75rem 0; }
 
 /* Compact tables (dashboard panels) fit their column instead of forcing 640px. */
 .data-table.data-table-compact { min-width: 0; }

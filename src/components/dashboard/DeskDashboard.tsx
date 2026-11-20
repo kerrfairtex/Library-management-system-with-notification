@@ -23,7 +23,7 @@ import {
 } from "@/lib/dashboard-stats";
 import { Greeting, KpiRow, Panel, QuickActions } from "./DashboardKit";
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function DeskDashboard({
   user,

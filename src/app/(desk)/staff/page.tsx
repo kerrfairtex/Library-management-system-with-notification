@@ -6,7 +6,7 @@ import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
-import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
 import { AcademicSetup } from "@/components/AcademicSetup";
 import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 import { acceptsIdNumber, idNumberLabel, isIdNumberRequired, sharesIdNumberKind } from "@/lib/academic";
@@ -250,14 +250,14 @@ export default function StaffPage() {
       />
 
       <div className="panel p-4 md:p-5">
-        {error && <ErrorBanner message={error} />}
+        {error && <ErrorState message={error} />}
         {loading && <p className="text-sm">Loading staff…</p>}
 
         {!loading && pending.length > 0 && (
           <section className="mb-6 space-y-3">
             <div>
               <h2 className="display text-xl">Pending verifications</h2>
-              <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)]">
+              <p className="mt-1 text-sm text-muted">
                 These accounts signed up with Google and are waiting for
                 librarian review before they can use the desk.
               </p>
@@ -269,7 +269,7 @@ export default function StaffPage() {
               >
                 <div>
                   <p className="font-semibold">{person.name}</p>
-                  <p className="text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+                  <p className="text-xs text-muted">
                     {person.email} · {person.role}
                   </p>
                 </div>
@@ -323,7 +323,7 @@ export default function StaffPage() {
                           <span className="badge tone-warn ml-2">pending</span>
                         )}
                         {isSelf && (
-                          <span className="ml-2 text-xs font-normal text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <span className="ml-2 text-xs font-normal text-muted">
                             you
                           </span>
                         )}
@@ -335,7 +335,7 @@ export default function StaffPage() {
                         >
                           {roleLabel(person.role)}
                         </span>
-                        <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                        <p className="mt-1 text-xs text-muted">
                           {roleBlurb(person.role)}
                         </p>
                       </td>
@@ -427,7 +427,7 @@ export default function StaffPage() {
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
-          {formError && <ErrorBanner message={formError} />}
+          {formError && <ErrorState message={formError} />}
 
           <div>
             <label className="label" htmlFor="name">
@@ -456,7 +456,7 @@ export default function StaffPage() {
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
             {editing && (
-              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+              <p className="mt-1 text-xs text-muted">
                 Email is how this person signs in and cannot be changed here.
               </p>
             )}
@@ -478,13 +478,13 @@ export default function StaffPage() {
               ))}
             </select>
             {roleLocked && (
-              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+              <p className="mt-1 text-xs text-muted">
                 {editingSelf
                   ? "Another admin has to change your role."
                   : "The library needs at least one admin, so this role can't change."}
               </p>
             )}
-            <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+            <p className="mt-1 text-xs text-muted">
               {roleBlurb(form.role)}
             </p>
           </div>
@@ -521,7 +521,7 @@ export default function StaffPage() {
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               placeholder={editing ? "Leave blank to keep the current one" : ""}
             />
-            <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+            <p className="mt-1 text-xs text-muted">
               At least {MIN_PASSWORD_LENGTH} characters.
             </p>
           </div>
@@ -533,7 +533,7 @@ export default function StaffPage() {
               onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
           )}
           {editing && isPatron(form.role) && (
-            <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+            <p className="text-xs text-muted">
               Edit ID numbers and academic details on the Members page.
             </p>
           )}

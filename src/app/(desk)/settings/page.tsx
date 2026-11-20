@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { apiJson } from "@/lib/hooks";
-import { EmptyState, ErrorBanner, PageHeader, Modal } from "@/components/ui";
+import { EmptyState, ErrorState, PageHeader, Modal } from "@/components/ui";
 import type { CirculationRule, MemberType } from "@/lib/types";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
 
@@ -219,8 +219,8 @@ export default function SettingsPage() {
       </section>
 
       <div className="panel p-4 md:p-5">
-        {error && <ErrorBanner message={error} />}
-        {formError && <ErrorBanner message={formError} />}
+        {error && <ErrorState message={error} />}
+        {formError && <ErrorState message={formError} />}
         {success && (
           <div className="mb-4 p-3 bg-green-50 text-green-800 rounded">
             Settings saved successfully!
@@ -511,7 +511,7 @@ export default function SettingsPage() {
         onClose={() => setRuleModalOpen(false)}
       >
         <form onSubmit={saveRule} className="space-y-3">
-          {ruleError && <ErrorBanner message={ruleError} />}
+          {ruleError && <ErrorState message={ruleError} />}
           <div>
             <label className="label" htmlFor="memberType">
               Member Type *

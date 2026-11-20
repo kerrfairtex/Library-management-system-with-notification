@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Notification } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate, notificationTone } from "@/lib/utils";
-import { EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
+import { EmptyState, ErrorState, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export default function NotificationsPage() {
           </button>
         </div>
 
-        {error && <ErrorBanner message={error} />}
+        {error && <ErrorState message={error} />}
         {loading && <p className="text-sm">Loading alerts…</p>}
 
         {!loading && notifications.length === 0 ? (
@@ -87,7 +87,7 @@ export default function NotificationsPage() {
                       <span className={`badge ${notificationTone(n.type)}`}>
                         {n.type.replace("_", " ")}
                       </span>
-                      <span className="text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                      <span className="text-xs text-muted">
                         {formatDate(n.createdAt)}
                       </span>
                       {!n.read && (
@@ -98,7 +98,7 @@ export default function NotificationsPage() {
                       )}
                     </div>
                     <h2 className="display text-xl">{n.title}</h2>
-                    <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--ink)_70%,transparent)]">
+                    <p className="mt-1 text-sm text-muted">
                       {n.message}
                     </p>
                   </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDeskSession } from "@/components/DeskSessionProvider";
-import { ErrorBanner, PageHeader } from "@/components/ui";
+import { ErrorState, PageHeader } from "@/components/ui";
 import type { StudentCompletenessAudit, UserStatistics } from "@/lib/types";
 import { StatGrid } from "@/components/dashboard/DashboardKit";
 
@@ -65,7 +65,7 @@ export default function AdminInsightsPage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Admin insights" subtitle="Account statistics and student data completeness (database-backed)." />
-      {error && <ErrorBanner message={error} />}
+      {error && <ErrorState message={error} />}
       <StatGrid items={cards.map(([label, value]) => ({ label: String(label), value: value ?? "—" }))} />
       <div className="panel p-4">
         <h2 className="display text-lg">Student data completeness audit</h2>

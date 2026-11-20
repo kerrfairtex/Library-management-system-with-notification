@@ -6,7 +6,7 @@ import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, BookItem, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
-import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -254,7 +254,7 @@ export default function BooksPage() {
           />
         </div>
 
-        {error && <ErrorBanner message={error} />}
+        {error && <ErrorState message={error} />}
         {loading && <p className="text-sm">Loading catalog…</p>}
 
         {!loading && books.length === 0 ? (
@@ -287,20 +287,20 @@ export default function BooksPage() {
                       <tr>
                         <td>
                           <p className="font-semibold">{book.title}</p>
-                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <p className="text-xs text-muted">
                             {book.isbn}
                           </p>
                         </td>
                         <td>{book.author}</td>
                         <td>
                           <span className="badge tone-info">{book.category}</span>
-                          <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">
+                          <p className="mt-1 text-xs text-muted">
                             {book.genre}
                           </p>
                         </td>
                         <td>
                           <p>{book.shelfLocation || "—"}</p>
-                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <p className="text-xs text-muted">
                             {book.callNumber || ""}
                           </p>
                         </td>
@@ -372,7 +372,7 @@ export default function BooksPage() {
                               </div>
                               
                               {items.length === 0 ? (
-                                <p className="text-sm text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+                                <p className="text-sm text-muted">
                                   No physical copies recorded yet.
                                 </p>
                               ) : (
@@ -437,7 +437,7 @@ export default function BooksPage() {
                               )}
 
                               <form onSubmit={createItem} className="mt-4 space-y-3">
-                                {itemError && <ErrorBanner message={itemError} />}
+                                {itemError && <ErrorState message={itemError} />}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                   <input type="hidden" name="bookId" value={itemForm.bookId} />
                                   <div>
@@ -549,7 +549,7 @@ export default function BooksPage() {
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
-          {formError && <ErrorBanner message={formError} />}
+          {formError && <ErrorState message={formError} />}
           {!editing && (
             <div>
               <label className="label" htmlFor="isbn-lookup">

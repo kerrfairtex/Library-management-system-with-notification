@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { friendlyError, OFFLINE_MESSAGE } from "./errors";
 
 /** Pass a null url to hold off until the caller knows what to request. */
 export function useApi<T>(
@@ -24,11 +25,11 @@ export function useApi<T>(
       const res = await fetch(url, { credentials: "include", cache: "no-store" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Request failed");
+        throw new Error(friendlyError(res.status, body.error));
       }
       setData(await res.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error && err.message !== "Failed to fetch" ? err.message : OFFLINE_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export async function apiJson<T>(
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(body.error || "Request failed");
+    throw new Error(friendlyError(res.status, body.error));
   }
   return body as T;
 }

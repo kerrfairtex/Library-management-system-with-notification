@@ -7,7 +7,7 @@ import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { daysUntil, formatDate, overdueFine } from "@/lib/utils";
-import { EmptyState, ErrorBanner, Modal, PageHeader } from "@/components/ui";
+import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -137,7 +137,7 @@ export default function LoansPage() {
           ))}
         </div>
 
-        {error && <ErrorBanner message={error} />}
+        {error && <ErrorState message={error} />}
         {loading && <p className="text-sm">Loading loans…</p>}
 
         {!loading && filtered.length === 0 ? (
@@ -168,7 +168,7 @@ export default function LoansPage() {
                       <td>
                         <p>{loan.member?.name ?? "Unknown"}</p>
                         {loan.member?.memberType === "student" && loan.member.studentId && (
-                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <p className="text-xs text-muted">
                             {loan.member.studentId}
                             {loan.member.grade ? ` · ${loan.member.grade}` : ""}
                           </p>
@@ -178,7 +178,7 @@ export default function LoansPage() {
                       <td>
                         {formatDate(loan.dueAt)}
                         {loan.status !== "returned" && (
-                          <p className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+                          <p className="text-xs text-muted">
                             {due < 0
                               ? `${Math.abs(due)} days overdue`
                               : due === 0
@@ -208,7 +208,7 @@ export default function LoansPage() {
                             ₱{overdueFine(loan.dueAt)}
                           </span>
                         ) : (
-                          <span className="text-[color-mix(in_srgb,var(--ink)_40%,transparent)]">—</span>
+                          <span className="text-muted">—</span>
                         )}
                       </td>
                       <td>
@@ -246,7 +246,7 @@ export default function LoansPage() {
           onClose={() => setOpen(false)}
         >
         <form className="space-y-3" onSubmit={onCheckout}>
-          {formError && <ErrorBanner message={formError} />}
+          {formError && <ErrorState message={formError} />}
           <div>
             <label className="label" htmlFor="bookId">
               Book

@@ -7,6 +7,7 @@
  */
 
 import { useApi } from "@/lib/hooks";
+import { LIBRARY_PHONE } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import Link from "next/link";
@@ -254,7 +255,7 @@ export default function MyLoansPage() {
         </table>
         {fines.length > 0 && (
           <p style={{ padding: "0.6rem 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
-            Settle fines at the library desk. Contact [REDACTED] for questions.
+            Settle fines at the library desk. Questions? <a className="link" href={`tel:${LIBRARY_PHONE}`}>Call the library desk</a>.
           </p>
         )}
       </section>

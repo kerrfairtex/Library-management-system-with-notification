@@ -17,7 +17,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Library Catalog — TRAC Library",
+  title: "Library catalog",
   description: "Search the TRAC Library collection: titles, authors, shelf locations and live availability.",
 };
 

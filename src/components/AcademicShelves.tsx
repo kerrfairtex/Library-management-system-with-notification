@@ -175,7 +175,7 @@ function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBo
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <h2 className="display text-xl">{titleCase(group.genre)}</h2>
-          <span className="text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+          <span className="text-xs text-muted">
             {group.books.length} {group.books.length === 1 ? "title" : "titles"}
           </span>
         </div>
@@ -272,7 +272,7 @@ export function AcademicShelvesSection() {
     return (
       <section className="panel p-5">
         <h2 className="display text-xl">Browse the shelves</h2>
-        <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)]">
+        <p className="mt-1 text-sm text-muted">
           Shelves appear here once the catalog has books. Librarians can add
           titles from the Catalog page.
         </p>
@@ -284,7 +284,7 @@ export function AcademicShelvesSection() {
     <section className="space-y-8">
       <div>
         <h2 className="display text-2xl">Browse the shelves</h2>
-        <p className="mt-1 text-sm text-[color-mix(in_srgb,var(--ink)_60%,transparent)]">
+        <p className="mt-1 text-sm text-muted">
           Drag a row to scroll, or use the arrows. Subjects come from the
           catalog&apos;s genre field.
         </p>

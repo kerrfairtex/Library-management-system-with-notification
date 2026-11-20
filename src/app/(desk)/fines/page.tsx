@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
 import type { Fine, Member } from "@/lib/types";
-import { ErrorBanner, PageHeader } from "@/components/ui";
+import { ErrorState, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";

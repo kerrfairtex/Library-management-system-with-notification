@@ -12,7 +12,7 @@ import type { UserStatistics } from "@/lib/types";
 import { roleCounts } from "@/lib/dashboard-stats";
 import { Panel } from "./DashboardKit";
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function AdminPanels() {
   const stats = useApi<UserStatistics>("/api/admin/user-statistics");

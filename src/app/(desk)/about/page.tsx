@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "About & Privacy — TRAC Library",
+  title: "About & privacy",
   description:
     "About the TRAC Library Management System and its privacy policy. Tawi-Tawi Regional Agricultural College, Bongao, Tawi-Tawi.",
 };
 
 const FB = "https://www.facebook.com/share/1EMjsmK2Cu/";
 const TIKTOK = "https://www.tiktok.com/@kerrsmatters?_r=1&_t=ZS-997ZGDLtD9t";
-const PHONE = "+639637130812";
+import { LIBRARY_PHONE as PHONE } from "@/lib/site";
 
 function Section({
   id,
@@ -90,7 +90,7 @@ export default function AboutPage() {
 
       <Section title="Contact & developers" id="developers">
         <ul>
-          <li>Contact number: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
+          <li>Contact number: <a href={`tel:${PHONE}`}>Call the library desk</a></li>
         </ul>
         <p style={{ marginTop: "0.75rem" }}>
           <strong>Developers</strong>
@@ -190,7 +190,7 @@ export default function AboutPage() {
           concerns:
         </p>
         <ul>
-          <li>Phone: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
+          <li>Phone: <a href={`tel:${PHONE}`}>Call the library desk</a></li>
         </ul>
       </Section>
 

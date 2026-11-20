@@ -6,7 +6,7 @@ import type { PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
-import { ErrorBanner, PageHeader } from "@/components/ui";
+import { ErrorState, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { profileDetailRows, type OwnMemberDetails } from "@/lib/profile-details";
 import type { AcademicMaster } from "@/components/AcademicFields";
@@ -83,26 +83,26 @@ export default function ProfilePage() {
         <h2 className="display mb-4 text-2xl">Account details</h2>
         {user ? (
           <dl className="grid gap-y-3 sm:grid-cols-[160px_1fr]">
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Name</dt>
+            <dt className="text-sm font-semibold text-muted">Name</dt>
             <dd className="text-sm">{user.name}</dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Email</dt>
+            <dt className="text-sm font-semibold text-muted">Email</dt>
             <dd className="text-sm">{user.email}</dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Role</dt>
+            <dt className="text-sm font-semibold text-muted">Role</dt>
             <dd>
               <span className={`badge ${user.role === "admin" ? "tone-info" : "tone-ok"}`}>
                 {roleLabel(user.role)}
               </span>
             </dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Member since</dt>
+            <dt className="text-sm font-semibold text-muted">Member since</dt>
             <dd className="text-sm">{account.loading ? "…" : formatDate(memberSince)}</dd>
 
             {detailRows.map((row) => (
               <div key={row.label} className="contents">
-                <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">{row.label}</dt>
-                <dd className={`text-sm ${row.value === "Not set" ? "text-[color-mix(in_srgb,var(--ink)_50%,transparent)]" : ""}`}>
+                <dt className="text-sm font-semibold text-muted">{row.label}</dt>
+                <dd className={`text-sm ${row.value === "Not set" ? "text-muted" : ""}`}>
                   {row.value}
                 </dd>
               </div>
@@ -119,11 +119,11 @@ export default function ProfilePage() {
         )}
         {patron && (ownMember.error || master.error) && (
           <div className="mt-3">
-            <ErrorBanner message={ownMember.error || master.error || "Failed to load academic details."} />
+            <ErrorState message={ownMember.error || master.error || "Failed to load academic details."} />
           </div>
         )}
         {detailRows.length > 0 && (
-          <p className="mt-3 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
+          <p className="mt-3 text-xs text-muted">
             Ask the library desk to correct your ID or academic details.
           </p>
         )}
@@ -134,7 +134,7 @@ export default function ProfilePage() {
         <div className="panel p-5">
           <h2 className="display mb-4 text-2xl">Change display name</h2>
           <form className="space-y-3" onSubmit={saveName}>
-            {nameForm.error && <ErrorBanner message={nameForm.error} />}
+            {nameForm.error && <ErrorState message={nameForm.error} />}
             {nameForm.success && (
               <p className="rounded-xl bg-[var(--jade-soft,#e6f4ef)] px-4 py-3 text-sm text-[var(--jade)]">
                 Name updated successfully.
@@ -167,7 +167,7 @@ export default function ProfilePage() {
         <div className="panel p-5">
           <h2 className="display mb-4 text-2xl">Change password</h2>
           <form className="space-y-3" onSubmit={savePassword}>
-            {pwForm.error && <ErrorBanner message={pwForm.error} />}
+            {pwForm.error && <ErrorState message={pwForm.error} />}
             {pwForm.success && (
               <p className="rounded-xl bg-[var(--jade-soft,#e6f4ef)] px-4 py-3 text-sm text-[var(--jade)]">
                 Password changed successfully.
@@ -188,7 +188,7 @@ export default function ProfilePage() {
                   setPwForm((f) => ({ ...f, password: e.target.value, success: false }))
                 }
               />
-              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
+              <p className="mt-1 text-xs text-muted">
                 At least {MIN_PASSWORD_LENGTH} characters.
               </p>
             </div>

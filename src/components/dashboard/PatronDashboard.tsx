@@ -32,7 +32,7 @@ type MyRecord = {
   loanLimit: number | null;
 };
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function PatronDashboard({
   user,
@@ -170,7 +170,7 @@ export function PatronDashboard({
               <li key={n.id} className={`rounded-xl border border-[var(--line)] px-3 py-2.5 ${n.read ? "opacity-70" : ""}`}>
                 <div className="mb-1 flex items-center gap-2">
                   <span className={`badge ${notificationTone(n.type)}`}>{n.type.replace("_", " ")}</span>
-                  <span className="text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">{formatDate(n.createdAt)}</span>
+                  <span className="text-xs text-muted">{formatDate(n.createdAt)}</span>
                 </div>
                 <p className="font-semibold">{n.title}</p>
                 <p className={`text-sm ${muted}`}>{n.message}</p>
