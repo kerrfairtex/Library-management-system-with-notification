@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useDeskSession } from "@/components/DeskSessionProvider";
-import { ErrorState, PageHeader } from "@/components/ui";
+import Link from "next/link";
+import { buttonClass, Card, EmptyState, ErrorState, PageHeader, StatGrid, Table } from "@/components/ui";
 import type { StudentCompletenessAudit, UserStatistics } from "@/lib/types";
-import { StatGrid } from "@/components/dashboard/DashboardKit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,8 @@ export default function AdminInsightsPage() {
   const [audit, setAudit] = useState<StudentCompletenessAudit | null>(null);
   const [filters] = useState<Filters>(emptyFilters);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const loading = isAdmin && !error && (!stats || !audit);
 
   // Async state updates happen in .then callbacks, never synchronously in the
   // effect body (react-hooks/set-state-in-effect).
@@ -38,14 +40,28 @@ export default function AdminInsightsPage() {
         setStats(s as UserStatistics);
         setAudit(a as StudentCompletenessAudit);
       }
-    }).catch((err: Error) => {
-      if (!cancelled) setError(err.message);
+    }).catch(() => {
+      if (!cancelled) setError("Insights didn’t load. Try again in a moment.");
     });
     return () => { cancelled = true; };
-  }, [isAdmin, filters]);
+  }, [isAdmin, filters, attempt]);
+
+  function retry() {
+    setError(null);
+    setStats(null);
+    setAudit(null);
+    setAttempt((n) => n + 1);
+  }
 
   if (session && !isAdmin) {
-    return <PageHeader title="Admin insights" subtitle="Administrators only." />;
+    return (
+      <div>
+        <PageHeader title="Insights" />
+        <Card>
+          <EmptyState title="Administrators only" body="Ask an admin if you need account statistics." />
+        </Card>
+      </div>
+    );
   }
 
   const cards: Array<[string, number | undefined]> = [
@@ -64,39 +80,55 @@ export default function AdminInsightsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Admin insights" subtitle="Account statistics and student data completeness (database-backed)." />
-      {error && <ErrorState message={error} />}
-      <StatGrid items={cards.map(([label, value]) => ({ label: String(label), value: value ?? "—" }))} />
-      <div className="panel p-4">
-        <h2 className="display text-lg">Student data completeness audit</h2>
-        {audit && (
-          <ul className="mt-2 text-sm" style={{ lineHeight: 1.8 }}>
-            <li>Student accounts: {audit.totalStudentAccounts}</li>
-            <li>Student member records: {audit.totalStudentMembers}</li>
-            <li>Linked accounts: {audit.linkedStudentAccounts}</li>
-            <li>Unlinked records: {audit.unlinkedStudentRecords}</li>
-            <li>Complete profiles: {audit.completeStudentProfiles}</li>
-            <li>Incomplete profiles: {audit.incompleteStudentProfiles}</li>
-            <li>Duplicate Student IDs: {audit.duplicateStudentIds.length}</li>
-          </ul>
-        )}
-        {audit && audit.recordsRequiringReview.length > 0 && (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead><tr><th>Name</th><th>Missing fields</th><th>Action</th></tr></thead>
-              <tbody>
-                {audit.recordsRequiringReview.slice(0, 50).map((r) => (
-                  <tr key={r.memberId}>
-                    <td>{r.name}</td>
-                    <td>{r.missingFields.join(", ")}</td>
-                    <td><a className="btn btn-ghost" href={`/members?edit=${r.memberId}`}>Correct</a></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <PageHeader title="Insights" subtitle="Account statistics and how complete student records are." />
+      {error && <ErrorState message={error} onRetry={retry} />}
+      <StatGrid loading={loading} items={cards.map(([label, value]) => ({ label: String(label), value: value ?? "—" }))} />
+      <Card title="Student data completeness">
+        {loading ? (
+          <div className="space-y-2" aria-busy="true" aria-label="Loading completeness audit">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton h-5 w-2/3" />
+            ))}
           </div>
-        )}
-      </div>
+        ) : audit ? (
+          <>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 text-sm sm:max-w-md">
+              <dt className="text-muted">Student accounts</dt>
+              <dd className="font-semibold">{audit.totalStudentAccounts}</dd>
+              <dt className="text-muted">Student member records</dt>
+              <dd className="font-semibold">{audit.totalStudentMembers}</dd>
+              <dt className="text-muted">Linked accounts</dt>
+              <dd className="font-semibold">{audit.linkedStudentAccounts}</dd>
+              <dt className="text-muted">Unlinked records</dt>
+              <dd className="font-semibold">{audit.unlinkedStudentRecords}</dd>
+              <dt className="text-muted">Complete profiles</dt>
+              <dd className="font-semibold">{audit.completeStudentProfiles}</dd>
+              <dt className="text-muted">Incomplete profiles</dt>
+              <dd className="font-semibold">{audit.incompleteStudentProfiles}</dd>
+              <dt className="text-muted">Duplicate Student IDs</dt>
+              <dd className="font-semibold">{audit.duplicateStudentIds.length}</dd>
+            </dl>
+            {audit.recordsRequiringReview.length > 0 && (
+              <div className="mt-5">
+                <h3 className="mb-2 text-lg font-semibold">Records to review</h3>
+                <Table caption="Student records to review" columns={["Name", "Missing fields", { label: "Action", hideLabel: true }]}>
+                  {audit.recordsRequiringReview.slice(0, 50).map((r) => (
+                    <tr key={r.memberId}>
+                      <td>{r.name}</td>
+                      <td>{r.missingFields.join(", ")}</td>
+                      <td>
+                        <Link className={buttonClass("ghost")} href={`/members?edit=${r.memberId}`}>
+                          Correct
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+            )}
+          </>
+        ) : null}
+      </Card>
     </div>
   );
 }
