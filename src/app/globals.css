@@ -858,7 +858,9 @@ a {
   border-radius: 10px;
   color: inherit;
 }
-.desk-icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+/* Light surfaces (drawer, dialogs) by default; the dark header overrides. */
+.desk-icon-btn:hover { background: var(--sand); }
+.desk-header .desk-icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .desk-count {
   position: absolute;
   top: 4px;
@@ -1015,7 +1017,6 @@ a {
   border-bottom: 1px solid var(--line);
 }
 .desk-drawer .desk-nav { overflow-y: auto; }
-.desk-drawer .desk-icon-btn:hover { background: var(--mist); }
 @keyframes desk-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes desk-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 

@@ -100,7 +100,7 @@ function ModalPanel({
             <h2 id={titleId} className="display text-2xl">
               {title}
             </h2>
-            <button type="button" className="desk-icon-btn -mr-2 -mt-1 shrink-0 hover:bg-[var(--mist)]" onClick={onClose} aria-label="Close dialog">
+            <button type="button" className="desk-icon-btn -mr-2 -mt-1 shrink-0" onClick={onClose} aria-label="Close dialog">
               <X size={20} aria-hidden />
             </button>
           </div>
