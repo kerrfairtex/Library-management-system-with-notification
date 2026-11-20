@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { catalog } from "./catalog";
 import type { ShelfMode } from "./ShelfEngine";
 import { siteConfig } from "./site-config";
+import { ShelfHeader } from "./ShelfHeader";
 
 function ArrowIcon({ direction }: { direction: "left" | "right" }) {
   return (
@@ -31,6 +32,14 @@ export function ProgressLibrary() {
     [selectedIndex],
   );
   const isFocused = mode !== "browse";
+
+  /* The details copy is one scroll box reused for every book: start each
+   * book at the top, or the title opens scrolled up under the
+   * "Return to shelf / 01 — 30" row. */
+  const detailsCopyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (detailsCopyRef.current) detailsCopyRef.current.scrollTop = 0;
+  }, [selectedIndex]);
 
   /* Live availability: refresh copy counts from the TRAC desk API so the
    * shelf never shows stale build-time numbers. Falls back silently to the
@@ -110,34 +119,12 @@ export function ProgressLibrary() {
         aria-label={`Interactive three-dimensional shelf of ${catalog.length} books. Drag or use the arrow keys to browse. Press Enter to inspect the selected book.`}
       />
 
-      <header className="site-header">
-        <div
-          className="wordmark"
-          aria-label={`${siteConfig.wordmark}, ${siteConfig.collectionName}`}
-        >
-          {/* TRAC seal — same logo as the library desk app */}
-          <img
-            src="/branding/seal-192.png"
-            alt=""
-            width={34}
-            height={34}
-            style={{ borderRadius: "50%", verticalAlign: "middle" }}
-          />
-          <span>{siteConfig.wordmark}</span>
-          <span className="wordmark__divider" />
-          <span>{siteConfig.collectionName}</span>
-        </div>
-
-        {/* Sign in — staff/admin entry to the library desk (Koha-style home).
-            Placed top-left so it never collides with the Borrow flow. */}
-        <a
-          className="signin-chip"
-          href={`${libraryOrigin}/login?next=/my-loans`}
-          aria-label="Sign in to TRAC Library desk"
-        >
-          <span aria-hidden>👤</span> Sign in
-        </a>
-      </header>
+      <ShelfHeader
+        logoSrc="/branding/seal-192.png"
+        signInHref={`${libraryOrigin}/login?next=/my-loans`}
+        deskHref={`${libraryOrigin}/`}
+        signOutAction={`${libraryOrigin}/api/auth/logout`}
+      />
 
       <section
         className="browse-caption"
@@ -233,7 +220,7 @@ export function ProgressLibrary() {
               <span>{String(catalog.length).padStart(2, "0")}</span>
             </div>
 
-            <div className="book-details__copy">
+            <div className="book-details__copy" ref={detailsCopyRef}>
               <p className="eyebrow">{siteConfig.editionEyebrow}</p>
               <h2>{selectedBook.title}</h2>
               <p className="book-details__author">{selectedBook.author}</p>

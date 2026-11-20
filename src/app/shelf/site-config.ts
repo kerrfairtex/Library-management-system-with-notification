@@ -5,6 +5,9 @@ export const siteConfig = {
     "Browse the TRAC Library collection on a tactile 3D bookshelf. Pull a book forward to see details and request to borrow it.",
   wordmark: "TRAC LIBRARY",
   collectionName: "INTERACTIVE 3D BOOKSHELF",
+  /** Header lockup, sentence case (the uppercase wordmark is for covers). */
+  headerName: "TRAC Library",
+  headerTagline: "Interactive 3D Bookshelf",
   editionEyebrow: "LIBRARY EDITION",
   coverImprint: "TRAC LIBRARY",
   coverTagline: "SMARTCAMP-K12",

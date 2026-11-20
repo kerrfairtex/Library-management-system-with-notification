@@ -35,15 +35,20 @@ const emptyItemForm = {
   notes: "",
 };
 
+type BookItemsPage = {
+  bookId: string;
+  bookItems: BookItem[];
+  total: number;
+  available: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+};
+
 export default function BooksPage() {
   const { session: me } = useDeskSession();
   // GET /api/books returns { books }.
   const { data, loading, error, reload } = useApi<{ books: Book[] }>("/api/books");
-  // Physical copies (barcodes, branches, staff notes) are for catalog
-  // editors only; patrons see availability from the book row.
-  const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>(
-    canAccess(me?.user, "books.write") ? "/api/book-items" : null
-  );
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
@@ -90,6 +95,20 @@ export default function BooksPage() {
     }
   }
   const [itemsTab, setItemsTab] = useState<string | null>(null);
+  const [itemsPage, setItemsPage] = useState(1);
+  // Physical copies (barcodes, branches, staff notes) are for catalog
+  // editors only; patrons see availability from the book row. Fetched for
+  // the open title only, one page at a time.
+  const {
+    data: itemsData,
+    loading: itemsLoading,
+    error: itemsError,
+    reload: reloadItems,
+  } = useApi<BookItemsPage>(
+    canAccess(me?.user, "books.write") && itemsTab
+      ? `/api/book-items?bookId=${encodeURIComponent(itemsTab)}&page=${itemsPage}`
+      : null
+  );
   const [itemForm, setItemForm] = useState(emptyItemForm);
   const [itemBusy, setItemBusy] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
@@ -125,7 +144,9 @@ export default function BooksPage() {
     });
   }, [data, query]);
 
-  const bookItems = itemsData?.bookItems ?? [];
+  // Ignore a response still showing a previously opened title.
+  const itemsPageData = itemsData && itemsData.bookId === itemsTab ? itemsData : null;
+  const bookItems = itemsPageData?.bookItems ?? [];
 
   function openCreate() {
     if (!canManageBooks) return;
@@ -156,6 +177,7 @@ export default function BooksPage() {
 
   function openItemsTab(bookId: string) {
     setItemsTab(itemsTab === bookId ? null : bookId);
+    setItemsPage(1);
     if (itemsTab !== bookId) {
       setItemForm({ ...emptyItemForm, bookId });
     }
@@ -236,14 +258,13 @@ export default function BooksPage() {
     setItemError(null);
     try {
       await apiJson(`/api/book-items/${id}`, { method: "DELETE" });
-      await reloadItems();
+      // Deleting the only copy on a later page would leave it empty: step
+      // back a page (the new URL refetches). Otherwise reload this page.
+      if (bookItems.length === 1 && itemsPage > 1) setItemsPage(itemsPage - 1);
+      else await reloadItems();
     } catch (err) {
       setItemError(err instanceof Error ? err.message : "The copy wasn’t deleted. Try again.");
     }
-  }
-
-  function getItemsForBook(bookId: string): BookItem[] {
-    return bookItems.filter((item) => item.bookId === bookId);
   }
 
   return (
@@ -302,9 +323,7 @@ export default function BooksPage() {
           }}
         >
                 {books.map((book) => {
-                  const items = getItemsForBook(book.id);
-                  const availableItems = items.filter((i) => i.status === "available").length;
-                  const totalItems = items.length;
+                  const items = itemsTab === book.id ? bookItems : [];
                   return (
                     <React.Fragment key={book.id}>
                       <tr>
@@ -340,7 +359,7 @@ export default function BooksPage() {
                               aria-expanded={itemsTab === book.id}
                               onClick={() => openItemsTab(book.id)}
                             >
-                              {totalItems > 0 ? `${totalItems} items (${availableItems} avail)` : "No items"}
+                              Copies
                             </button>
                           </td>
                         )}
@@ -373,7 +392,14 @@ export default function BooksPage() {
                           <td colSpan={8}>
                             <div className="border-t border-[var(--line)] py-4">
                               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                <h2 className="text-lg font-semibold">Physical copies of {"\u201c"}{book.title}{"\u201d"}</h2>
+                                <div>
+                                  <h2 className="text-lg font-semibold">Physical copies of {"\u201c"}{book.title}{"\u201d"}</h2>
+                                  {itemsPageData && (
+                                    <p className="text-muted text-sm">
+                                      {itemsPageData.total} {itemsPageData.total === 1 ? "copy" : "copies"} · {itemsPageData.available} available
+                                    </p>
+                                  )}
+                                </div>
                                 <Button
                                   variant="primary"
                                   onClick={() => {
@@ -384,11 +410,16 @@ export default function BooksPage() {
                                 </Button>
                               </div>
 
-                              {items.length === 0 ? (
+                              {itemsError ? (
+                                <ErrorState message={itemsError} onRetry={() => void reloadItems()} />
+                              ) : !itemsPageData ? (
+                                <p className="text-muted text-sm" role="status">{itemsLoading ? "Loading copies…" : ""}</p>
+                              ) : items.length === 0 ? (
                                 <p className="text-muted text-sm">No physical copies recorded yet.</p>
                               ) : (
+                                <>
                                 <Table
-                                  caption={`Physical copies of ${book.title}`}
+                                  caption={`Physical copies of ${book.title}, page ${itemsPageData.page} of ${itemsPageData.pages}`}
                                   columns={["Barcode", "Status", "Call number", "Shelf location", "Home branch", "Holding branch", "Notes", { label: "Actions", hideLabel: true }]}
                                 >
                                       {items.map((item) => (
@@ -412,6 +443,31 @@ export default function BooksPage() {
                                         </tr>
                                       ))}
                                 </Table>
+                                {itemsPageData.pages > 1 && (
+                                  <nav aria-label="Copy pages" className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-muted text-sm" aria-live="polite">
+                                      {(itemsPageData.page - 1) * itemsPageData.pageSize + 1}–
+                                      {Math.min(itemsPageData.page * itemsPageData.pageSize, itemsPageData.total)} of {itemsPageData.total}
+                                    </p>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        disabled={itemsPageData.page <= 1 || itemsLoading}
+                                        onClick={() => setItemsPage(itemsPageData.page - 1)}
+                                      >
+                                        Previous page
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        disabled={itemsPageData.page >= itemsPageData.pages || itemsLoading}
+                                        onClick={() => setItemsPage(itemsPageData.page + 1)}
+                                      >
+                                        Next page
+                                      </Button>
+                                    </div>
+                                  </nav>
+                                )}
+                                </>
                               )}
 
                               <form onSubmit={createItem} className="mt-4 space-y-3">

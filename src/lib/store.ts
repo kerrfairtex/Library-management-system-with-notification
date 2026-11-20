@@ -1614,13 +1614,45 @@ function mapBookItem(row: BookItemRow): BookItem {
   };
 }
 
-export async function listBookItems(): Promise<BookItem[]> {
-  const { data, error } = await db(supabase)
-    .from("book_items")
-    .select("*")
-    .order("created_at", { ascending: false });
-  throwIfError(error, "Failed to load book items.");
-  return ((data as BookItemRow[] | null) ?? []).map(mapBookItem);
+/**
+ * One page of one title's physical copies, plus that title's copy counts.
+ * Counts use HEAD requests ({ count: "exact", head: true }): Postgres counts
+ * and no rows travel. Sorted by barcode, then id, so pages are stable even
+ * when many copies share a created_at (bulk-loaded copies do).
+ */
+export async function listBookItemsPage(
+  bookId: string,
+  range: { from: number; to: number }
+): Promise<{ items: BookItem[]; total: number; available: number }> {
+  const [pageRes, totalRes, availableRes] = await Promise.all([
+    db(supabase)
+      .from("book_items")
+      .select("*")
+      .eq("book_id", bookId)
+      .order("barcode", { ascending: true })
+      .order("id", { ascending: true })
+      .range(range.from, range.to),
+    db(supabase)
+      .from("book_items")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", bookId),
+    db(supabase)
+      .from("book_items")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", bookId)
+      .eq("status", "available"),
+  ]);
+  // A page past the end (e.g. after deleting the last copy on the last page)
+  // is PGRST103 "Requested range not satisfiable": treat it as empty.
+  const pastEnd = pageRes.error?.code === "PGRST103";
+  if (!pastEnd) throwIfError(pageRes.error, "Failed to load book items.");
+  throwIfError(totalRes.error, "Failed to count book items.");
+  throwIfError(availableRes.error, "Failed to count available book items.");
+  return {
+    items: pastEnd ? [] : ((pageRes.data as BookItemRow[] | null) ?? []).map(mapBookItem),
+    total: totalRes.count ?? 0,
+    available: availableRes.count ?? 0,
+  };
 }
 
 export async function getBookItemsByBookId(bookId: string): Promise<BookItem[]> {
