@@ -8,14 +8,15 @@
  * Flow: scan/select patron → choose loan days → confirm → POST /api/loans.
  */
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
-import type { Book, Loan, Member, PublicUser } from "@/lib/types";
+import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess, type AppCapability } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
+import { Badge, Button, ButtonLink, Card, EmptyState, ErrorState, FormField, Notice, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 // DEPLOY TRIGGER: 2026-10-03T15:30:00
@@ -25,21 +26,23 @@ function BorrowInner() {
   const searchParams = useSearchParams();
   const isbn = searchParams.get("isbn") ?? "";
 
-  const { data: booksData, loading: booksLoading } = useApi<{ books: Book[] }>("/api/books");
-  const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
-  const { data: loansData, reload } = useApi<{ loans: Loan[] }>("/api/loans");
   const { session } = useDeskSession();
+  const canManage = canAccess(session?.user, "loans.manage" as AppCapability);
+  const { data: booksData, loading: booksLoading, error: booksError, reload: reloadBooks } = useApi<{ books: Book[] }>("/api/books");
+  // GET /api/members returns a plain array (staff only); GET /api/loans returns { data }.
+  const { data: membersData } = useApi<Member[]>(canManage ? "/api/members" : null);
+  const { data: loansData, reload } = useApi<{ data: Loan[] }>(canManage ? "/api/loans?pageSize=1000" : null);
+  const { data: settingsData } = useApi<{ max_active_loans_per_member: number }>(canManage ? "/api/settings/circulation" : null);
 
   const [memberId, setMemberId] = useState("");
   const [days, setDays] = useState(14);
-  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string; bookId: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string; bookId: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const books = booksData?.books ?? [];
-  const members = membersData?.members ?? [];
-  const loans = loansData?.loans ?? [];
-  const user = session?.user;
-  const canManage = canAccess(user, "loans.manage" as AppCapability);
+  const members = Array.isArray(membersData) ? membersData : [];
+  const loans = loansData?.data ?? [];
+  const loanCap = settingsData?.max_active_loans_per_member ?? 3;
 
   // Support both exact ISBN and a fuzzy fallback (title paste from the shelf).
   const book = useMemo(() => {
@@ -78,13 +81,13 @@ function BorrowInner() {
       setMessage({
         bookId: book.id,
         tone: "ok",
-        text: `"${book.title}" checked out — due ${formatDate(body.dueAt) ?? "on time"}.`,
+        text: `"${book.title}" checked out. Due ${formatDate(body.dueAt)}.`,
       });
       reload();
     } catch (error) {
       setMessage({
         bookId: book.id,
-        tone: "err",
+        tone: "danger",
         text: error instanceof Error ? error.message : "Borrow failed.",
       });
     } finally {
@@ -95,38 +98,59 @@ function BorrowInner() {
   if (!isbn) {
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">Borrow</h1>
-        </div>
-        <section className="circ-card">
-          <p>No book specified. Open this page from the 3D bookshelf, or</p>
-          <Link href="/books" className="btn-koha secondary" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
-            Search the catalog →
-          </Link>
-        </section>
+        <PageHeader title="Borrow a book" />
+        <Card>
+          <EmptyState
+            title="No book chosen"
+            body="Open this page from a book in the catalog or the 3D bookshelf."
+            action={<ButtonLink href="/books" variant="primary">Search the catalog</ButtonLink>}
+          />
+        </Card>
       </div>
     );
   }
 
   if (booksLoading) {
-    return <p style={{ padding: "2rem 0" }}>Loading book…</p>;
+    return (
+      <div aria-busy="true" aria-label="Loading book">
+        <div className="skeleton mb-5 h-9 w-56" />
+        <div className="panel space-y-2 p-5">
+          <div className="skeleton h-6 w-2/3" />
+          <div className="skeleton h-4 w-1/2" />
+          <div className="skeleton h-4 w-1/3" />
+        </div>
+      </div>
+    );
+  }
+
+  if (booksError) {
+    return (
+      <div>
+        <PageHeader title="Borrow a book" />
+        <ErrorState message={booksError} onRetry={reloadBooks} />
+      </div>
+    );
   }
 
   if (!book) {
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">Borrow</h1>
-        </div>
-        <section className="circ-card">
-          <p>
-            No book in the catalog matches{" "}
-            <strong>{isbn}</strong>.
-          </p>
-          <Link href="/books?add=1" className="btn-koha" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
-            Fast cataloging — add it
-          </Link>
-        </section>
+        <PageHeader title="Borrow a book" />
+        <Card>
+          <EmptyState
+            title="Not in the catalog"
+            body={<>No book in the catalog matches <strong>{isbn}</strong>.</>}
+            action={
+              canManage ? (
+                <Link href="/books?add=1" className="btn btn-primary">
+                  Fast cataloging: add it
+                </Link>
+              ) : (
+                <ButtonLink href="/books">Search the catalog</ButtonLink>
+              )
+            }
+          />
+        </Card>
       </div>
     );
   }
@@ -135,106 +159,81 @@ function BorrowInner() {
 
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">Borrow</h1>
-        <Link href="/circulation/checkout" className="btn-koha secondary">
-          Full check-out desk →
-        </Link>
-      </div>
+      <PageHeader
+        title="Borrow a book"
+        action={canManage ? <ButtonLink href="/circulation/checkout">Full check-out desk</ButtonLink> : undefined}
+      />
 
-      {/* Book details panel */}
-      <section className="circ-card" style={{ marginBottom: "1.1rem" }}>
-        <h3>{book.title}</h3>
-        <dl
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap: "0.35rem 1rem",
-            fontSize: "0.92rem",
-            margin: 0,
-          }}
-        >
-          <dt>Author</dt>
-          <dd style={{ margin: 0 }}>{book.author}</dd>
-          <dt>ISBN</dt>
-          <dd style={{ margin: 0 }}>{book.isbn}</dd>
-          <dt>Genre</dt>
-          <dd style={{ margin: 0 }}>{book.genre}</dd>
-          <dt>Copies</dt>
-          <dd style={{ margin: 0 }}>
-            <span className={`chip chip-${available ? "available" : "on_loan"}`}>
+      <Card title={book.title} className="mb-4">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dt className="text-muted">Author</dt>
+          <dd>{book.author}</dd>
+          <dt className="text-muted">ISBN</dt>
+          <dd>{book.isbn}</dd>
+          <dt className="text-muted">Genre</dt>
+          <dd>{book.genre}</dd>
+          <dt className="text-muted">Copies</dt>
+          <dd>
+            <Badge tone={available ? "ok" : "info"}>
               {book.availableCopies} of {book.totalCopies} available
-            </span>
+            </Badge>
           </dd>
-          <dt>Currently out</dt>
-          <dd style={{ margin: 0 }}>{activeLoans.length} active loan(s)</dd>
+          {canManage && (
+            <>
+              <dt className="text-muted">Currently out</dt>
+              <dd>
+                {activeLoans.length} active loan{activeLoans.length === 1 ? "" : "s"}
+              </dd>
+            </>
+          )}
         </dl>
-      </section>
+      </Card>
 
       {!canManage ? (
-        <StudentBorrowPanel bookId={book.id} bookTitle={book.title} available={available} />
+        <StudentBorrowPanel bookId={book.id} available={available} />
       ) : !available ? (
-        <section className="circ-card">
-          <p>All copies are currently checked out.</p>
-          <p style={{ opacity: 0.75 }}>Place a hold from the circulation desk once a copy is returned.</p>
-        </section>
+        <Card>
+          <EmptyState title="All copies are checked out" body="Place a hold from the circulation desk once a copy is returned." />
+        </Card>
       ) : (
-        /* Borrow form */
-        <form onSubmit={borrow}>
-          <div className="scan-bar">
-            <label htmlFor="borrow-member" style={{ fontWeight: 600 }}>
-              Patron:
-            </label>
-            <select
-              id="borrow-member"
-              className="scan-input"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              required
-            >
-              <option value="">Select patron…</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                  {m.studentId ? ` · ${m.studentId}` : ""}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="borrow-days" style={{ fontSize: "0.85rem" }}>
-              Days:
-            </label>
-            <select
-              id="borrow-days"
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              style={{ padding: "0.45rem", borderRadius: 6 }}
-            >
-              {[7, 14, 21, 30].map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="btn-koha" disabled={busy || !memberId}>
+        <Card title="Check out to a patron">
+          <form onSubmit={borrow} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+            <FormField label="Patron" required className="min-w-0">
+              <select id="borrow-member" className="field" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+                <option value="">Select patron…</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {m.studentId ? ` · ${m.studentId}` : ""}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Loan days">
+              <select id="borrow-days" className="field" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+                {[7, 14, 21, 30].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <Button type="submit" variant="primary" busy={busy} disabled={!memberId}>
               Confirm borrow
-            </button>
-          </div>
-
+            </Button>
+          </form>
           {memberId && (
-            <p style={{ fontSize: "0.85rem", opacity: 0.8 }}>
-              {memberLoans.length}/3 active loans for this patron.
+            <p className="text-muted mt-3 text-sm">
+              {memberLoans.length} of {loanCap} active loans for this patron.
             </p>
           )}
-        </form>
+        </Card>
       )}
 
-      {message && message.bookId === book?.id && (
-        <p
-          className={`chip chip-${message.tone === "ok" ? "ready" : "overdue"}`}
-          style={{ marginTop: "1rem", display: "inline-block" }}
-        >
+      {message && message.bookId === book.id && (
+        <Notice tone={message.tone} className="mt-4">
           {message.text}
-        </p>
+        </Notice>
       )}
     </div>
   );
@@ -242,14 +241,13 @@ function BorrowInner() {
 
 export default function BorrowPage() {
   return (
-    <Suspense fallback={<p style={{ padding: "2rem 0" }}>Loading…</p>}>
+    <Suspense fallback={<div className="skeleton h-9 w-56" aria-busy="true" aria-label="Loading" />}>
       <BorrowInner />
     </Suspense>
   );
 }
 
-
-function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; bookTitle: string; available: boolean }) {
+function StudentBorrowPanel({ bookId, available }: { bookId: string; available: boolean }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -265,9 +263,7 @@ function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; 
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not submit request.");
       setState("done");
-      setMessage(
-        `Request submitted. Status: Pending librarian approval. We'll notify you when it's ready.`
-      );
+      setMessage("Request sent. A librarian will approve it, and we’ll notify you when it’s ready for pickup.");
     } catch (err) {
       setState("error");
       setMessage(err instanceof Error ? err.message : "Could not submit request.");
@@ -285,9 +281,7 @@ function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; 
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Could not place hold.");
       setState("done");
-      setMessage(
-        `Hold placed! You are #${body.hold.priority} in the queue — we'll notify you when it's ready.`
-      );
+      setMessage(`Hold placed. You are #${body.hold.priority} in the queue; we’ll notify you when it’s ready.`);
     } catch (err) {
       setState("error");
       setMessage(err instanceof Error ? err.message : "Could not place hold.");
@@ -296,52 +290,38 @@ function StudentBorrowPanel({ bookId, bookTitle, available }: { bookId: string; 
 
   if (state === "done") {
     return (
-      <section className="circ-card">
-        <p>✅ {message}</p>
-        <Link href="/my-loans" className="btn-koha" style={{ marginTop: "0.6rem", display: "inline-flex" }}>
-          View my record →
-        </Link>
-      </section>
+      <Card>
+        <Notice tone="ok">{message}</Notice>
+        <ButtonLink href="/my-loans" variant="primary">
+          View my loans
+        </ButtonLink>
+      </Card>
     );
   }
 
   return (
-    <section className="circ-card">
+    <Card>
+      {state === "error" && <Notice tone="danger">{message}</Notice>}
       {available ? (
         <>
-          <p>This book is currently available. Request it and a librarian will approve it for pickup.</p>
-          <button
-            type="button"
-            className="btn-koha"
-            onClick={requestToBorrow}
-            disabled={state === "busy"}
-          >
-            {state === "busy" ? "Submitting…" : "Request to Borrow"}
-          </button>
-          <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.5rem" }}>
-            Or{" "}
-            <button
-              type="button"
-              className="btn-koha secondary"
-              onClick={placeHold}
-              disabled={state === "busy"}
-              style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }}
-            >
+          <p>This book is available. Request it and a librarian will approve it for pickup.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="primary" onClick={requestToBorrow} busy={state === "busy"} busyLabel="Sending…">
+              Request to borrow
+            </Button>
+            <Button onClick={placeHold} disabled={state === "busy"}>
               Place a hold for later
-            </button>
-          </p>
+            </Button>
+          </div>
         </>
       ) : (
         <>
-          <p>All copies are out — place a hold and we{"\u2019"}ll keep your spot in the queue.</p>
-          <button type="button" className="btn-koha" onClick={placeHold} disabled={state === "busy"}>
-            {state === "busy" ? "Placing…" : "Place a hold"}
-          </button>
+          <p>All copies are out. Place a hold and we’ll keep your place in the queue.</p>
+          <Button variant="primary" className="mt-3" onClick={placeHold} busy={state === "busy"} busyLabel="Placing…">
+            Place a hold
+          </Button>
         </>
       )}
-      {state === "error" && (
-        <p className="chip chip-overdue" style={{ marginTop: "0.5rem" }}>{message}</p>
-      )}
-    </section>
+    </Card>
   );
 }

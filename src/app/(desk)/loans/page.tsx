@@ -7,7 +7,8 @@ import type { EnrichedLoan } from "@/lib/utils";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { daysUntil, formatDate, overdueFine } from "@/lib/utils";
-import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, FormField, Modal, PageHeader, Table } from "@/components/ui";
+import { statusLabel } from "@/lib/status-tone";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -21,7 +22,9 @@ export default function LoansPage() {
     reload,
   } = useApi<{ data: EnrichedLoan[]; total: number; hasMore: boolean }>("/api/loans?pageSize=1000");
   const loans = loansPage?.data;
-  const { data: books } = useApi<Book[]>("/api/books");
+  // GET /api/books returns { books }; GET /api/members returns an array.
+  const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
+  const books = booksData?.books;
   const { data: members } = useApi<Member[]>("/api/members");
 
   const [filter, setFilter] = useState<"all" | "active" | "overdue" | "returned">("all");
@@ -31,6 +34,8 @@ export default function LoansPage() {
   const [days, setDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const canManageLoans = canAccess(me?.user, "loans.manage");
 
   // All hooks must run before any conditional return (rules of hooks):
@@ -78,6 +83,8 @@ export default function LoansPage() {
 
   async function onAction(id: string, action: "return" | "renew") {
     if (!canManageLoans) return;
+    setBusyId(id);
+    setActionError(null);
     try {
       await apiJson(`/api/loans/${id}`, {
         method: "PATCH",
@@ -85,233 +92,175 @@ export default function LoansPage() {
       });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Action failed");
+      setActionError(err instanceof Error ? err.message : "The loan wasn’t updated. Try again.");
+    } finally {
+      setBusyId(null);
     }
   }
+
+  const FILTERS = [
+    ["all", "All"],
+    ["active", "On loan"],
+    ["overdue", "Overdue"],
+    ["returned", "Returned"],
+  ] as const;
 
   return (
     <div>
       <PageHeader
-        title="Circulation"
+        title="Loans"
         subtitle={
           restricted
-            ? "Circulation actions are reserved for librarians and admins."
-            : "Check out titles, renew due dates, and return books with automatic alerts."
+            ? "Loans are managed by librarians and admins."
+            : "Every loan: renew due dates, take returns, and see what’s overdue."
         }
         action={
           canManageLoans ? (
-            <button
-              type="button"
-              className="btn btn-primary"
+            <Button
+              variant="primary"
               onClick={() => {
                 setFormError(null);
                 setOpen(true);
               }}
             >
               Check out
-            </button>
+            </Button>
           ) : undefined
         }
       />
 
       {restricted ? (
-        <div className="panel p-4 md:p-5">
+        <Card>
           <EmptyState
-            title="Circulation is restricted"
+            title="Loans are restricted"
             body={`Signed in as ${roleLabel(me!.user.role)}. Ask library staff to process borrowing or returns.`}
           />
-        </div>
+        </Card>
       ) : (
         <>
-        <div className="panel p-4 md:p-5">
-        <div className="mb-4 flex flex-wrap gap-2">
-          {(["all", "active", "overdue", "returned"] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`btn ${filter === key ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setFilter(key)}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-
-        {error && <ErrorState message={error} />}
-        {loading && <p className="text-sm">Loading loans…</p>}
-
-        {!loading && filtered.length === 0 ? (
-          <EmptyState
-            title="No loans in this view"
-            body="Check out a book or switch filters to see circulation history."
-          />
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Book</th>
-                  <th>Student / member</th>
-                  <th>Borrowed</th>
-                  <th>Due</th>
-                  <th>Status</th>
-                  <th>Fine</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((loan) => {
-                  const due = daysUntil(loan.dueAt);
-                  return (
-                    <tr key={loan.id}>
-                      <td className="font-semibold">{loan.book?.title ?? "Unknown"}</td>
-                      <td>
-                        <p>{loan.member?.name ?? "Unknown"}</p>
-                        {loan.member?.memberType === "student" && loan.member.studentId && (
-                          <p className="text-xs text-muted">
-                            {loan.member.studentId}
-                            {loan.member.grade ? ` · ${loan.member.grade}` : ""}
-                          </p>
-                        )}
-                      </td>
-                      <td>{formatDate(loan.borrowedAt)}</td>
-                      <td>
-                        {formatDate(loan.dueAt)}
-                        {loan.status !== "returned" && (
-                          <p className="text-xs text-muted">
-                            {due < 0
-                              ? `${Math.abs(due)} days overdue`
-                              : due === 0
-                                ? "Due today"
-                                : `${due} days left`}
-                          </p>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            loan.status === "overdue"
-                              ? "tone-danger"
-                              : loan.status === "returned"
-                                ? "tone-ok"
-                                : due <= 3
-                                  ? "tone-warn"
-                                  : "tone-info"
-                          }`}
-                        >
-                          {loan.status}
-                        </span>
-                      </td>
-                      <td>
-                        {loan.status === "overdue" ? (
-                          <span className="font-semibold text-[var(--danger)]">
-                            ₱{overdueFine(loan.dueAt)}
-                          </span>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {loan.status !== "returned" && (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => onAction(loan.id, "renew")}
-                            >
-                              Renew
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              onClick={() => onAction(loan.id, "return")}
-                            >
-                              Return
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-        <Modal
-          open={open && canManageLoans}
-          title="Check out a book"
-          onClose={() => setOpen(false)}
-        >
-        <form className="space-y-3" onSubmit={onCheckout}>
-          {formError && <ErrorState message={formError} />}
-          <div>
-            <label className="label" htmlFor="bookId">
-              Book
-            </label>
-            <select
-              id="bookId"
-              className="field"
-              required
-              value={bookId}
-              onChange={(e) => setBookId(e.target.value)}
-            >
-              <option value="">Select an available title</option>
-              {availableBooks.map((book) => (
-                <option key={book.id} value={book.id}>
-                  {book.title} ({book.availableCopies} left)
-                </option>
+          <Card>
+            <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Show loans">
+              {FILTERS.map(([key, label]) => (
+                <Button
+                  key={key}
+                  variant={filter === key ? "primary" : "ghost"}
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                </Button>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="memberId">
-              Student / member
-            </label>
-            <select
-              id="memberId"
-              className="field"
-              required
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
+            </div>
+
+            {actionError && <ErrorState message={actionError} />}
+
+            <Table
+              caption="Loans"
+              columns={["Book", "Patron", "Borrowed", "Due", "Status", "Fine", { label: "Actions", hideLabel: true }]}
+              loading={loading}
+              error={error}
+              onRetry={reload}
+              isEmpty={filtered.length === 0}
+              empty={{ title: "No loans in this view", body: "Check out a book or pick another filter." }}
             >
-              <option value="">Select a student or member</option>
-              {activeMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.memberType === "student"
-                    ? `${member.name}${member.studentId ? ` (${member.studentId})` : ""}`
-                    : `${member.name} · ${member.memberType}`}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="days">
-              Loan period (days)
-            </label>
-            <input
-              id="days"
-              className="field"
-              type="number"
-              min={1}
-              max={60}
-              required
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "Checking out…" : "Confirm checkout"}
-            </button>
-          </div>
-        </form>
-        </Modal>
+              {filtered.map((loan) => {
+                const due = daysUntil(loan.dueAt);
+                const tone =
+                  loan.status === "overdue" ? "danger" : loan.status === "returned" ? "neutral" : due <= 3 ? "warn" : "info";
+                return (
+                  <tr key={loan.id}>
+                    <td className="font-semibold">{loan.book?.title ?? "Unknown title"}</td>
+                    <td>
+                      <p>{loan.member?.name ?? "Unknown patron"}</p>
+                      {loan.member?.memberType === "student" && loan.member.studentId && (
+                        <p className="text-muted text-xs">
+                          {loan.member.studentId}
+                          {loan.member.grade ? ` · ${loan.member.grade}` : ""}
+                        </p>
+                      )}
+                    </td>
+                    <td>{formatDate(loan.borrowedAt)}</td>
+                    <td>
+                      {formatDate(loan.dueAt)}
+                      {loan.status !== "returned" && (
+                        <p className="text-muted text-xs">
+                          {due < 0 ? `${Math.abs(due)} days overdue` : due === 0 ? "Due today" : `${due} days left`}
+                        </p>
+                      )}
+                    </td>
+                    <td>
+                      <Badge tone={tone}>{statusLabel(loan.status)}</Badge>
+                    </td>
+                    <td>
+                      {loan.status === "overdue" ? (
+                        <span className="font-semibold text-[var(--danger)]">₱{overdueFine(loan.dueAt)}</span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {loan.status !== "returned" && (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button variant="ghost" busy={busyId === loan.id} onClick={() => onAction(loan.id, "renew")}>
+                            Renew
+                          </Button>
+                          <Button variant="primary" busy={busyId === loan.id} onClick={() => onAction(loan.id, "return")}>
+                            Return
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </Table>
+          </Card>
+
+          <Modal open={open && canManageLoans} title="Check out a book" onClose={() => setOpen(false)}>
+            <form className="space-y-3" onSubmit={onCheckout}>
+              {formError && <ErrorState message={formError} />}
+              <FormField label="Book" required>
+                <select className="field" value={bookId} onChange={(e) => setBookId(e.target.value)}>
+                  <option value="">Select an available title</option>
+                  {availableBooks.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title} ({book.availableCopies} left)
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Patron" required>
+                <select className="field" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+                  <option value="">Select a patron</option>
+                  {activeMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.memberType === "student"
+                        ? `${member.name}${member.studentId ? ` (${member.studentId})` : ""}`
+                        : `${member.name} · ${member.memberType}`}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Loan period (days)" required>
+                <input
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
+                />
+              </FormField>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" busy={busy} busyLabel="Checking out…">
+                  Confirm checkout
+                </Button>
+              </div>
+            </form>
+          </Modal>
         </>
       )}
     </div>

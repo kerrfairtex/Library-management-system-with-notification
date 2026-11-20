@@ -1,17 +1,17 @@
 "use client";
 
 /*
- * Holds queue + borrow requests — staff screen.
- * Koha circ/view_holdsqueue.tt equivalent, extended with student borrow
- * requests so staff can approve/reject/checkout from one queue.
+ * Holds & borrow requests. Staff approve, reject, check out, fulfil or
+ * cancel from one queue; patrons see and cancel their own.
  */
 
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
-import Link from "next/link";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
+import { statusLabel, statusTone } from "@/lib/status-tone";
+import { Badge, Button, ButtonLink, Card, ErrorState, PageHeader, Table, useDialogs } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -46,17 +46,17 @@ type HoldRow = {
 export default function HoldsPage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
-  const { data, loading, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
+  const { data, loading, error, reload } = useApi<{ holds: HoldRow[] }>("/api/holds");
   const requestsApi = useApi<{ requests: BorrowRequestRow[] }>("/api/borrow-requests");
-  const requestsData = requestsApi?.data;
-  const reqLoading = requestsApi?.loading ?? false;
   const { data: booksData } = useApi<{ books: { id: string; title: string }[] }>("/api/books");
   // /api/members returns a plain array (staff only); patrons never load it.
   const { data: membersData } = useApi<{ id: string; name: string }[]>(canManage ? "/api/members" : null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dialogs = useDialogs();
 
   const holds = data?.holds ?? [];
-  const requests = (requestsData && requestsData.requests) ?? [];
+  const requests = requestsApi.data?.requests ?? [];
   const books = booksData?.books ?? [];
   const members = Array.isArray(membersData) ? membersData : [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown patron";
@@ -64,50 +64,48 @@ export default function HoldsPage() {
   // /api/holds also returns open borrow requests; they're listed once, from
   // /api/borrow-requests, so drop them here to avoid duplicate rows.
   const staffHolds = holds.filter((h) => h.kind !== "borrow_request");
-  const isLoading = loading || reqLoading;
+  const isLoading = loading || requestsApi.loading;
+  const loadError = error || requestsApi.error;
+  const reloadAll = () => {
+    void reload();
+    void requestsApi.reload();
+  };
 
-  async function act(id: string, action: string, isRequest = false) {
+  async function send(id: string, isRequest: boolean, payload: Record<string, unknown>) {
     setBusy(id);
+    setActionError(null);
     try {
-      const url = isRequest ? "/api/borrow-requests" : "/api/holds";
-      await fetch(url, {
+      const res = await fetch(isRequest ? "/api/borrow-requests" : "/api/holds", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
+        body: JSON.stringify({ id, ...payload }),
       });
-      if (isRequest) {
-        window.location.reload();
-      } else {
-        reload();
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "That didn’t go through. Try again.");
       }
+      reloadAll();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "That didn’t go through. Try again.");
     } finally {
       setBusy(null);
     }
   }
 
-  async function checkoutRequest(id: string) {
-    setBusy(id);
-    try {
-      await fetch("/api/borrow-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action: "checkout", days: 14 }),
-      });
-      window.location.reload();
-    } finally {
-      setBusy(null);
-    }
-  }
+  const act = (id: string, action: string, isRequest = false) => send(id, isRequest, { action });
+  const checkoutRequest = (id: string) => send(id, true, { action: "checkout", days: 14 });
 
-  function chipClass(status: string, kind?: string) {
-    if (kind === "borrow_request") {
-      return status === "pending" ? "chip chip-overdue"
-        : status === "ready" ? "chip chip-available"
-        : status === "fulfilled" ? "chip chip-available"
-        : status === "rejected" ? "chip chip-overdue"
-        : "chip chip-tone-info";
-    }
-    return `chip chip-${status}`;
+  async function reject(id: string) {
+    const reason = await dialogs.prompt({
+      title: "Reject this request?",
+      message: "The patron is notified. A reason helps them understand.",
+      label: "Reason (optional)",
+      multiline: true,
+      confirmLabel: "Reject request",
+      danger: true,
+    });
+    if (reason === null) return;
+    await send(id, true, { action: "reject", reason: reason.trim() || undefined });
   }
 
   if (!canManage) {
@@ -115,7 +113,7 @@ export default function HoldsPage() {
     const rows = [
       ...myHolds.map((h) => ({
         id: h.id,
-        title: books.find((b) => b.id === h.book_id)?.title ?? "Unknown title",
+        title: bookTitle(h.book_id),
         type: "Hold",
         placed: h.placed_at,
         status: h.status,
@@ -132,180 +130,131 @@ export default function HoldsPage() {
     ];
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">My holds & requests</h1>
-          <Link href="/books" className="btn-koha secondary">Search catalog</Link>
-        </div>
-        <section className="koha-table-wrap">
-          <table className="koha-table">
-            <thead>
-              <tr><th>Title</th><th>Type</th><th>Placed on</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {isLoading && <tr><td colSpan={5}>Loading...</td></tr>}
-              {!isLoading && rows.length === 0 && (
-                <tr><td colSpan={5}>You have no holds or borrow requests.</td></tr>
-              )}
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td><strong>{r.title}</strong></td>
-                  <td>{r.type}</td>
-                  <td>{formatDate(r.placed)}</td>
-                  <td><span className={chipClass(r.status, r.isRequest ? "borrow_request" : undefined)}>{r.status}</span></td>
-                  <td>
-                    {(r.status === "pending" || r.status === "ready") && (
-                      <button
-                        type="button"
-                        className="btn-koha secondary"
-                        disabled={busy === r.id}
-                        onClick={() => act(r.id, "cancel", r.isRequest)}
-                      >
-                        {busy === r.id ? "Cancelling..." : "Cancel"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+        <PageHeader
+          title="My holds & requests"
+          subtitle="Books you’re waiting for and requests waiting for a librarian."
+          action={<ButtonLink href="/books">Search catalog</ButtonLink>}
+        />
+        {actionError && <ErrorState message={actionError} />}
+        <Card>
+          <Table
+            caption="My holds and borrow requests"
+            columns={["Title", "Type", "Placed on", "Status", { label: "Actions", hideLabel: true }]}
+            loading={isLoading}
+            error={loadError}
+            onRetry={reloadAll}
+            isEmpty={rows.length === 0}
+            empty={{
+              title: "No holds or requests",
+              body: "Place a hold on a book that’s out, or request one that’s on the shelf.",
+              action: <ButtonLink href="/books" variant="primary">Browse the catalog</ButtonLink>,
+            }}
+          >
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="font-semibold">{r.title}</td>
+                <td>{r.type}</td>
+                <td>{formatDate(r.placed)}</td>
+                <td>
+                  <Badge tone={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
+                </td>
+                <td>
+                  {(r.status === "pending" || r.status === "ready") && (
+                    <Button busy={busy === r.id} busyLabel="Cancelling…" onClick={() => act(r.id, "cancel", r.isRequest)}>
+                      Cancel
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">Holds & borrow requests</h1>
-        <Link href="/circulation" className="btn-koha secondary">
-          Back to circulation
-        </Link>
-      </div>
-
-      <section className="circ-card" style={{ marginBottom: "1rem" }}>
-        <p style={{ opacity: 0.8, fontSize: "0.9rem" }}>
-          Pending holds and borrow requests. Approve a borrow request to mark it ready for pickup,
-          then check it out to create the loan.
-        </p>
-      </section>
-
-      <section className="koha-table-wrap">
-        <table className="koha-table">
-          <thead>
-            <tr>
-              <th>Priority</th>
-              <th>Title</th>
-              <th>Patron</th>
-              <th>Placed on</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Actions</th>
+      <PageHeader
+        title="Holds & requests"
+        subtitle="Approve a borrow request to mark it ready for pickup, then check it out to create the loan."
+        action={<ButtonLink href="/circulation">Back to circulation</ButtonLink>}
+      />
+      {actionError && <ErrorState message={actionError} />}
+      <Card>
+        <Table
+          caption="Holds and borrow requests"
+          columns={["Priority", "Title", "Patron", "Placed on", "Type", "Status", { label: "Actions", hideLabel: true }]}
+          loading={isLoading}
+          error={loadError}
+          onRetry={reloadAll}
+          isEmpty={staffHolds.length === 0 && requests.length === 0}
+          empty={{ title: "No holds or requests", body: "New holds and borrow requests appear here." }}
+        >
+          {staffHolds.map((h) => (
+            <tr key={h.id}>
+              <td>#{h.priority}</td>
+              <td className="font-semibold">{bookTitle(h.book_id)}</td>
+              <td>{memberName(h.member_id)}</td>
+              <td>{formatDate(h.placed_at)}</td>
+              <td>Hold</td>
+              <td>
+                <Badge tone={statusTone(h.status)}>{statusLabel(h.status)}</Badge>
+              </td>
+              <td>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button variant="primary" disabled={busy === h.id} onClick={() => act(h.id, "fulfill")}>
+                    Fulfill
+                  </Button>
+                  <Button disabled={busy === h.id} onClick={() => act(h.id, "cancel")}>
+                    Cancel
+                  </Button>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr><td colSpan={7}>Loading...</td></tr>
-            )}
-            {!isLoading && staffHolds.length === 0 && requests.length === 0 && (
-              <tr><td colSpan={7}>No holds or borrow requests.</td></tr>
-            )}
-            {staffHolds.map((h) => (
-              <tr key={h.id}>
-                <td>#{h.priority}</td>
-                <td><strong>{bookTitle(h.book_id)}</strong></td>
-                <td>{memberName(h.member_id)}</td>
-                <td>{formatDate(h.placed_at)}</td>
-                <td><span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Hold</span></td>
-                <td><span className={chipClass(h.status, h.kind)}>{h.status}</span></td>
+          ))}
+          {requests.map((r) => {
+            const isBusy = busy === r.id;
+            return (
+              <tr key={r.id}>
+                <td>#{r.priority}</td>
+                <td className="font-semibold">{r.bookTitle || bookTitle(r.bookId)}</td>
+                <td>{r.memberName || memberName(r.memberId)}</td>
+                <td>{formatDate(r.placedAt)}</td>
+                <td>Request</td>
                 <td>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button
-                      type="button"
-                      className="btn-koha"
-                      disabled={busy === h.id}
-                      onClick={() => act(h.id, "fulfill")}
-                    >
-                      Fulfill
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-koha secondary"
-                      disabled={busy === h.id}
-                      onClick={() => act(h.id, "cancel")}
-                    >
-                      Cancel
-                    </button>
+                  <Badge tone={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
+                </td>
+                <td>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {r.status === "pending" && (
+                      <>
+                        <Button variant="primary" disabled={isBusy} onClick={() => act(r.id, "approve", true)}>
+                          Approve
+                        </Button>
+                        <Button variant="danger" disabled={isBusy} onClick={() => reject(r.id)}>
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {r.status === "ready" && (
+                      <Button variant="primary" disabled={isBusy} onClick={() => checkoutRequest(r.id)}>
+                        Check out
+                      </Button>
+                    )}
+                    {["pending", "ready"].includes(r.status) && (
+                      <Button disabled={isBusy} onClick={() => act(r.id, "cancel", true)}>
+                        Cancel
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
-            ))}
-            {requests.map((r) => {
-              const isBusy = busy === r.id;
-              return (
-                <tr key={r.id} style={{ borderTop: "1px dashed #ccc" }}>
-                  <td>#{r.priority}</td>
-                  <td><strong>{r.bookTitle || bookTitle(r.bookId)}</strong></td>
-                  <td>{r.memberName || memberName(r.memberId)}</td>
-                  <td>{formatDate(r.placedAt)}</td>
-                  <td><span style={{ fontSize: "0.75rem", opacity: 0.7 }}>Request</span></td>
-                  <td><span className={chipClass(r.status, r.kind)}>{r.status}</span></td>
-                  <td>
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      {r.status === "pending" && (
-                        <>
-                          <button
-                            type="button"
-                            className="btn-koha"
-                            disabled={isBusy}
-                            onClick={() => act(r.id, "approve", true)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-koha secondary"
-                            disabled={isBusy}
-                            onClick={() => {
-                              const reason = window.prompt("Rejection reason (optional):") || undefined;
-                              fetch("/api/borrow-requests", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: r.id, action: "reject", reason }),
-                              }).then(() => window.location.reload());
-                            }}
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                      {r.status === "ready" && (
-                        <button
-                          type="button"
-                          className="btn-koha"
-                          disabled={isBusy}
-                          onClick={() => checkoutRequest(r.id)}
-                        >
-                          Check Out
-                        </button>
-                      )}
-                      {["pending", "ready"].includes(r.status) && (
-                        <button
-                          type="button"
-                          className="btn-koha secondary"
-                          disabled={isBusy}
-                          onClick={() => act(r.id, "cancel", true)}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
+            );
+          })}
+        </Table>
+      </Card>
+      {dialogs.element}
     </div>
   );
 }

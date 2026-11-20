@@ -1,17 +1,18 @@
 "use client";
 
 /*
- * My Library Record — self-service page for students/members:
+ * My loans — self-service page for patrons:
  * current loans with due dates, open holds, and outstanding fines.
  * Also the landing target after placing a hold from the 3D bookshelf.
  */
 
+import { useState } from "react";
 import { useApi } from "@/lib/hooks";
 import { LIBRARY_PHONE } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
-import Link from "next/link";
-import { KpiRow } from "@/components/dashboard/DashboardKit";
+import { statusLabel, statusTone } from "@/lib/status-tone";
+import { Badge, Button, ButtonLink, Card, ErrorState, KpiRow, PageHeader, Table } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -62,12 +63,14 @@ function peso(n: string | number) {
 }
 
 export default function MyLoansPage() {
-  const { data, loading, error } = useApi<{
+  const { data, loading, error, reload } = useApi<{
     loans: MyLoan[];
     holds: MyHold[];
     borrowRequests: MyBorrowRequest[];
     fines: MyFine[];
   }>("/api/my-loans");
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loans = data?.loans ?? [];
   const holds = data?.holds ?? [];
@@ -75,190 +78,158 @@ export default function MyLoansPage() {
   const fines = data?.fines ?? [];
   const open = loans.filter((l) => !l.returned_at);
   const totalOwed = fines.reduce((s, f) => s + Number(f.amount_outstanding), 0);
+  // While loading or after an error the sections show that state instead
+  // of their "nothing here" message.
+  const state = { loading, error, onRetry: reload };
+
+  async function cancelRequest(id: string) {
+    setCancelling(id);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/borrow-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "cancel" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "The request wasn’t cancelled. Try again.");
+      }
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "The request wasn’t cancelled. Try again.");
+    } finally {
+      setCancelling(null);
+    }
+  }
 
   return (
-    <div>
-      <div className="page-head">
-        <h1 className="page-title">My library record</h1>
-        <Link href="/books" className="btn-koha secondary">
-          Search catalog →
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="My loans"
+        subtitle="Books you have, holds, borrow requests and fines."
+        action={<ButtonLink href="/books">Search catalog</ButtonLink>}
+      />
 
-      {/* Summary cards: 2×2 at every width */}
-      <div className="mb-5">
-        <KpiRow
-          layout="square"
-          loading={loading}
-          items={[
-            { label: "Books out", value: open.length },
-            { label: "Holds waiting", value: holds.length },
-            { label: "Fines owed", value: peso(totalOwed), tone: totalOwed > 0 ? "danger" : undefined },
-            { label: "Borrow requests", value: borrowRequests.length },
-          ]}
-        />
-      </div>
+      <KpiRow
+        layout="square"
+        loading={loading}
+        items={[
+          { label: "Books out", value: open.length },
+          { label: "Holds waiting", value: holds.length },
+          { label: "Fines owed", value: peso(totalOwed), tone: totalOwed > 0 ? "danger" : undefined },
+          { label: "Borrow requests", value: borrowRequests.length },
+        ]}
+      />
 
-      {error && <p className="chip chip-overdue">{error}</p>}
-      {loading && <p>Loading your record…</p>}
+      {actionError && <ErrorState message={actionError} />}
 
-      {/* Checkouts */}
-      <section className="koha-table-wrap" style={{ marginBottom: "1.25rem" }}>
-        <table className="koha-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Borrowed</th>
-              <th>Due</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loans.length === 0 && (
-              <tr><td colSpan={4}>No checkouts yet. Browse the catalog to borrow.</td></tr>
-            )}
-            {loans.map((l) => {
-              const status = l.returned_at
-                ? "returned"
-                : deriveLoanStatus({ status: l.status as never, due_at: l.due_at });
-              return (
-                <tr key={l.id}>
-                  <td>
-                    <strong>{l.books?.title ?? "Unknown title"}</strong>
-                    <br />
-                    <span style={{ opacity: 0.7 }}>{l.books?.author}</span>
-                  </td>
-                  <td>{formatDate(l.borrowed_at)}</td>
-                  <td>{formatDate(l.due_at)}</td>
-                  <td>
-                    <span className={`chip chip-${status}`}>
-                      {l.returned_at ? "returned" : status}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Holds */}
-      <section className="koha-table-wrap" style={{ marginBottom: "1.25rem" }}>
-        <table className="koha-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Placed on</th>
-              <th>Queue position</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {holds.length === 0 && (
-              <tr><td colSpan={4}>No open holds.</td></tr>
-            )}
-            {holds.map((h) => (
-              <tr key={h.id}>
-                <td><strong>{h.books?.title ?? "Unknown title"}</strong></td>
-                <td>{formatDate(h.placed_at)}</td>
-                <td>#{h.priority}</td>
-                <td><span className={`chip chip-${h.status}`}>{h.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Borrow Requests */}
-      <section className="koha-table-wrap" style={{ marginBottom: "1.25rem" }}>
-        <table className="koha-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Requested on</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {borrowRequests.length === 0 && (
-              <tr><td colSpan={4}>No borrow requests yet.</td></tr>
-            )}
-            {borrowRequests.map((r: MyBorrowRequest) => (
-              <tr key={r.id}>
-                <td><strong>{r.bookTitle ?? "Unknown title"}</strong></td>
-                <td>{formatDate(r.placedAt)}</td>
+      <Card title="Checkouts">
+        <Table
+          caption="Checkouts"
+          columns={["Title", "Borrowed", "Due", "Status"]}
+          {...state}
+          isEmpty={loans.length === 0}
+          empty={{
+            title: "No checkouts yet",
+            body: "Books you borrow show here with their due dates.",
+            action: <ButtonLink href="/books" variant="primary">Browse the catalog</ButtonLink>,
+          }}
+        >
+          {loans.map((l) => {
+            const status = l.returned_at ? "returned" : deriveLoanStatus({ status: l.status as never, due_at: l.due_at });
+            return (
+              <tr key={l.id}>
                 <td>
-                  <span className={`chip chip-${
-                    r.status === "pending" ? "overdue"
-                    : r.status === "ready" ? "available"
-                    : r.status === "fulfilled" ? "available"
-                    : r.status === "rejected" ? "overdue"
-                    : "tone-info"
-                  }`}>
-                    {r.status}
-                  </span>
+                  <p className="font-semibold">{l.books?.title ?? "Unknown title"}</p>
+                  {l.books?.author && <p className="text-muted text-sm">{l.books.author}</p>}
                 </td>
+                <td>{formatDate(l.borrowed_at)}</td>
+                <td>{formatDate(l.due_at)}</td>
                 <td>
-                  {r.status === "pending" && (
-                    <button
-                      type="button"
-                      className="btn-koha secondary"
-                      style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }}
-                      onClick={async () => {
-                        try {
-                          await fetch("/api/borrow-requests", {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ id: r.id, action: "cancel" }),
-                          });
-                          window.location.reload();
-                        } catch (e) {
-                          window.alert("Failed to cancel request.");
-                        }
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  )}
+                  <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            );
+          })}
+        </Table>
+      </Card>
 
-      {/* Fines */}
-      <section className="koha-table-wrap">
-        <table className="koha-table">
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Outstanding</th>
+      <Card title="Holds">
+        <Table
+          caption="Holds"
+          columns={["Title", "Placed on", "Queue position", "Status"]}
+          {...state}
+          isEmpty={holds.length === 0}
+          empty={{ title: "No open holds", body: "Place a hold on a book that’s out and we’ll tell you when it’s ready." }}
+        >
+          {holds.map((h) => (
+            <tr key={h.id}>
+              <td className="font-semibold">{h.books?.title ?? "Unknown title"}</td>
+              <td>{formatDate(h.placed_at)}</td>
+              <td>#{h.priority}</td>
+              <td>
+                <Badge tone={statusTone(h.status)}>{statusLabel(h.status)}</Badge>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {fines.length === 0 && (
-              <tr><td colSpan={4}>No outstanding fines — keep it up!</td></tr>
-            )}
-            {fines.map((f) => (
-              <tr key={f.id}>
-                <td>{f.description ?? f.id}</td>
-                <td>{formatDate(f.created_at)}</td>
-                <td>{peso(f.amount)}</td>
-                <td style={{ fontWeight: 700 }}>{peso(f.amount_outstanding)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </Table>
+      </Card>
+
+      <Card title="Borrow requests">
+        <Table
+          caption="Borrow requests"
+          columns={["Title", "Requested on", "Status", { label: "Actions", hideLabel: true }]}
+          {...state}
+          isEmpty={borrowRequests.length === 0}
+          empty={{ title: "No borrow requests", body: "Request a book that’s on the shelf and a librarian will approve it." }}
+        >
+          {borrowRequests.map((r: MyBorrowRequest) => (
+            <tr key={r.id}>
+              <td className="font-semibold">{r.bookTitle ?? "Unknown title"}</td>
+              <td>{formatDate(r.placedAt)}</td>
+              <td>
+                <Badge tone={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
+              </td>
+              <td>
+                {r.status === "pending" && (
+                  <Button busy={cancelling === r.id} busyLabel="Cancelling…" onClick={() => cancelRequest(r.id)}>
+                    Cancel
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </Card>
+
+      <Card title="Fines">
+        <Table
+          caption="Fines"
+          columns={["Description", "Date", "Amount", "Outstanding"]}
+          {...state}
+          isEmpty={fines.length === 0}
+          empty={{ title: "No outstanding fines", body: "Keep returning books on time." }}
+        >
+          {fines.map((f) => (
+            <tr key={f.id}>
+              <td>{f.description ?? "Library fine"}</td>
+              <td>{formatDate(f.created_at)}</td>
+              <td>{peso(f.amount)}</td>
+              <td className="font-semibold">{peso(f.amount_outstanding)}</td>
+            </tr>
+          ))}
+        </Table>
         {fines.length > 0 && (
-          <p style={{ padding: "0.6rem 0.75rem", fontSize: "0.85rem", opacity: 0.8 }}>
-            Settle fines at the library desk. Questions? <a className="link" href={`tel:${LIBRARY_PHONE}`}>Call the library desk</a>.
+          <p className="text-muted mt-3 text-sm">
+            Settle fines at the library desk. Questions?{" "}
+            <a className="link" href={`tel:${LIBRARY_PHONE}`}>
+              Call the library desk
+            </a>
+            .
           </p>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

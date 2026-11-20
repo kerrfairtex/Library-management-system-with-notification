@@ -1,112 +1,104 @@
 "use client";
 
 /*
- * Circulation home — lookalike of Koha's circ/circulation-home.tt:
- * three cards — big action buttons, holds queue, overdues/reports.
+ * Circulation home: the desk's main actions, plus counts and shortcuts.
  */
 
 import Link from "next/link";
+import { ArrowDownToLine, ArrowUpFromLine, BookPlus, ChevronRight, RefreshCw } from "lucide-react";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Loan } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { canAccess } from "@/lib/permissions";
+import { ButtonLink, Card, EmptyState, ErrorState, PageHeader } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
 
 type LoanDto = Loan & { status: string; dueAt?: string; due_at?: string };
 
+function Shortcut({ href, label, count, danger }: { href: string; label: string; count?: number | string; danger?: boolean }) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex min-h-[var(--tap)] items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-[var(--mist)]"
+      >
+        <span>{label}</span>
+        <span className="flex items-center gap-2">
+          {count !== undefined && (
+            <span className={`font-semibold ${danger ? "text-[var(--danger)]" : "text-[var(--jade-deep)]"}`}>{count}</span>
+          )}
+          <ChevronRight size={16} aria-hidden className="text-muted" />
+        </span>
+      </Link>
+    </li>
+  );
+}
+
 export default function CirculationHomePage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
-  const { data: loansPage, loading } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
+  const { data: loansPage, loading, error, reload } = useApi<{ data: LoanDto[] }>("/api/loans?pageSize=1000");
   const loans = loansPage?.data ?? [];
   const open = loans.filter((l) => l.status !== "returned");
   const overdue = open.filter(
     (l) => deriveLoanStatus({ status: l.status, due_at: l.dueAt }) === "overdue"
   );
+  const count = (n: number) => (loading ? "…" : n);
 
   if (!canManage) {
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">Circulation</h1>
-        </div>
-        <section className="circ-card">
-          <p>This page is only available to librarians and admins.</p>
-        </section>
+        <PageHeader title="Circulation" />
+        <Card>
+          <EmptyState title="Librarians and admins only" body="This page is only available to library staff." />
+        </Card>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">Circulation</h1>
-      </div>
+      <PageHeader title="Circulation" subtitle="Check books out and in, renew loans, and add new titles." />
 
-      <div className="circ-grid">
-        {/* Col A: actions — mirrors Koha circulation-actions */}
-        <section className="circ-card">
-          <h3>Circulation</h3>
-          <div className="circ-buttons">
-            <Link href="/circulation/checkout" className="circ-button">
-              <span aria-hidden>⬆</span> Check out
-            </Link>
-            <Link href="/circulation/checkin" className="circ-button alt">
-              <span aria-hidden>⬇</span> Check in
-            </Link>
-            <Link href="/loans?filter=renew" className="circ-button warn">
-              <span aria-hidden>↻</span> Renew
-            </Link>
-            <Link href="/books?add=1" className="circ-button">
-              <span aria-hidden>✚</span> Fast cataloging
+      {error && <ErrorState message={error} onRetry={reload} />}
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <Card title="Desk actions">
+          <div className="grid gap-2">
+            <ButtonLink href="/circulation/checkout" variant="primary" className="justify-start">
+              <ArrowUpFromLine size={18} aria-hidden /> Check out
+            </ButtonLink>
+            <ButtonLink href="/circulation/checkin" variant="primary" className="justify-start">
+              <ArrowDownToLine size={18} aria-hidden /> Check in
+            </ButtonLink>
+            <ButtonLink href="/loans?filter=renew" className="justify-start">
+              <RefreshCw size={18} aria-hidden /> Renew
+            </ButtonLink>
+            <Link href="/books?add=1" className="btn btn-secondary justify-start">
+              <BookPlus size={18} aria-hidden /> Fast cataloging
             </Link>
           </div>
-        </section>
+        </Card>
 
-        {/* Col B: holds */}
-        <section className="circ-card">
-          <h3>Holds</h3>
-          <ul className="circ-links">
-            <li>
-              <Link href="/loans?filter=active">
-                Active loans <span className="circ-count">{open.length}</span>
-              </Link>
-            </li>
-            <li>
-              <Link href="/holds">Holds queue</Link>
-            </li>
-            <li>
-              <Link href="/fines">Fines desk</Link>
-            </li>
-            <li>
-              <Link href="/members">Patron search</Link>
-            </li>
+        <Card title="Desk shortcuts">
+          <ul className="space-y-1">
+            <Shortcut href="/loans?filter=active" label="Active loans" count={count(open.length)} />
+            <Shortcut href="/holds" label="Holds & requests" />
+            <Shortcut href="/fines" label="Fines" />
+            <Shortcut href="/members" label="Patrons" />
           </ul>
-        </section>
+        </Card>
 
-        {/* Col C: overdues + reports */}
-        <section className="circ-card">
-          <h3>Overdues &amp; reports</h3>
-          <ul className="circ-links">
-            <li>
-              <Link href="/loans?filter=overdue">
-                Overdues{" "}
-                <span className="circ-count" style={{ color: "#8c1d1d" }}>
-                  {overdue.length}
-                </span>
-              </Link>
-            </li>
-            <li>
-              <Link href="/reports">Reports home</Link>
-            </li>
-            <li>
-              <Link href="/notifications">Notifications</Link>
-            </li>
+        <Card title="Overdue & reports">
+          <ul className="space-y-1">
+            <Shortcut href="/loans?filter=overdue" label="Overdue loans" count={count(overdue.length)} danger={overdue.length > 0} />
+            <Shortcut href="/reports" label="Reports" />
+            <Shortcut href="/notifications" label="Notifications" />
           </ul>
-        </section>
+        </Card>
       </div>
     </div>
   );

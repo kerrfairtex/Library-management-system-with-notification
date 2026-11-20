@@ -1,7 +1,7 @@
 "use client";
 
 /*
- * Fines desk — staff screen: all outstanding fines, mark paid or waive.
+ * Fines. Staff: every fine, mark paid or waive. Patrons: their own fines.
  */
 
 import { useApi } from "@/lib/hooks";
@@ -10,7 +10,8 @@ import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { canAccess } from "@/lib/permissions";
 import type { Fine, Member } from "@/lib/types";
-import { ErrorState, PageHeader } from "@/components/ui";
+import { statusLabel } from "@/lib/status-tone";
+import { Badge, Button, Card, ErrorState, PageHeader, StatGrid, Table } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -19,12 +20,17 @@ function peso(n: number) {
   return `₱${n.toFixed(2)}`;
 }
 
+function FineStatus({ fine }: { fine: Fine }) {
+  return fine.paidAt ? <Badge tone="ok">Paid {formatDate(fine.paidAt)}</Badge> : <Badge tone="warn">Outstanding</Badge>;
+}
+
 export default function FinesPage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
-  const { data, loading, reload } = useApi<{ fines: Fine[]; members: Member[] }>("/api/fines");
+  const { data, loading, error, reload } = useApi<{ fines: Fine[]; members: Member[] }>("/api/fines");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showPaid, setShowPaid] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fines = (data?.fines ?? []).filter((f) => showPaid || f.amountOutstanding > 0);
   const members = data?.members ?? [];
@@ -34,21 +40,20 @@ export default function FinesPage() {
 
   async function settle(id: string, action: "pay" | "forgive", amount?: number) {
     setBusyId(id);
+    setActionError(null);
     try {
-      if (action === "pay") {
-        await fetch(`/api/fines/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "pay", amount }),
-        });
-      } else {
-        await fetch(`/api/fines/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "forgive" }),
-        });
+      const res = await fetch(`/api/fines/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "pay" ? { action: "pay", amount } : { action: "forgive" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? (action === "pay" ? "The payment wasn’t recorded." : "The fine wasn’t waived."));
       }
       reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "That didn’t go through. Try again.");
     } finally {
       setBusyId(null);
     }
@@ -58,132 +63,97 @@ export default function FinesPage() {
     const mine = data?.fines ?? [];
     const owed = mine.reduce((sum, f) => sum + f.amountOutstanding, 0);
     return (
-      <div>
-        <PageHeader title="My fines" subtitle="Your charges and payments" />
-        <section className="panel p-5" style={{ marginBottom: "1.1rem" }}>
-          <h3>Total you owe</h3>
-          <p style={{ fontSize: "1.6rem", fontWeight: 700, color: owed > 0 ? "#8c1d1d" : "inherit" }}>
-            {peso(owed)}
-          </p>
-        </section>
-        <section className="panel p-5">
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr><th>Type</th><th>Description</th><th>Date</th><th>Amount</th><th>Outstanding</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {loading && <tr><td colSpan={6}>Loading…</td></tr>}
-                {!loading && mine.length === 0 && <tr><td colSpan={6}>You have no fines.</td></tr>}
-                {mine.map((f) => (
-                  <tr key={f.id}>
-                    <td><span className="badge tone-info">{f.type}</span></td>
-                    <td>{f.description ?? "—"}</td>
-                    <td>{formatDate(f.createdAt)}</td>
-                    <td>{peso(f.amount)}</td>
-                    <td style={{ fontWeight: 700 }}>{peso(f.amountOutstanding)}</td>
-                    <td>
-                      {f.paidAt
-                        ? <span className="badge tone-ok">Paid {formatDate(f.paidAt)}</span>
-                        : <span className="badge tone-warn">Outstanding</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+      <div className="space-y-5">
+        <PageHeader title="My fines" subtitle="Your charges and payments. Pay at the library desk." />
+        <StatGrid wide={2}
+          loading={loading}
+          items={[
+            { label: "Total you owe", value: peso(owed), tone: owed > 0 ? "danger" : undefined, hint: owed > 0 ? "Pay at the library desk" : "You’re all clear" },
+          ]}
+        />
+        <Card title="Charges">
+          <Table
+            caption="My fines"
+            columns={["Type", "Description", "Date", "Amount", "Outstanding", "Status"]}
+            loading={loading}
+            error={error}
+            onRetry={reload}
+            isEmpty={mine.length === 0}
+            empty={{ title: "No fines", body: "Return books on time and this stays empty." }}
+          >
+            {mine.map((f) => (
+              <tr key={f.id}>
+                <td><Badge tone="info">{statusLabel(f.type)}</Badge></td>
+                <td>{f.description ?? "—"}</td>
+                <td>{formatDate(f.createdAt)}</td>
+                <td>{peso(f.amount)}</td>
+                <td className="font-semibold">{peso(f.amountOutstanding)}</td>
+                <td><FineStatus fine={f} /></td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
-        title="Fines desk"
-        subtitle="All fines and payments"
+        title="Fines"
+        subtitle="All fines and payments."
         action={
-          <label style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            <input
-              type="checkbox"
-              checked={showPaid}
-              onChange={(e) => setShowPaid(e.target.checked)}
-            />
+          <label className="inline-flex min-h-[var(--tap)] items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={showPaid} onChange={(e) => setShowPaid(e.target.checked)} />
             Show settled
           </label>
         }
       />
 
-      <section className="panel p-5" style={{ marginBottom: "1.1rem" }}>
-        <h3>Total outstanding</h3>
-        <p style={{ fontSize: "1.6rem", fontWeight: 700, color: "#8c1d1d" }}>
-          {peso(totalOutstanding)}
-        </p>
-      </section>
+      <StatGrid wide={2}
+        loading={loading}
+        items={[
+          { label: "Total outstanding", value: peso(totalOutstanding), tone: totalOutstanding > 0 ? "danger" : undefined },
+        ]}
+      />
 
-      <section className="panel p-5">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Patron</th>
-                <th>Type</th>
-                <th>Description</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Outstanding</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td colSpan={8}>Loading fines…</td></tr>}
-              {!loading && fines.length === 0 && (
-                <tr><td colSpan={8}>No fines on record.</td></tr>
-              )}
-              {fines.map((f) => (
-                <tr key={f.id}>
-                  <td>{members.find((m) => m.id === f.memberId)?.name ?? "Unknown patron"}</td>
-                  <td><span className="badge tone-info">{f.type}</span></td>
-                  <td>{f.description ?? "—"}</td>
-                  <td>{formatDate(f.createdAt)}</td>
-                  <td>{peso(f.amount)}</td>
-                  <td style={{ fontWeight: 700 }}>{peso(f.amountOutstanding)}</td>
-                  <td>
-                    {f.paidAt ? (
-                      <span className="badge tone-ok">Paid {formatDate(f.paidAt)}</span>
-                    ) : (
-                      <span className="badge tone-warn">Outstanding</span>
-                    )}
-                  </td>
-                  <td>
-                    {!f.paidAt && (
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={busyId === f.id}
-                          onClick={() => settle(f.id, "pay", f.amountOutstanding)}
-                        >
-                          {busyId === f.id ? "Paying…" : "Mark paid"}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          disabled={busyId === f.id}
-                          onClick={() => settle(f.id, "forgive")}
-                        >
-                          Waive
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {actionError && <ErrorState message={actionError} />}
+
+      <Card title="Fines">
+        <Table
+          caption="Fines"
+          columns={["Patron", "Type", "Description", "Date", "Amount", "Outstanding", "Status", { label: "Actions", hideLabel: true }]}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={fines.length === 0}
+          empty={{ title: "No fines on record", body: showPaid ? "Nothing has been charged yet." : "Nothing outstanding. Tick “Show settled” to see paid fines." }}
+        >
+          {fines.map((f) => (
+            <tr key={f.id}>
+              <td>{members.find((m) => m.id === f.memberId)?.name ?? "Unknown patron"}</td>
+              <td><Badge tone="info">{statusLabel(f.type)}</Badge></td>
+              <td>{f.description ?? "—"}</td>
+              <td>{formatDate(f.createdAt)}</td>
+              <td>{peso(f.amount)}</td>
+              <td className="font-semibold">{peso(f.amountOutstanding)}</td>
+              <td><FineStatus fine={f} /></td>
+              <td>
+                {!f.paidAt && (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="primary" busy={busyId === f.id} busyLabel="Saving…" onClick={() => settle(f.id, "pay", f.amountOutstanding)}>
+                      Mark paid
+                    </Button>
+                    <Button disabled={busyId === f.id} onClick={() => settle(f.id, "forgive")}>
+                      Waive
+                    </Button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </Card>
     </div>
   );
 }
