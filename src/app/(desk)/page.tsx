@@ -4,7 +4,7 @@ import type { Book, DashboardStats, Member, Notification, PublicUser } from "@/l
 import { isPatron } from "@/lib/permissions";
 import type { EnrichedLoan } from "@/lib/utils";
 import { useApi } from "@/lib/hooks";
-import { ErrorState } from "@/components/ui";
+import { ErrorState, PageHeader } from "@/components/ui";
 import { KpiRow, Panel } from "@/components/dashboard/DashboardKit";
 import { PatronDashboard } from "@/components/dashboard/PatronDashboard";
 import { DeskDashboard } from "@/components/dashboard/DeskDashboard";
@@ -41,12 +41,22 @@ function DashboardSkeleton() {
  * role may see; the endpoints enforce the same scope on the server.
  */
 export default function DashboardPage() {
-  const { data, loading, error } = useApi<DashboardResponse>("/api/dashboard");
+  const { data, loading, error, reload } = useApi<DashboardResponse>("/api/dashboard");
 
   if (loading) return <DashboardSkeleton />;
 
   if (error || !data) {
-    return <ErrorState message={error || "Failed to load dashboard."} />;
+    return (
+      <div>
+        <PageHeader title="Home" subtitle="Your library at a glance." />
+        <ErrorState
+          title="Your home page didn’t load"
+          message={error || "The dashboard came back empty."}
+          onRetry={reload}
+        />
+        <p className="text-muted text-sm">You can still use the menu to reach every page.</p>
+      </div>
+    );
   }
 
   const { notifications, user } = data;

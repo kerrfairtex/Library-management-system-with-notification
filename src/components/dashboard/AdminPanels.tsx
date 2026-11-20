@@ -27,6 +27,7 @@ export function AdminPanels() {
         linkLabel="Insights"
         loading={stats.loading}
         error={stats.error}
+        onRetry={stats.reload}
         empty={stats.data && stats.data.totalAccounts === 0 ? { title: "No accounts yet", body: "Create the first accounts in User accounts." } : null}
       >
         <ul className="space-y-2.5">

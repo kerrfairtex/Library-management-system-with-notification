@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Book, UserRole } from "@/lib/types";
 import { useApi } from "@/lib/hooks";
 import { canAccess } from "@/lib/permissions";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Card, EmptyState, ErrorState } from "@/components/ui";
 
 /**
  * AcademicShelvesSection — a browse-by-subject shelf carousel for the
@@ -106,31 +108,33 @@ function ShelfCard({ book, color, canRequestBorrow }: { book: Book; color: strin
     <article
       className={`flex h-52 w-36 shrink-0 flex-col justify-between rounded-r-lg rounded-l-sm bg-gradient-to-b ${color} p-3 text-white shadow-[var(--shadow)] select-none`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
+      <p className="text-xs font-semibold uppercase tracking-wider opacity-90">
         {book.author}
       </p>
       <div className="flex flex-col flex-1">
-        <h3 className="font-serif text-sm font-semibold leading-snug">{book.title}</h3>
-        <p className="mt-1 text-[11px] opacity-80">{book.publishedYear}</p>
+        <h4 className="font-serif text-sm font-semibold leading-snug">{book.title}</h4>
+        <p className="mt-1 text-xs opacity-90">{book.publishedYear}</p>
         {book.callNumber && (
-          <p className="mt-0.5 text-[10px] font-mono opacity-70">{book.callNumber}</p>
+          <p className="mt-0.5 font-mono text-xs opacity-90">{book.callNumber}</p>
         )}
         {book.shelfLocation && (
-          <p className="text-[10px] opacity-70">📍 {book.shelfLocation}</p>
+          <p className="flex items-center gap-1 text-xs opacity-90">
+            <MapPin size={12} aria-hidden /> {book.shelfLocation}
+          </p>
         )}
       </div>
       <div className="flex flex-col gap-1.5 mt-2">
         <span
-          className={`badge self-start ${out ? "tone-danger" : "tone-ok"} !text-[10px]`}
+          className={`badge self-start ${out ? "tone-danger" : "tone-ok"}`}
         >
           {out ? "Out" : `${book.availableCopies}/${book.totalCopies} left`}
         </span>
         {canRequestBorrow && !out && book.isbn && (
           <Link
             href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
-            className="btn btn-primary text-xs py-1.5"
+            className="btn btn-primary text-xs"
           >
-            Request to Borrow
+            Request to borrow
           </Link>
         )}
       </div>
@@ -174,13 +178,13 @@ function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBo
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
-          <h2 className="display text-xl">{titleCase(group.genre)}</h2>
+          <h3 className="display text-xl">{titleCase(group.genre)}</h3>
           <span className="text-xs text-muted">
             {group.books.length} {group.books.length === 1 ? "title" : "titles"}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/books" className="text-xs font-semibold text-[var(--jade)]">
+          <Link href="/books" className="link inline-flex min-h-[var(--tap)] items-center text-sm">
             View all
           </Link>
           <button
@@ -189,7 +193,7 @@ function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBo
             className={`btn btn-ghost !px-2 transition-opacity ${canLeft ? "" : "pointer-events-none opacity-0"}`}
             onClick={() => scrollBy(-1)}
           >
-            ‹
+            <ChevronLeft size={18} aria-hidden />
           </button>
           <button
             type="button"
@@ -197,7 +201,7 @@ function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBo
             className={`btn btn-ghost !px-2 transition-opacity ${canRight ? "" : "pointer-events-none opacity-0"}`}
             onClick={() => scrollBy(1)}
           >
-            ›
+            <ChevronRight size={18} aria-hidden />
           </button>
         </div>
       </div>
@@ -256,27 +260,41 @@ function ShelfRow({ group, canRequestBorrow }: { group: ShelfGroup; canRequestBo
 }
 
 export function AcademicShelvesSection() {
-  const { data: books, loading, error } = useApi<Book[]>("/api/books");
+  // GET /api/books returns { books }.
+  const { data, loading, error, reload } = useApi<{ books: Book[] }>("/api/books");
+  const books = data?.books;
   const { data: me } = useApi<{ user: { role: UserRole } }>("/api/auth/me");
   const canRequestBorrow = me?.user ? canAccess(me.user, "loans.request") : false;
 
   const shelves = useMemo(() => groupByGenre(books ?? []), [books]);
 
   if (loading) {
-    return <p className="text-sm">Loading shelves…</p>;
+    return (
+      <section className="space-y-3" aria-busy="true" aria-label="Loading shelves">
+        <div className="skeleton h-7 w-48" />
+        <div className="flex gap-3 overflow-hidden">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="skeleton h-52 w-36 shrink-0" />
+          ))}
+        </div>
+      </section>
+    );
   }
   if (error) {
-    return null; // the desk already surfaces API errors elsewhere
+    return (
+      <Card title="Browse the shelves">
+        <ErrorState message={error} onRetry={reload} className="mb-0" />
+      </Card>
+    );
   }
   if (shelves.length === 0) {
     return (
-      <section className="panel p-5">
-        <h2 className="display text-xl">Browse the shelves</h2>
-        <p className="mt-1 text-sm text-muted">
-          Shelves appear here once the catalog has books. Librarians can add
-          titles from the Catalog page.
-        </p>
-      </section>
+      <Card title="Browse the shelves">
+        <EmptyState
+          title="No books on the shelves yet"
+          body="Shelves appear here once the catalog has books. Librarians add titles from the Catalog page."
+        />
+      </Card>
     );
   }
 

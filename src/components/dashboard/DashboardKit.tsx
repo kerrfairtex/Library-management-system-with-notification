@@ -1,8 +1,8 @@
 "use client";
 
 /*
- * Building blocks shared by every role dashboard. Built only from the app's
- * existing classes (panel, badge, btn, table-wrap, tone-*) plus .skeleton.
+ * Building blocks shared by every role dashboard, built from the shared
+ * UI kit (src/components/ui).
  *
  * Layout contract: Greeting → KpiRow (max 4) → main panels → QuickActions.
  * The one deliberate flourish is DueStamp: due dates drawn like the rubber
@@ -12,9 +12,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { roleLabel } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
-import { ErrorState } from "@/components/ui";
-
-const muted = "text-muted";
+import { Badge, ButtonLink, Card, EmptyState, ErrorState } from "@/components/ui";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -30,11 +28,9 @@ export function Greeting({ name, role, subtitle }: { name: string; role: UserRol
         <h1 className="display text-3xl md:text-4xl">
           {greetingFor(new Date().getHours())}, {first}
         </h1>
-        <span className={`badge ${role === "admin" ? "tone-info" : role === "librarian" ? "tone-warn" : "tone-ok"}`}>
-          {roleLabel(role)}
-        </span>
+        <Badge tone={role === "admin" ? "info" : role === "librarian" ? "warn" : "ok"}>{roleLabel(role)}</Badge>
       </div>
-      <p className={`mt-1 max-w-2xl text-sm ${muted}`}>{subtitle}</p>
+      <p className="text-muted mt-1 max-w-2xl text-sm">{subtitle}</p>
     </header>
   );
 }
@@ -42,8 +38,8 @@ export function Greeting({ name, role, subtitle }: { name: string; role: UserRol
 export { KpiRow, StatCard, StatGrid, type Kpi } from "@/components/ui";
 
 /**
- * A main dashboard panel. Pass `loading`/`error` to get the skeleton or
- * error banner; `empty` replaces children with an inline empty state.
+ * A main dashboard panel (a Card). Pass `loading`/`error` for the skeleton or
+ * the error with retry; `empty` replaces children with an EmptyState.
  */
 export function Panel({
   title,
@@ -51,6 +47,7 @@ export function Panel({
   linkLabel,
   loading,
   error,
+  onRetry,
   empty,
   children,
   className = "",
@@ -60,23 +57,26 @@ export function Panel({
   linkLabel?: string;
   loading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
   empty?: { title: string; body: string; action?: ReactNode } | null;
   children?: ReactNode;
   className?: string;
 }) {
   return (
-    // min-w-0 lets a grid column shrink instead of being pushed wider by a table.
-    <article className={`panel min-w-0 p-4 md:p-5 ${className}`}>
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="display text-xl md:text-2xl">{title}</h2>
-        {href && linkLabel && (
-          <Link href={href} className="shrink-0 text-sm font-semibold text-[var(--jade)]">
+    <Card
+      as="article"
+      title={title}
+      className={className}
+      action={
+        href && linkLabel ? (
+          <Link href={href} className="link inline-flex min-h-[var(--tap)] shrink-0 items-center text-sm">
             {linkLabel}
           </Link>
-        )}
-      </div>
+        ) : undefined
+      }
+    >
       {error ? (
-        <ErrorState message={error} />
+        <ErrorState message={error} onRetry={onRetry} className="mb-0" />
       ) : loading ? (
         <div className="space-y-2" aria-busy="true" aria-label={`Loading ${title.toLowerCase()}`}>
           {[0, 1, 2].map((i) => (
@@ -84,30 +84,25 @@ export function Panel({
           ))}
         </div>
       ) : empty ? (
-        <div className="rounded-xl border border-dashed border-[var(--line)] px-4 py-6 text-center">
-          <p className="font-semibold">{empty.title}</p>
-          <p className={`mt-1 text-sm ${muted}`}>{empty.body}</p>
-          {empty.action && <div className="mt-3">{empty.action}</div>}
-        </div>
+        <EmptyState title={empty.title} body={empty.body} action={empty.action} />
       ) : (
         children
       )}
-    </article>
+    </Card>
   );
 }
 
 export function QuickActions({ actions }: { actions: { href: string; label: string; primary?: boolean }[] }) {
   return (
-    <section className="panel p-4 md:p-5">
-      <h2 className="display mb-3 text-xl">Quick actions</h2>
+    <Card title="Quick actions">
       <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         {actions.map((a) => (
-          <Link key={a.href + a.label} href={a.href} className={`btn ${a.primary ? "btn-primary" : "btn-ghost"}`}>
+          <ButtonLink key={a.href + a.label} href={a.href} variant={a.primary ? "primary" : "ghost"}>
             {a.label}
-          </Link>
+          </ButtonLink>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 
