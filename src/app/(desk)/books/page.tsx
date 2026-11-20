@@ -39,7 +39,11 @@ export default function BooksPage() {
   const { session: me } = useDeskSession();
   // GET /api/books returns { books }.
   const { data, loading, error, reload } = useApi<{ books: Book[] }>("/api/books");
-  const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>("/api/book-items");
+  // Physical copies (barcodes, branches, staff notes) are for catalog
+  // editors only; patrons see availability from the book row.
+  const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>(
+    canAccess(me?.user, "books.write") ? "/api/book-items" : null
+  );
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
@@ -278,7 +282,16 @@ export default function BooksPage() {
 
         <Table
           caption="Catalog"
-          columns={["Title", "Author", "Category", "Shelf / call no.", "Copies", "Items", "Year", { label: "Actions", hideLabel: true }]}
+          columns={[
+            "Title",
+            "Author",
+            "Category",
+            "Shelf / call no.",
+            "Copies",
+            ...(canManageBooks ? ["Items"] : []),
+            "Year",
+            { label: "Actions", hideLabel: true },
+          ]}
           loading={loading}
           error={error}
           onRetry={reload}
@@ -319,16 +332,18 @@ export default function BooksPage() {
                             {book.availableCopies}/{book.totalCopies}
                           </Badge>
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={buttonClass(itemsTab === book.id ? "primary" : "ghost")}
-                            aria-expanded={itemsTab === book.id}
-                            onClick={() => openItemsTab(book.id)}
-                          >
-                            {totalItems > 0 ? `${totalItems} items (${availableItems} avail)` : "No items"}
-                          </button>
-                        </td>
+                        {canManageBooks && (
+                          <td>
+                            <button
+                              type="button"
+                              className={buttonClass(itemsTab === book.id ? "primary" : "ghost")}
+                              aria-expanded={itemsTab === book.id}
+                              onClick={() => openItemsTab(book.id)}
+                            >
+                              {totalItems > 0 ? `${totalItems} items (${availableItems} avail)` : "No items"}
+                            </button>
+                          </td>
+                        )}
                         <td>{book.publishedYear}</td>
                         <td>
                           <div className="flex justify-end gap-2">
@@ -353,7 +368,7 @@ export default function BooksPage() {
                           </div>
                         </td>
                       </tr>
-                      {itemsTab === book.id && (
+                      {canManageBooks && itemsTab === book.id && (
                         <tr>
                           <td colSpan={8}>
                             <div className="border-t border-[var(--line)] py-4">

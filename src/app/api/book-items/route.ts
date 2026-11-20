@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/lib/authz";
 import { listBookItems, createBookItem } from "@/lib/store";
+import { bookItemsFor } from "@/lib/book-items";
 import type { BookItemStatus } from "@/lib/types";
 
 export async function GET() {
@@ -12,7 +13,8 @@ export async function GET() {
 
   try {
     const items = await listBookItems();
-    return NextResponse.json({ bookItems: items });
+    // Staff notes are private: only catalog editors (books.write) get them.
+    return NextResponse.json({ bookItems: bookItemsFor(user, items) });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load book items." },
