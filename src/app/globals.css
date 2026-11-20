@@ -857,7 +857,7 @@ table.koha-table {
 .about-prose p { margin: 0.4rem 0; }
 .about-prose ul { margin: 0.4rem 0 0.4rem 1.1rem; list-style: disc; }
 .about-prose li { margin: 0.25rem 0; }
-.about-prose a { color: var(--koha-green); font-weight: 500; }
+.about-prose a { color: var(--jade-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .about-prose a:hover { text-decoration: underline; }
 
 
@@ -901,10 +901,13 @@ table.koha-table {
   font-size: 0.82rem;
 }
 .login-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   background: none;
   border: none;
   padding: 0;
-  color: var(--jade, #1f7a5c);
+  color: var(--jade-deep);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;

@@ -228,13 +228,15 @@ function LoginForm() {
         </Link>
         <span aria-hidden>·</span>
         <Link href="/about" className="login-link">
-          About &amp; Privacy
+          About &amp; privacy
         </Link>
-        <span aria-hidden>·</span>
         {shelfOrigin && (
-          <Link href={shelfOrigin} className="login-link">
-            ← Back to 3D Bookshelf
-          </Link>
+          <>
+            <span aria-hidden>·</span>
+            <Link href={shelfOrigin} className="login-link">
+              3D bookshelf
+            </Link>
+          </>
         )}
       </div>
 
@@ -297,9 +299,14 @@ export default function LoginPage() {
           </div>
         </section>
       </main>
-      <footer style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.85rem", color: "#888" }}>
+      <footer className="text-muted px-4 py-6 text-center text-sm">
         {shelfOrigin && (
-          <>Browse the catalog in 3D: <a href={shelfOrigin} style={{ color: "#3b82f6", textDecoration: "underline" }}>3D Bookshelf</a></>
+          <>
+            Browse the catalog in 3D:{" "}
+            <a href={shelfOrigin} className="link inline-flex min-h-[var(--tap)] items-center">
+              3D bookshelf
+            </a>
+          </>
         )}
       </footer>
     </>
