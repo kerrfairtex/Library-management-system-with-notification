@@ -1,24 +1,26 @@
 "use client";
 
 /*
- * Check out — lookalike of Koha's circ/circulation.tt:
- * scan/search bar at top, patron summary panel, checked-out items table.
+ * Check out: find a patron (name or ID), then find a title and check it out.
+ * Shows the patron's current loans against their loan limit.
  */
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { formatDate } from "@/lib/utils";
 import { canAccess } from "@/lib/permissions";
+import { statusLabel, statusTone } from "@/lib/status-tone";
+import { Badge, Button, ButtonLink, Card, EmptyState, FormField, Notice, PageHeader, Table } from "@/components/ui";
 
 export default function CheckoutPage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
   const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
-  const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
+  // GET /api/members returns a plain array.
+  const { data: membersData } = useApi<Member[]>(canManage ? "/api/members" : null);
   const { data: loansData, reload } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
   const { data: settingsData } = useApi<{
     max_active_loans_per_member: number;
@@ -30,11 +32,11 @@ export default function CheckoutPage() {
   const [query, setQuery] = useState("");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [days, setDays] = useState(settingsData?.loan_period_days ?? 14);
-  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "danger"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const books = booksData?.books ?? [];
-  const members = membersData?.members ?? [];
+  const members = Array.isArray(membersData) ? membersData : [];
   const loans = loansData?.data ?? [];
   const loanCap = settingsData?.max_active_loans_per_member ?? 3;
   const loanPeriodOptions = settingsData?.loan_period_options ?? [7, 14, 21, 30];
@@ -72,7 +74,7 @@ export default function CheckoutPage() {
   async function checkout(bookId: string) {
     if (!selectedMember) return;
     if (memberLoans.length >= loanCap) {
-      setMessage({ tone: "err", text: `Patron already has the maximum of ${loanCap} active loans.` });
+      setMessage({ tone: "danger", text: `Patron already has the maximum of ${loanCap} active loans.` });
       return;
     }
     setBusy(true);
@@ -87,12 +89,12 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error(body.error ?? "Checkout failed.");
       setMessage({
         tone: "ok",
-        text: `Checked out "${body.title ?? "item"}" — due ${formatDate(body.dueAt) ?? "on time"}.`,
+        text: `Checked out "${body.title ?? "the item"}". Due ${formatDate(body.dueAt)}.`,
       });
       setQuery("");
       reload();
     } catch (error) {
-      setMessage({ tone: "err", text: error instanceof Error ? error.message : "Checkout failed." });
+      setMessage({ tone: "danger", text: error instanceof Error ? error.message : "Checkout failed." });
     } finally {
       setBusy(false);
     }
@@ -101,188 +103,136 @@ export default function CheckoutPage() {
   if (!canManage) {
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">Check out</h1>
-        </div>
-        <section className="circ-card">
-          <p>This page is only available to librarians and admins.</p>
-        </section>
+        <PageHeader title="Check out" />
+        <Card>
+          <EmptyState title="Librarians and admins only" body="This page is only available to library staff." />
+        </Card>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">Check out</h1>
-        <Link href="/circulation/checkin" className="btn-koha secondary">
-          Switch to check in →
-        </Link>
-      </div>
+      <PageHeader
+        title="Check out"
+        subtitle={selectedMember ? "Now search for the title to lend." : "Start with the patron: scan their card or type a name or ID."}
+        action={<ButtonLink href="/circulation/checkin">Switch to check in</ButtonLink>}
+      />
 
-      {/* Scan bar — Koha's checkout search field */}
-      <form
-        className="scan-bar"
-        onSubmit={(e) => e.preventDefault()}
-      >
-        <label htmlFor="circ-query" style={{ fontWeight: 600 }}>
-          Patron or title:
-        </label>
-        <input
-          id="circ-query"
-          className="scan-input"
-          placeholder="Scan patron card / student ID, or type a title…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-          autoFocus
-        />
-        <label htmlFor="days" style={{ fontSize: "0.85rem" }}>
-          Days:
-        </label>
-        <select
-          id="days"
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          style={{ padding: "0.45rem", borderRadius: 6 }}
-        >
-          {loanPeriodOptions.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-        {selectedMember && (
-          <button
-            type="button"
-            className="btn-koha secondary"
-            onClick={() => {
-              setSelectedMember(null);
-              setQuery("");
-            }}
-          >
-            Clear patron
-          </button>
-        )}
-      </form>
-
-      {message && (
-        <p className={message.tone === "ok" ? "chip chip-ready" : "chip chip-overdue"} style={{ marginBottom: "1rem", display: "inline-block" }}>
-          {message.text}
-        </p>
-      )}
-
-      {/* Search results */}
-      {!selectedMember && memberMatches.length > 0 && (
-        <section className="koha-table-wrap" style={{ marginBottom: "1rem" }}>
-          <table className="koha-table">
-            <thead>
-              <tr>
-                <th>Patron matches</th>
-                <th>Type</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {memberMatches.map((m) => (
-                <tr key={m.id}>
-                  <td>
-                    <strong>{m.name}</strong> {" "}
-                    <span style={{ opacity: 0.7 }}>· {m.studentId ?? m.email}</span>
-                  </td>
-                  <td>{m.memberType}</td>
-                  <td>
-                    <button type="button" className="btn-koha" onClick={() => setSelectedMember(m)}>
-                      Select
-                    </button>
-                  </td>
-                </tr>
+      <Card className="mb-4">
+        <form className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end" onSubmit={(e) => e.preventDefault()}>
+          <FormField label={selectedMember ? "Title, author or ISBN" : "Patron or title"} className="min-w-0">
+            <input
+              id="circ-query"
+              className="field"
+              placeholder={selectedMember ? "Type a title, author or ISBN" : "Scan patron card / student ID, or type a name"}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+          </FormField>
+          <FormField label="Loan days">
+            <select id="days" className="field" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              {loanPeriodOptions.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </section>
+            </select>
+          </FormField>
+          {selectedMember && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelectedMember(null);
+                setQuery("");
+              }}
+            >
+              Clear patron
+            </Button>
+          )}
+        </form>
+      </Card>
+
+      {message && <Notice tone={message.tone}>{message.text}</Notice>}
+
+      {!selectedMember && memberMatches.length > 0 && (
+        <Card title="Patron matches" className="mb-4">
+          <Table caption="Patron matches" columns={["Patron", "Type", { label: "Select", hideLabel: true }]}>
+            {memberMatches.map((m) => (
+              <tr key={m.id}>
+                <td>
+                  <span className="font-semibold">{m.name}</span>{" "}
+                  <span className="text-muted">· {m.studentId ?? m.email}</span>
+                </td>
+                <td>{statusLabel(m.memberType)}</td>
+                <td>
+                  <Button variant="primary" onClick={() => setSelectedMember(m)}>
+                    Select
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
       )}
 
-      {/* Patron summary panel */}
       {selectedMember && (
         <>
-          <section className="circ-card" style={{ marginBottom: "1rem" }}>
-            <h3>
-              {selectedMember.name} · {selectedMember.memberType} · {" "}
-              {memberLoans.length}/{loanCap} loans
-            </h3>
-          </section>
+          <Card className="mb-4">
+            <p className="eyebrow">Checking out to</p>
+            <p className="display mt-1 text-2xl">{selectedMember.name}</p>
+            <p className="text-muted mt-1 text-sm">
+              {statusLabel(selectedMember.memberType)} · {memberLoans.length} of {loanCap} loans in use
+            </p>
+          </Card>
 
           {bookMatches.length > 0 && (
-            <section className="koha-table-wrap" style={{ marginBottom: "1rem" }}>
-              <table className="koha-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Barcode/ISBN</th>
-                    <th>Available</th>
-                    <th></th>
+            <Card title="Matching titles" className="mb-4">
+              <Table caption="Matching titles" columns={["Title", "Author", "Barcode/ISBN", "Available", { label: "Check out", hideLabel: true }]}>
+                {bookMatches.map((b) => (
+                  <tr key={b.id}>
+                    <td className="font-semibold">{b.title}</td>
+                    <td>{b.author}</td>
+                    <td>{b.isbn}</td>
+                    <td>
+                      {b.availableCopies} of {b.totalCopies}
+                    </td>
+                    <td>
+                      <Button variant="primary" disabled={busy || b.availableCopies < 1} onClick={() => checkout(b.id)}>
+                        Check out
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {bookMatches.map((b) => (
-                    <tr key={b.id}>
-                      <td><strong>{b.title}</strong></td>
-                      <td>{b.author}</td>
-                      <td>{b.isbn}</td>
-                      <td>{b.availableCopies} of {b.totalCopies}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-koha"
-                          disabled={busy || b.availableCopies < 1}
-                          onClick={() => checkout(b.id)}
-                        >
-                          Check out
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+                ))}
+              </Table>
+            </Card>
           )}
 
-          {/* Patron's current checkouts — Koha issues table */}
-          <section className="koha-table-wrap">
-            <table className="koha-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Barcode</th>
-                  <th>Due date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {memberLoans.length === 0 && (
-                  <tr>
-                    <td colSpan={4}>No checkouts.</td>
+          <Card title="Current loans">
+            <Table
+              caption={`Current loans for ${selectedMember.name}`}
+              columns={["Title", "Barcode", "Due date", "Status"]}
+              isEmpty={memberLoans.length === 0}
+              empty={{ title: "No current loans", body: "This patron has nothing checked out." }}
+            >
+              {memberLoans.map((l) => {
+                const status = deriveLoanStatus({ status: l.status, due_at: l.dueAt });
+                const book = books.find((b) => b.id === l.bookId);
+                return (
+                  <tr key={l.id}>
+                    <td>{book?.title ?? "Unknown title"}</td>
+                    <td>{book?.isbn ?? "—"}</td>
+                    <td>{formatDate(l.dueAt)}</td>
+                    <td>
+                      <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge>
+                    </td>
                   </tr>
-                )}
-                {memberLoans.map((l) => {
-                  const status = deriveLoanStatus({ status: l.status, due_at: l.dueAt });
-                  const book = books.find((b) => b.id === l.bookId);
-                  return (
-                    <tr key={l.id}>
-                      <td>{book?.title ?? "Unknown title"}</td>
-                      <td>{book?.isbn}</td>
-                      <td>{formatDate(l.dueAt)}</td>
-                      <td>
-                        <span className={`chip chip-${status}`}>{status.replace("_", " ")}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
+                );
+              })}
+            </Table>
+          </Card>
         </>
       )}
     </div>

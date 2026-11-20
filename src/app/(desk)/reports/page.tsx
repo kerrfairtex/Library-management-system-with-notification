@@ -1,17 +1,15 @@
 "use client";
 
 /*
- * Reports home — lookalike of Koha's reports/reports-home.tt:
- * stat-report cards mapped to fixed dashboards over the public schema.
+ * Reports: collection and circulation totals, top titles and borrowers.
  */
 
-import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess } from "@/lib/permissions";
-import { KpiRow } from "@/components/dashboard/DashboardKit";
+import { ButtonLink, Card, EmptyState, ErrorState, KpiRow, PageHeader, Table } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -19,13 +17,21 @@ export const dynamic = "force-dynamic";
 export default function ReportsPage() {
   const { session: me } = useDeskSession();
   const canManage = me?.user ? canAccess(me.user, "loans.manage") : false;
-  const { data: booksData } = useApi<{ books: Book[] }>("/api/books");
-  const { data: membersData } = useApi<{ members: Member[] }>("/api/members");
-  const { data: loansData } = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
+  const booksApi = useApi<{ books: Book[] }>("/api/books");
+  // GET /api/members returns a plain array.
+  const membersApi = useApi<Member[]>(canManage ? "/api/members" : null);
+  const loansApi = useApi<{ data: Loan[] }>("/api/loans?pageSize=1000");
 
-  const books = booksData?.books ?? [];
-  const loans = loansData?.data ?? [];
-  const members = membersData?.members ?? [];
+  const books = booksApi.data?.books ?? [];
+  const loans = loansApi.data?.data ?? [];
+  const members = Array.isArray(membersApi.data) ? membersApi.data : [];
+  const loading = booksApi.loading || membersApi.loading || loansApi.loading;
+  const error = booksApi.error || membersApi.error || loansApi.error;
+  const retry = () => {
+    void booksApi.reload();
+    void membersApi.reload();
+    void loansApi.reload();
+  };
 
   // cat_issues_top — most circulated titles
   const circCount = new Map<string, number>();
@@ -65,81 +71,71 @@ export default function ReportsPage() {
   if (!canManage) {
     return (
       <div>
-        <div className="page-head">
-          <h1 className="page-title">Reports</h1>
-        </div>
-        <section className="circ-card">
-          <p>This page is only available to librarians and admins.</p>
-        </section>
+        <PageHeader title="Reports" />
+        <Card>
+          <EmptyState title="Librarians and admins only" body="This page is only available to library staff." />
+        </Card>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="page-head">
-        <h1 className="page-title">Reports</h1>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Reports"
+        subtitle="Collection size, loans, and who and what circulates most."
+        action={<ButtonLink href="/circulation">Back to circulation</ButtonLink>}
+      />
 
-      <div className="mb-5">
-        <KpiRow
-          items={[
-            { label: "Titles", value: books.length, hint: `${totalCopies} copies · ${availableCopies} on shelf` },
-            { label: "Loans out", value: openLoans.length, hint: `${loans.length} all-time` },
-            { label: "Overdue", value: overdue.length, tone: overdue.length ? "danger" : undefined, hint: "Open loans past due" },
-            { label: "Patrons", value: members.length, hint: `${members.filter((m) => m.active).length} active` },
-          ]}
-        />
-      </div>
+      {error && <ErrorState message={error} onRetry={retry} />}
 
-      <div className="circ-grid">
-        <section className="koha-table-wrap">
-          <table className="koha-table">
-            <thead>
-              <tr>
-                <th colSpan={2}>Top circulated titles</th>
+      <KpiRow
+        loading={loading}
+        items={[
+          { label: "Titles", value: books.length, hint: `${totalCopies} copies · ${availableCopies} on shelf` },
+          { label: "Loans out", value: openLoans.length, hint: `${loans.length} all-time` },
+          { label: "Overdue", value: overdue.length, tone: overdue.length ? "danger" : undefined, hint: "Open loans past due" },
+          { label: "Patrons", value: members.length, hint: `${members.filter((m) => m.active).length} active` },
+        ]}
+      />
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <Card title="Top circulated titles">
+          <Table
+            caption="Top circulated titles"
+            columns={["Title", "Loans"]}
+            loading={loading}
+            isEmpty={topTitles.length === 0}
+            empty={{ title: "No circulation yet", body: "Titles appear here once books are checked out." }}
+          >
+            {topTitles.map(({ book, count }) => (
+              <tr key={book.id}>
+                <td>{book.title}</td>
+                <td className="font-semibold">{count}</td>
               </tr>
-            </thead>
-            <tbody>
-              {topTitles.length === 0 && (
-                <tr><td colSpan={2}>No circulation yet.</td></tr>
-              )}
-              {topTitles.map(({ book, count }) => (
-                <tr key={book.id}>
-                  <td>{book.title}</td>
-                  <td style={{ fontWeight: 700 }}>{count}×</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+            ))}
+          </Table>
+        </Card>
 
-        <section className="koha-table-wrap">
-          <table className="koha-table">
-            <thead>
-              <tr>
-                <th colSpan={2}>Top borrowers</th>
+        <Card title="Top borrowers">
+          <Table
+            caption="Top borrowers"
+            columns={["Patron", "Loans"]}
+            loading={loading}
+            isEmpty={topPatrons.length === 0}
+            empty={{ title: "No circulation yet", body: "Patrons appear here once they borrow books." }}
+          >
+            {topPatrons.map(({ member, count }) => (
+              <tr key={member.id}>
+                <td>{member.name}</td>
+                <td className="font-semibold">{count}</td>
               </tr>
-            </thead>
-            <tbody>
-              {topPatrons.length === 0 && (
-                <tr><td colSpan={2}>No circulation yet.</td></tr>
-              )}
-              {topPatrons.map(({ member, count }) => (
-                <tr key={member.id}>
-                  <td>{member.name}</td>
-                  <td style={{ fontWeight: 700 }}>{count}×</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+            ))}
+          </Table>
+        </Card>
       </div>
 
-      <p style={{ marginTop: "1rem", fontSize: "0.85rem", opacity: 0.7 }}>
-        Report layouts ported from Koha guided reports (cat_issues_top, bor_issues_top,
-        catalogue_stats, issues_stats). <Link href="/circulation">Back to circulation →</Link>
-      </p>
+      <p className="text-muted text-sm">Top lists show the five highest; counts cover the latest 1,000 loans.</p>
     </div>
   );
 }

@@ -1,28 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ButtonLink, PageHeader } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "About & Privacy — TRAC Library",
+  title: "About & privacy",
   description:
     "About the TRAC Library Management System and its privacy policy. Tawi-Tawi Regional Agricultural College, Bongao, Tawi-Tawi.",
 };
 
 const FB = "https://www.facebook.com/share/1EMjsmK2Cu/";
 const TIKTOK = "https://www.tiktok.com/@kerrsmatters?_r=1&_t=ZS-997ZGDLtD9t";
-const PHONE = "+639637130812";
+import { LIBRARY_PHONE as PHONE } from "@/lib/site";
 
 function Section({
   id,
   title,
+  level = 2,
   children,
 }: {
   id?: string;
   title: string;
+  /** h2 for top-level sections, h3 inside the privacy policy. */
+  level?: 2 | 3;
   children: React.ReactNode;
 }) {
+  const Heading = level === 2 ? "h2" : "h3";
   return (
-    <section id={id} className="circ-card" style={{ marginBottom: "1.1rem" }}>
-      <h3>{title}</h3>
+    <section id={id} className="panel mb-4 p-4 md:p-5">
+      <Heading className="display mb-2 text-xl">{title}</Heading>
       <div className="about-prose">{children}</div>
     </section>
   );
@@ -31,9 +36,7 @@ function Section({
 export default function AboutPage() {
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">About TRAC Library</h1>
-      </div>
+      <PageHeader title="About TRAC Library" subtitle="What the library system does, who can use it, and how we handle your data." />
 
       <Section title="What is TRAC Library?">
         <p>
@@ -80,7 +83,7 @@ export default function AboutPage() {
       </Section>
 
       <Section title="Circulation rules at a glance">
-        <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.3rem 1rem", fontSize: "0.92rem" }}>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt><strong>Student loan period</strong></dt><dd>14 days, up to 2 renewals, max 3 books out</dd>
           <dt><strong>Staff loan period</strong></dt><dd>30 days, up to 3 renewals, max 10 books out</dd>
           <dt><strong>Community members</strong></dt><dd>14 days, 1 renewal, max 2 books out</dd>
@@ -90,9 +93,9 @@ export default function AboutPage() {
 
       <Section title="Contact & developers" id="developers">
         <ul>
-          <li>Contact number: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
+          <li>Contact number: <a href={`tel:${PHONE}`}>Call the library desk</a></li>
         </ul>
-        <p style={{ marginTop: "0.75rem" }}>
+        <p className="mt-3">
           <strong>Developers</strong>
         </p>
         <ul>
@@ -102,21 +105,19 @@ export default function AboutPage() {
           <li>Dainel M. Al-basri</li>
           <li>Adzlina A. Sahidjuan</li>
         </ul>
-        <p style={{ marginTop: "0.75rem" }}>
-          Ready to explore? <Link href="/books">Search the catalog →</Link>
+        <p className="mt-3">
+          Ready to explore? <Link href="/books">Search the catalog</Link>.
         </p>
       </Section>
 
       {/* ── Privacy Policy ── */}
-      <div className="page-head" style={{ marginTop: "2rem" }}>
-        <h2 className="page-title" id="privacy">Privacy Policy</h2>
-      </div>
-      <p style={{ opacity: 0.8, marginBottom: "1rem" }}>
+      <h2 className="display mb-1 mt-8 text-3xl" id="privacy">Privacy policy</h2>
+      <p className="text-muted mb-4 text-sm">
         Effective date: August 23, 2026 · Applies to trac-library web
         application and its 3D bookshelf companion site.
       </p>
 
-      <Section id="privacy-collect" title="1. Information we collect">
+      <Section level={3} id="privacy-collect" title="1. Information we collect">
         <ul>
           <li><strong>Account information</strong> — your name, email address, role (student/librarian/admin), and, if you sign in with Google, your Google account identifier and display name.</li>
           <li><strong>Library activity</strong> — which books you borrow, return, renew, or reserve; associated dates; and any fines accrued. This is the core record of the library itself.</li>
@@ -126,7 +127,7 @@ export default function AboutPage() {
         <p>We do <strong>not</strong> collect payment card data. Fines are settled at the library desk in person.</p>
       </Section>
 
-      <Section title="2. How we use your information">
+      <Section level={3} title="2. How we use your information">
         <ul>
           <li>To operate the library: track loans, enforce circulation limits, compute due dates and fines.</li>
           <li>To notify you about due dates, overdues, holds becoming available, and account status changes.</li>
@@ -135,7 +136,7 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section title="3. What we do NOT do">
+      <Section level={3} title="3. What we do NOT do">
         <ul>
           <li>We do not sell or rent your personal information to anyone.</li>
           <li>We do not use your data for advertising or build marketing profiles.</li>
@@ -143,7 +144,7 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section title="4. Cookies & sessions">
+      <Section level={3} title="4. Cookies & sessions">
         <p>
           TRAC Library uses a single essential session cookie to keep you signed
           in. It contains no personal data beyond an opaque session token and
@@ -153,7 +154,7 @@ export default function AboutPage() {
         </p>
       </Section>
 
-      <Section title="5. Data sharing">
+      <Section level={3} title="5. Data sharing">
         <p>
           Your data stays within the library system. It is stored on Supabase
           (PostgreSQL cloud hosting) under the Institute&apos;s project, protected
@@ -166,7 +167,7 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section title="6. Data retention & your rights">
+      <Section level={3} title="6. Data retention & your rights">
         <ul>
           <li><strong>Borrowing records</strong> are retained for as long as your membership remains active plus one academic year, then reviewed for deletion.</li>
           <li>You may <strong>request access</strong>, <strong>correction</strong>, or <strong>deletion</strong> of your personal information at any time by contacting the library desk or the developer using the contact details below. Deletion of borrowing history may be limited where records are needed for outstanding fines or audit purposes.</li>
@@ -174,7 +175,7 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section title="7. Security">
+      <Section level={3} title="7. Security">
         <p>
           Passwords are stored as salted scrypt hashes and are never readable by
           staff. All traffic runs over HTTPS. Database access uses scoped keys;
@@ -183,20 +184,20 @@ export default function AboutPage() {
         </p>
       </Section>
 
-      <Section title="8. Changes & contact">
+      <Section level={3} title="8. Changes & contact">
         <p>
           If this policy changes materially, the updated version will be posted
           on this page with a new effective date. Questions, data requests, or
           concerns:
         </p>
         <ul>
-          <li>Phone: <a href={`tel:${PHONE}`}>[REDACTED]</a></li>
+          <li>Phone: <a href={`tel:${PHONE}`}>Call the library desk</a></li>
         </ul>
       </Section>
 
-      <footer className="koha-footer-links" style={{ marginBottom: "2rem", justifyContent: "flex-start" }}>
-        <Link href="/">← Back to dashboard</Link>
-      </footer>
+      <div className="mb-8">
+        <ButtonLink href="/">Back to home</ButtonLink>
+      </div>
     </div>
   );
 }

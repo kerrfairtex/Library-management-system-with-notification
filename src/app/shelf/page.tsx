@@ -31,13 +31,13 @@ function LoadingFallback() {
         style={{
           width: "48px",
           height: "48px",
-          border: "3px solid #ddd",
-          borderTopColor: "#3b82f6",
+          border: "3px solid var(--line-strong, #ccd5d1)",
+          borderTopColor: "var(--jade, #1f7a5c)",
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
         }}
       />
-      <span style={{ fontSize: "0.9rem", color: "#666" }}>Loading 3D bookshelf...</span>
+      <span role="status" style={{ fontSize: "0.9rem", color: "var(--ink-muted, #596662)" }}>Loading the 3D bookshelf…</span>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   );

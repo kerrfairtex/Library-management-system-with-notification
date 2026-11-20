@@ -6,7 +6,7 @@ import type { PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
-import { ErrorBanner, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, ErrorState, FormField, Notice, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { profileDetailRows, type OwnMemberDetails } from "@/lib/profile-details";
 import type { AcademicMaster } from "@/components/AcademicFields";
@@ -73,43 +73,37 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="My profile"
-        subtitle="View your account details and update your name or password."
-      />
+      <PageHeader title="My profile" subtitle="Your account details. Update your name or password here." />
 
-      {/* Account info card */}
-      <div className="panel p-5">
-        <h2 className="display mb-4 text-2xl">Account details</h2>
+      <Card title="Account details">
         {user ? (
           <dl className="grid gap-y-3 sm:grid-cols-[160px_1fr]">
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Name</dt>
+            <dt className="text-muted text-sm font-semibold">Name</dt>
             <dd className="text-sm">{user.name}</dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Email</dt>
-            <dd className="text-sm">{user.email}</dd>
+            <dt className="text-muted text-sm font-semibold">Email</dt>
+            <dd className="break-words text-sm">{user.email}</dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Role</dt>
+            <dt className="text-muted text-sm font-semibold">Role</dt>
             <dd>
-              <span className={`badge ${user.role === "admin" ? "tone-info" : "tone-ok"}`}>
-                {roleLabel(user.role)}
-              </span>
+              <Badge tone={user.role === "admin" ? "info" : "ok"}>{roleLabel(user.role)}</Badge>
             </dd>
 
-            <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">Member since</dt>
+            <dt className="text-muted text-sm font-semibold">Member since</dt>
             <dd className="text-sm">{account.loading ? "…" : formatDate(memberSince)}</dd>
 
             {detailRows.map((row) => (
               <div key={row.label} className="contents">
-                <dt className="text-sm font-semibold text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">{row.label}</dt>
-                <dd className={`text-sm ${row.value === "Not set" ? "text-[color-mix(in_srgb,var(--ink)_50%,transparent)]" : ""}`}>
-                  {row.value}
-                </dd>
+                <dt className="text-muted text-sm font-semibold">{row.label}</dt>
+                <dd className={`text-sm ${row.value === "Not set" ? "text-muted" : ""}`}>{row.value}</dd>
               </div>
             ))}
           </dl>
         ) : (
-          <p className="text-sm">Loading…</p>
+          <div className="space-y-2" aria-busy="true" aria-label="Loading account details">
+            <div className="skeleton h-4 w-56 max-w-full" />
+            <div className="skeleton h-4 w-44 max-w-full" />
+          </div>
         )}
         {patron && (ownMember.loading || master.loading) && (
           <div className="mt-3 space-y-2" aria-busy="true" aria-label="Loading academic details">
@@ -118,103 +112,76 @@ export default function ProfilePage() {
           </div>
         )}
         {patron && (ownMember.error || master.error) && (
-          <div className="mt-3">
-            <ErrorBanner message={ownMember.error || master.error || "Failed to load academic details."} />
-          </div>
+          <ErrorState
+            className="mb-0 mt-3"
+            message={ownMember.error || master.error || "Academic details didn’t load."}
+            onRetry={() => {
+              void ownMember.reload();
+              void master.reload();
+            }}
+          />
         )}
         {detailRows.length > 0 && (
-          <p className="mt-3 text-xs text-[color-mix(in_srgb,var(--ink)_50%,transparent)]">
-            Ask the library desk to correct your ID or academic details.
-          </p>
+          <p className="text-muted mt-3 text-xs">Ask the library desk to correct your ID or academic details.</p>
         )}
-      </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Change name */}
-        <div className="panel p-5">
-          <h2 className="display mb-4 text-2xl">Change display name</h2>
+        <Card title="Change display name">
           <form className="space-y-3" onSubmit={saveName}>
-            {nameForm.error && <ErrorBanner message={nameForm.error} />}
-            {nameForm.success && (
-              <p className="rounded-xl bg-[var(--jade-soft,#e6f4ef)] px-4 py-3 text-sm text-[var(--jade)]">
-                Name updated successfully.
-              </p>
-            )}
-            <div>
-              <label className="label" htmlFor="display-name">
-                New name
-              </label>
+            {nameForm.error && <ErrorState message={nameForm.error} />}
+            {nameForm.success && <Notice>Name updated.</Notice>}
+            <FormField label="New name" required>
               <input
                 id="display-name"
                 className="field"
-                required
+                autoComplete="name"
                 placeholder={user?.name ?? "Full name"}
                 value={nameForm.name}
-                onChange={(e) =>
-                  setNameForm((f) => ({ ...f, name: e.target.value, success: false }))
-                }
+                onChange={(e) => setNameForm((f) => ({ ...f, name: e.target.value, success: false }))}
               />
-            </div>
+            </FormField>
             <div className="flex justify-end">
-              <button type="submit" className="btn btn-primary" disabled={nameForm.busy}>
-                {nameForm.busy ? "Saving…" : "Save name"}
-              </button>
+              <Button type="submit" variant="primary" busy={nameForm.busy} busyLabel="Saving…">
+                Save name
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
 
-        {/* Change password */}
-        <div className="panel p-5">
-          <h2 className="display mb-4 text-2xl">Change password</h2>
+        <Card title="Change password">
           <form className="space-y-3" onSubmit={savePassword}>
-            {pwForm.error && <ErrorBanner message={pwForm.error} />}
-            {pwForm.success && (
-              <p className="rounded-xl bg-[var(--jade-soft,#e6f4ef)] px-4 py-3 text-sm text-[var(--jade)]">
-                Password changed successfully.
-              </p>
-            )}
-            <div>
-              <label className="label" htmlFor="new-password">
-                New password
-              </label>
+            {pwForm.error && <ErrorState message={pwForm.error} />}
+            {pwForm.success && <Notice>Password changed.</Notice>}
+            <FormField label="New password" hint={`At least ${MIN_PASSWORD_LENGTH} characters.`} required>
               <input
                 id="new-password"
                 className="field"
                 type="password"
-                required
+                autoComplete="new-password"
                 minLength={MIN_PASSWORD_LENGTH}
                 value={pwForm.password}
-                onChange={(e) =>
-                  setPwForm((f) => ({ ...f, password: e.target.value, success: false }))
-                }
+                onChange={(e) => setPwForm((f) => ({ ...f, password: e.target.value, success: false }))}
               />
-              <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink)_55%,transparent)]">
-                At least {MIN_PASSWORD_LENGTH} characters.
-              </p>
-            </div>
-            <div>
-              <label className="label" htmlFor="confirm-password">
-                Confirm new password
-              </label>
+            </FormField>
+            <FormField label="Confirm new password" required>
               <input
                 id="confirm-password"
                 className="field"
                 type="password"
-                required
+                autoComplete="new-password"
                 minLength={MIN_PASSWORD_LENGTH}
                 value={pwForm.confirm}
-                onChange={(e) =>
-                  setPwForm((f) => ({ ...f, confirm: e.target.value, success: false }))
-                }
+                onChange={(e) => setPwForm((f) => ({ ...f, confirm: e.target.value, success: false }))}
               />
-            </div>
+            </FormField>
             <div className="flex justify-end">
-              <button type="submit" className="btn btn-primary" disabled={pwForm.busy}>
-                {pwForm.busy ? "Saving…" : "Change password"}
-              </button>
+              <Button type="submit" variant="primary" busy={pwForm.busy} busyLabel="Saving…">
+                Change password
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       </div>
     </div>
   );

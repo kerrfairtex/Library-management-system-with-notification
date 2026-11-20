@@ -16,7 +16,10 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "TRAC Library — Library Management System",
+  title: {
+    default: "TRAC Library — Library Management System",
+    template: "%s · TRAC Library",
+  },
   description:
     "TRAC Library Management System — Tawi-Tawi Regional Agricultural College, Bongao, Tawi-Tawi. Catalog search, circulation, holds, fines, notifications, and an interactive 3D bookshelf.",
   openGraph: {

@@ -11,6 +11,7 @@ import { useApi } from "@/lib/hooks";
 import type { Book, Fine, Member, Notification, PublicUser } from "@/lib/types";
 import type { EnrichedLoan } from "@/lib/utils";
 import { formatDate, notificationTone } from "@/lib/utils";
+import { statusLabel } from "@/lib/status-tone";
 import { roleLabel } from "@/lib/permissions";
 import {
   deskHoldQueues,
@@ -22,8 +23,9 @@ import {
   type DeskHoldRow,
 } from "@/lib/dashboard-stats";
 import { Greeting, KpiRow, Panel, QuickActions } from "./DashboardKit";
+import { Badge, buttonClass, Table } from "@/components/ui";
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function DeskDashboard({
   user,
@@ -102,34 +104,23 @@ export function DeskDashboard({
           linkLabel="All loans"
           loading={loans.loading}
           error={loans.error}
+          onRetry={loans.reload}
           empty={overdue.length === 0 ? { title: "Nothing overdue", body: "Every open loan is within its due date." } : null}
         >
-          <div className="table-wrap">
-            <table className="data-table data-table-compact">
-              <thead>
-                <tr>
-                  <th>Book</th>
-                  <th>Patron</th>
-                  <th>Due</th>
-                  <th>Late</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overdue.slice(0, 8).map((l) => (
-                  <tr key={l.id}>
-                    <td className="max-w-[16rem] truncate font-semibold" title={l.book?.title}>{l.book?.title ?? "Unknown book"}</td>
-                    <td className="max-w-[12rem] truncate">{l.member?.name ?? "Unknown patron"}</td>
-                    <td className="whitespace-nowrap">{formatDate(l.dueAt)}</td>
-                    <td>
-                      <span className="badge tone-danger whitespace-nowrap">
-                        {l.daysOverdue} day{l.daysOverdue === 1 ? "" : "s"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table compact caption="Overdue loans" columns={["Book", "Patron", "Due", "Late"]}>
+            {overdue.slice(0, 8).map((l) => (
+              <tr key={l.id}>
+                <td className="max-w-[16rem] truncate font-semibold" title={l.book?.title}>{l.book?.title ?? "Unknown book"}</td>
+                <td className="max-w-[12rem] truncate">{l.member?.name ?? "Unknown patron"}</td>
+                <td className="whitespace-nowrap">{formatDate(l.dueAt)}</td>
+                <td>
+                  <Badge tone="danger">
+                    {l.daysOverdue} day{l.daysOverdue === 1 ? "" : "s"}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </Table>
           {overdue.length > 8 && (
             <p className={`mt-2 text-xs ${muted}`}>Showing the 8 most overdue of {overdue.length}.</p>
           )}
@@ -144,6 +135,7 @@ export function DeskDashboard({
           linkLabel="Holds queue"
           loading={holds.loading}
           error={holds.error}
+          onRetry={holds.reload}
           empty={
             queues.pickups.length + queues.waiting.length === 0
               ? { title: "No open holds", body: "Nothing to shelve for pickup." }
@@ -182,7 +174,7 @@ export function DeskDashboard({
             </>
           )}
           {queues.borrowRequests > 0 && (
-            <Link href="/holds" className="btn btn-ghost mt-3 w-full">
+            <Link href="/holds" className={buttonClass("ghost", "mt-3 w-full")}>
               Review {queues.borrowRequests} borrow request{queues.borrowRequests === 1 ? "" : "s"}
             </Link>
           )}
@@ -193,9 +185,10 @@ export function DeskDashboard({
         <Panel
           title="Sign-ups to approve"
           href="/staff"
-          linkLabel="User accounts"
+          linkLabel={user.role === "admin" ? "User accounts" : "Patron accounts"}
           loading={accounts.loading}
           error={accounts.error}
+          onRetry={accounts.reload}
           empty={signups.length === 0 ? { title: "No pending sign-ups", body: "New Google sign-ups waiting for approval appear here." } : null}
         >
           <ul className="space-y-2">
@@ -205,13 +198,13 @@ export function DeskDashboard({
                   <p className="truncate font-semibold">{u.name}</p>
                   <p className={`truncate text-xs ${muted}`}>{u.email}</p>
                 </div>
-                <span className="badge tone-warn shrink-0">{roleLabel(u.role)}</span>
+                <Badge tone="warn" className="shrink-0">{roleLabel(u.role)}</Badge>
               </li>
             ))}
           </ul>
         </Panel>
 
-        <Panel title="Fines" href="/fines" linkLabel="Fines desk" loading={fines.loading} error={fines.error}>
+        <Panel title="Fines" href="/fines" linkLabel="Fines desk" loading={fines.loading} error={fines.error} onRetry={fines.reload}>
           <dl className="grid grid-cols-2 gap-3">
             <div>
               <dt className={`text-xs ${muted}`}>Outstanding</dt>
@@ -229,15 +222,15 @@ export function DeskDashboard({
         </Panel>
 
         <Panel
-          title="Alerts"
+          title="Notifications"
           href="/notifications"
-          linkLabel="All alerts"
-          empty={notifications.length === 0 ? { title: "No alerts", body: "Low stock and overdue notices will appear here." } : null}
+          linkLabel="All notifications"
+          empty={notifications.length === 0 ? { title: "No notifications", body: "Low stock and overdue notices will appear here." } : null}
         >
           <ul className="space-y-2">
             {notifications.slice(0, 4).map((n) => (
               <li key={n.id} className={`rounded-xl border border-[var(--line)] px-3 py-2 ${n.read ? "opacity-70" : ""}`}>
-                <span className={`badge ${notificationTone(n.type)}`}>{n.type.replace("_", " ")}</span>
+                <span className={`badge ${notificationTone(n.type)}`}>{statusLabel(n.type)}</span>
                 <p className="mt-1 text-sm font-semibold">{n.title}</p>
               </li>
             ))}
@@ -251,7 +244,7 @@ export function DeskDashboard({
         actions={[
           { href: "/circulation/checkout", label: "Check out", primary: true },
           { href: "/circulation/checkin", label: "Return" },
-          { href: "/staff", label: "Add patron" },
+          { href: "/members", label: "Find or add a patron" },
           ...extraActions,
         ]}
       />

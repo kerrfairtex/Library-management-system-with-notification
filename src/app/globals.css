@@ -2,26 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════
+   Design tokens — the one source for colour, type, radius, spacing
+   and focus. Components (src/components/ui) use only these.
+   Contrast notes are against white (WCAG AA needs 4.5:1 for text).
+   ═══════════════════════════════════════════════════════════════ */
 :root {
+  /* Ink */
   --ink: #12241f;
   --ink-soft: #243b33;
-  --jade: #1f7a5c;
-  --jade-deep: #165a44;
+  --ink-muted: #596662; /* helper text, labels: 6.0:1 on white */
+
+  /* Brand */
+  --jade: #1f7a5c; /* 5.2:1 */
+  --jade-deep: #165a44; /* 8.1:1 */
   --jade-soft: #d7efe4;
+
+  /* Surfaces */
   --sand: #e8efe9;
   --mist: #f3f7f4;
   --paper: #fbfcfb;
-  --warn: #9a6b1f;
+  --surface: #ffffff;
+  --line: rgba(18, 36, 31, 0.1);
+  --line-strong: rgba(18, 36, 31, 0.22);
+
+  /* Status tones: text colour on its soft background is ≥ 5:1 */
+  --warn: #7a5510;
   --warn-soft: #f5e8c8;
   --danger: #9b3a3a;
   --danger-soft: #f5d9d9;
   --info: #2a5f7a;
   --info-soft: #d7e8f0;
-  --ok: #1f7a5c;
+  --ok: #165a44;
   --ok-soft: #d7efe4;
-  --line: rgba(18, 36, 31, 0.1);
+  --neutral: #4a5551;
+  --neutral-soft: #eceeed;
+
+  /* Shape, depth, sizing */
+  --radius: 18px; /* cards, panels */
+  --radius-md: 12px; /* buttons, fields */
+  --radius-sm: 8px;
   --shadow: 0 18px 40px rgba(18, 36, 31, 0.08);
-  --radius: 18px;
+  --tap: 44px; /* minimum touch target */
+  --focus: 2px solid var(--jade);
+
+  /* Shell */
+  --header-h: 56px;
+  --sidebar-w: 248px;
+
   --background: var(--mist);
   --foreground: var(--ink);
   --login-glass: color-mix(in srgb, #f7fbf8 90%, white);
@@ -60,11 +88,14 @@ a {
   text-decoration: none;
 }
 
-@layer components {
-  .shell {
-    @apply min-h-screen;
-  }
+/* One visible focus ring for every interactive element. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
 
+@layer components {
+  /* ── Card (.panel) ── */
   .panel {
     background: color-mix(in srgb, var(--paper) 88%, white);
     border: 1px solid var(--line);
@@ -73,60 +104,128 @@ a {
     backdrop-filter: blur(8px);
   }
 
+  /* ── Button ── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
+    @apply inline-flex items-center justify-center gap-2 px-4 text-sm font-semibold transition;
+    min-height: var(--tap);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    line-height: 1.2;
   }
-
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
   .btn-primary {
     background: var(--jade);
     color: white;
   }
-
-  .btn-primary:hover {
+  .btn-primary:hover:not(:disabled) {
     background: var(--jade-deep);
   }
-
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--jade-deep);
+    border-color: color-mix(in srgb, var(--jade) 45%, transparent);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--jade-soft);
+  }
   .btn-ghost {
     background: transparent;
     color: var(--ink-soft);
-    border: 1px solid var(--line);
+    border-color: var(--line-strong);
   }
-
-  .btn-ghost:hover {
-    background: rgba(18, 36, 31, 0.04);
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(18, 36, 31, 0.05);
   }
-
   .btn-danger {
     background: var(--danger-soft);
     color: var(--danger);
   }
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 18%, white);
+  }
 
+  /* ── Form field ── */
   .field {
-    @apply w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition;
-    border-color: var(--line);
-    background: white;
+    @apply w-full px-3 py-2.5 text-sm transition;
+    min-height: var(--tap);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
   }
-
-  .field:focus {
-    border-color: color-mix(in srgb, var(--jade) 55%, white);
-    box-shadow: 0 0 0 3px rgba(31, 122, 92, 0.15);
+  .field:focus-visible {
+    outline: var(--focus);
+    outline-offset: 1px;
+    border-color: var(--jade);
   }
-
+  .field[aria-invalid="true"] {
+    border-color: var(--danger);
+  }
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em];
     color: var(--ink-soft);
   }
-
-  .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  .field-hint {
+    @apply mt-1 text-xs;
+    color: var(--ink-muted);
+  }
+  .field-error {
+    @apply mt-1 text-xs font-semibold;
+    color: var(--danger);
   }
 
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+    white-space: nowrap;
+  }
+  .tone-neutral {
+    background: var(--neutral-soft);
+    color: var(--neutral);
+  }
   .tone-danger {
     background: var(--danger-soft);
     color: var(--danger);
   }
+  .tone-warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+  .tone-ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+  .tone-info {
+    background: var(--info-soft);
+    color: var(--info);
+  }
 
-  /* Loading placeholder for dashboard panels and KPI cards. */
+  /* ── Text helpers ── */
+  .text-muted {
+    color: var(--ink-muted);
+  }
+  .eyebrow {
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.1em];
+    color: var(--ink-muted);
+  }
+  .link {
+    color: var(--jade-deep);
+    font-weight: 600;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Notice (status messages; ErrorState uses tone-danger) ── */
+  .notice {
+    @apply rounded-xl px-4 py-3 text-sm;
+    overflow-wrap: anywhere;
+  }
+
+  /* Loading placeholder for panels, stat cards and table rows. */
   .skeleton {
     border-radius: 0.6rem;
     background: linear-gradient(
@@ -146,46 +245,18 @@ a {
     transform: rotate(-3deg);
   }
 
-  .tone-warn {
-    background: var(--warn-soft);
-    color: var(--warn);
-  }
-
-  .tone-ok {
-    background: var(--ok-soft);
-    color: var(--ok);
-  }
-
-  .tone-info {
-    background: var(--info-soft);
-    color: var(--info);
-  }
-
-  .nav-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition;
-    color: color-mix(in srgb, var(--ink) 72%, transparent);
-  }
-
-  .nav-link:hover,
-  .nav-link.active {
-    background: rgba(31, 122, 92, 0.1);
-    color: var(--jade-deep);
-  }
-
+  /* ── Table ── */
   .table-wrap {
     @apply overflow-x-auto;
   }
-
   .data-table {
     @apply w-full min-w-[640px] text-left text-sm;
   }
-
   .data-table th {
     @apply px-3 py-3 text-xs font-semibold uppercase tracking-[0.06em];
-    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    color: var(--ink-muted);
     border-bottom: 1px solid var(--line);
   }
-
   .data-table td {
     @apply px-3 py-3 align-middle;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
@@ -194,19 +265,15 @@ a {
   .fade-up {
     animation: fadeUp 0.45s ease both;
   }
-
   .fade-up-delay-1 {
     animation-delay: 0.05s;
   }
-
   .fade-up-delay-2 {
     animation-delay: 0.1s;
   }
-
   .fade-up-delay-3 {
     animation-delay: 0.15s;
   }
-
   .pulse-dot {
     animation: pulseDot 1.8s ease-in-out infinite;
   }
@@ -235,20 +302,6 @@ a {
   }
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.slide-in {
-  animation: slideIn 0.35s ease both;
-}
 
 .login-page {
   position: relative;
@@ -426,41 +479,10 @@ a {
   animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
 }
 
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-}
 
-.brand-mark-seal {
-  width: 2.55rem;
-  height: 2.55rem;
-  border-radius: 999px;
-  object-fit: cover;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(18, 36, 31, 0.16);
-}
 
-.brand-mark-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.05;
-}
 
-.brand-mark-name {
-  font-family: var(--font-display), Fraunces, Georgia, serif;
-  font-size: 1.45rem;
-  color: var(--ink);
-  letter-spacing: -0.02em;
-}
 
-.brand-mark-sub {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-}
 
 .login-form-header {
   margin-bottom: 1.15rem;
@@ -612,8 +634,7 @@ a {
   .fade-up-delay-2,
   .fade-up-delay-3,
   .skeleton,
-  .pulse-dot,
-  .slide-in {
+  .pulse-dot {
     animation: none !important;
   }
 
@@ -622,219 +643,16 @@ a {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Koha-style staff chrome (lookalike of Koha intranet, structure
-   referenced from GPL templates; styles written fresh)
-   ═══════════════════════════════════════════════════════════════ */
-
-:root {
-  --koha-green: #408540;
-  --koha-green-dark: #357035;
-  --koha-green-light: #4d9c4d;
-  --header-h: 56px;
-  --sidebar-w: 248px;
-}
-
-/* ── Circulation home (Koha circulation-home.tt look) ── */
-.circ-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.1rem;
-}
-.circ-card {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  padding: 1.1rem;
-}
-.circ-card h3 {
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--koha-green);
-  margin-bottom: 0.8rem;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid rgba(64, 133, 64, 0.25);
-}
-.circ-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
-.circ-button {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  background: var(--koha-green);
-  color: #fff;
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  transition: background 0.15s;
-}
-.circ-button:hover { background: var(--koha-green-dark); }
-.circ-button.alt { background: #5d9efe; }
-.circ-button.alt:hover { background: #468ade; }
-.circ-button.warn { background: #fd7e14; }
-.circ-button.warn:hover { background: #e56f0a; }
-.circ-links li { list-style: none; }
-.circ-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.circ-links a {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.45rem 0.55rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-.circ-links a:hover { background: rgba(64, 133, 64, 0.09); }
-.circ-count { font-weight: 700; color: var(--koha-green); }
-
-/* ── Koha tables ── */
-.koha-table-wrap {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  overflow-x: auto;
-}
-table.koha-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-}
-.koha-table thead th {
-  background: var(--koha-green);
-  color: #fff;
-  text-align: left;
-  padding: 0.55rem 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-}
-.koha-table tbody td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  vertical-align: top;
-}
-.koha-table tbody tr:nth-child(even) { background: #f8f9fa; }
-.koha-table tbody tr:hover { background: rgba(93, 158, 254, 0.07); }
-
-/* Status chips (Koha authorized-value colors) */
-.chip {
-  display: inline-block;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.chip-available { background: #d7efe4; color: #16603f; }
-.chip-on_loan { background: #dbeafe; color: #1e4e8c; }
-.chip-overdue { background: #f5d9d9; color: #8c1d1d; }
-.chip-damaged, .chip-lost, .chip-withdrawn { background: #eee; color: #555; text-decoration: line-through; }
-.chip-not_for_loan { background: #f5e8c8; color: #7a5510; }
-.chip-in_transit { background: #ede0f7; color: #5b2d86; }
-.chip-pending { background: #f5e8c8; color: #7a5510; }
-.chip-ready { background: #d7efe4; color: #16603f; }
-.chip-fulfilled, .chip-returned { background: #eee; color: #555; }
-
-/* Page title row with actions (Koha toolbar) */
-.page-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
-}
-.page-title { font-size: 1.35rem; font-weight: 700; color: #212529; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.btn-koha {
-  background: var(--koha-green);
-  color: #fff;
-  border-radius: 6px;
-  padding: 0.45rem 0.95rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.btn-koha:hover { background: var(--koha-green-dark); }
-.btn-koha.secondary {
-  background: #fff;
-  color: var(--koha-green);
-  border: 1px solid var(--koha-green);
-}
-.btn-koha.secondary:hover { background: rgba(64, 133, 64, 0.08); }
-
-/* Scan bar (checkout/checkin) */
-.scan-bar {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-left: 5px solid var(--koha-green);
-  border-radius: 10px;
-  padding: 1rem;
-  margin-bottom: 1.1rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: center;
-}
-.scan-input {
-  flex: 1;
-  min-width: 240px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  border-radius: 6px;
-  padding: 0.55rem 0.8rem;
-  font-size: 0.95rem;
-  font-family: inherit;
-}
-.scan-input:focus {
-  outline: 2px solid var(--koha-green-light);
-  outline-offset: -1px;
-}
-
-
-@media (prefers-reduced-motion: reduce) {
-  .circ-button, .btn-koha { transition: none !important; }
-}
-
-
 /* ── About page prose ── */
 .about-prose { font-size: 0.92rem; line-height: 1.55; }
 .about-prose p { margin: 0.4rem 0; }
 .about-prose ul { margin: 0.4rem 0 0.4rem 1.1rem; list-style: disc; }
 .about-prose li { margin: 0.25rem 0; }
-.about-prose a { color: var(--koha-green); font-weight: 500; }
+.about-prose a { color: var(--jade-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .about-prose a:hover { text-decoration: underline; }
 
 
-/* ── Interactive animations (TRAC Library) ── */
-@keyframes trac-fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.circ-card, .koha-table-wrap, .scan-bar {
-  animation: trac-fade-up 0.35s ease-out both;
-}
-.circ-grid > :nth-child(2) { animation-delay: 0.07s; }
-.circ-grid > :nth-child(3) { animation-delay: 0.14s; }
 
-.btn-koha, .circ-button {
-  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
-}
-.btn-koha:active, .circ-button:active { transform: scale(0.97); }
-
-.koha-table tbody tr { transition: background 0.12s ease; }
-
-.chip { transition: transform 0.12s ease; }
-.chip:hover { transform: scale(1.05); }
-
-@media (prefers-reduced-motion: reduce) {
-  .circ-card, .koha-table-wrap, .scan-bar { animation: none !important; }
-}
 
 
 
@@ -851,10 +669,13 @@ table.koha-table {
   font-size: 0.82rem;
 }
 .login-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   background: none;
   border: none;
   padding: 0;
-  color: var(--jade, #1f7a5c);
+  color: var(--jade-deep);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -878,102 +699,12 @@ table.koha-table {
   font-size: 0.76rem;
   line-height: 1.4;
   text-align: center;
-  color: color-mix(in srgb, var(--ink, #12241f) 55%, transparent);
+  color: var(--ink-muted);
 }
 
 
-/* 3D Bookshelf UI overlay styles */
-.shelf-ui-overlay {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 10;
-  max-width: 340px;
-  background: rgba(15, 15, 25, 0.92);
-  backdrop-filter: blur(4px);
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.shelf-ui-overlay h1 {
-  font-size: 1.2rem;
-  margin-bottom: 6px;
-  color: #fff;
-}
-.shelf-ui-overlay p {
-  font-size: 0.85rem;
-  color: #aaa;
-  margin-bottom: 10px;
-}
-.book-card {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.book-card h3 {
-  font-size: 0.95rem;
-  color: #fff;
-  margin-bottom: 2px;
-}
-.book-card .book-author {
-  color: #aaa;
-  font-size: 0.85rem;
-  margin-bottom: 4px;
-}
-.book-card p {
-  font-size: 0.8rem;
-  color: #aaa;
-  margin-bottom: 2px;
-}
-.book-card .borrow-btn {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 6px 12px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  text-decoration: none;
-}
-.book-card .borrow-btn:hover {
-  background: #1d4ed8;
-}
-.status-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.status-badge.available {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-}
-.status-badge.borrowed {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-}
 
 @media (max-width: 640px) {
-  .login-building-banner {
-    width: 100%;
-    object-fit: cover;
-    object-position: center;
-    height: auto;
-    max-height: none; /* natural 960/722 ratio */
-    margin-bottom: 1rem;
-  }
-  
-  .login-building-banner.faded {
-    /* Fade bottom edge into dark background */
-    background: linear-gradient(top, rgba(10,20,10,0), rgba(10,20,10,0.8));
-  }
-  
   .login-copy {
     padding: 1rem;
     max-width: 400px;
@@ -993,12 +724,6 @@ table.koha-table {
 
 
 /* Login page building banner */
-.login-building-banner {
-  width: 100%;
-  height: auto;
-  object-fit: cover;
-  object-position: center;
-}
 
 .login-brand {
   font-size: clamp(3rem, 8vw, 4.75rem);
@@ -1128,12 +853,14 @@ table.koha-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--tap);
+  height: var(--tap);
   border-radius: 10px;
   color: inherit;
 }
-.desk-icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+/* Light surfaces (drawer, dialogs) by default; the dark header overrides. */
+.desk-icon-btn:hover { background: var(--sand); }
+.desk-header .desk-icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .desk-count {
   position: absolute;
   top: 4px;
@@ -1153,7 +880,7 @@ table.koha-table {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  height: 40px;
+  height: var(--tap);
   padding: 0 0.5rem 0 0.25rem;
   border-radius: 10px;
 }
@@ -1191,7 +918,8 @@ table.koha-table {
   width: 100%;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 0.7rem;
+  min-height: var(--tap);
+  padding: 0.5rem 0.7rem;
   border-radius: 8px;
   font-size: 0.9rem;
   text-align: left;
@@ -1200,7 +928,7 @@ table.koha-table {
 .desk-popover-item.danger { color: var(--danger); }
 .desk-notif { padding: 0.55rem 0.7rem; border-radius: 8px; font-size: 0.85rem; }
 .desk-notif.unread { background: var(--jade-soft); }
-.desk-notif p { margin-top: 0.15rem; color: color-mix(in srgb, var(--ink) 65%, transparent); }
+.desk-notif p { margin-top: 0.15rem; color: var(--ink-muted); }
 
 .desk-body { flex: 1; display: flex; min-height: 0; }
 
@@ -1227,7 +955,7 @@ table.koha-table {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: color-mix(in srgb, var(--ink) 50%, transparent);
+  color: var(--ink-muted);
 }
 .desk-nav-section:first-child .desk-nav-heading { margin-top: 0.25rem; }
 .desk-nav-link {
@@ -1235,7 +963,8 @@ table.koha-table {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
+  min-height: var(--tap);
+  padding: 0.5rem 0.7rem;
   border-radius: 10px;
   font-size: 0.92rem;
   color: var(--ink-soft);
@@ -1288,7 +1017,6 @@ table.koha-table {
   border-bottom: 1px solid var(--line);
 }
 .desk-drawer .desk-nav { overflow-y: auto; }
-.desk-drawer .desk-icon-btn:hover { background: var(--mist); }
 @keyframes desk-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes desk-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 
@@ -1300,10 +1028,10 @@ table.koha-table {
   padding: 1rem;
   text-align: center;
   font-size: 0.78rem;
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  color: var(--ink-muted);
 }
-.desk-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-top: 0.25rem; }
-.desk-footer a { color: var(--jade); font-weight: 600; }
+.desk-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.75rem; margin-top: 0.25rem; }
+.desk-footer a { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 0.25rem; color: var(--jade-deep); font-weight: 600; }
 .desk-footer a:hover { text-decoration: underline; }
 
 .desk-header :focus-visible,
@@ -1318,34 +1046,24 @@ table.koha-table {
   .desk-drawer, .desk-drawer-backdrop { animation: none !important; }
 }
 
-/* ── One card style site-wide: legacy cards match .panel ── */
-.circ-card,
-.koha-table-wrap {
-  background: color-mix(in srgb, var(--paper) 88%, white);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
 /* ── Tables become card lists on phones ──
- * KohaShell copies each column heading into td[data-label]; rows then stack
+ * The shared Table copies each column name into td[data-label]; rows then stack
  * as cards with "Label  value" lines. Cells spanning the whole row (loading,
  * empty) stay full width without a label. */
 @media (max-width: 767px) {
-  .data-table, .koha-table { min-width: 0 !important; width: 100%; border-collapse: separate; }
-  .data-table thead, .koha-table thead {
+  .data-table { min-width: 0 !important; width: 100%; border-collapse: separate; }
+  .data-table thead {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
-  .data-table tbody, .koha-table tbody { display: grid; gap: 0.6rem; }
-  .data-table tr, .koha-table tbody tr {
+  .data-table tbody { display: grid; gap: 0.6rem; }
+  .data-table tr {
     display: block;
     border: 1px solid var(--line);
     border-radius: 14px;
     background: #fff;
     padding: 0.35rem 0.85rem;
   }
-  .koha-table tbody tr:nth-child(even) { background: #fff; }
-  .data-table td, .koha-table tbody td {
+  .data-table td {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -1356,8 +1074,8 @@ table.koha-table {
     text-align: right;
     overflow-wrap: anywhere;
   }
-  .data-table td:last-child, .koha-table tbody td:last-child { border-bottom: 0 !important; }
-  .data-table td[data-label]::before, .koha-table tbody td[data-label]::before {
+  .data-table td:last-child { border-bottom: 0 !important; }
+  .data-table td[data-label]::before {
     content: attr(data-label);
     flex-shrink: 0;
     max-width: 45%;
@@ -1366,13 +1084,18 @@ table.koha-table {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--ink) 50%, transparent);
+    color: var(--ink-muted);
   }
-  .data-table td[data-label=""]::before, .koha-table tbody td[data-label=""]::before { content: none; }
-  .data-table td[data-label=""], .koha-table tbody td[data-label=""] { justify-content: flex-end; }
-  .data-table td[colspan], .koha-table tbody td[colspan] { display: block; text-align: left; }
-  .table-wrap, .koha-table-wrap { overflow: visible; border: 0; box-shadow: none; background: transparent; padding: 0; }
+  .data-table td[data-label=""]::before { content: none; }
+  .data-table td[data-label=""] { justify-content: flex-end; }
+  .data-table td[colspan] { display: block; text-align: left; }
+  .data-table td.table-state { padding: 0 !important; border: 0 !important; }
+  .data-table tr:has(> td.table-state) { border: 0; padding: 0; background: transparent; }
+  .table-wrap { overflow: visible; border: 0; box-shadow: none; background: transparent; padding: 0; }
 }
+
+/* State rows (loading, empty, error) span the table without row chrome. */
+.data-table td.table-state { padding: 0.75rem 0; }
 
 /* Compact tables (dashboard panels) fit their column instead of forcing 640px. */
 .data-table.data-table-compact { min-width: 0; }

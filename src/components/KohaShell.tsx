@@ -6,8 +6,8 @@
  *   - Navigation grouped by role (src/lib/nav.ts), one lucide icon set.
  *     ≥1024px: persistent left sidebar. <1024px: slide-over drawer with a
  *     backdrop that closes on navigation, Esc or backdrop click.
- *   - On phones every table turns into a card list; this shell copies each
- *     column heading into td[data-label] so the CSS can label the values.
+ *   - Pages build from the shared UI kit (src/components/ui); its Table
+ *     turns into a labelled card list on phones.
  */
 
 import Image from "next/image";
@@ -45,6 +45,8 @@ import type { Notification } from "@/lib/types";
 import { useApi } from "@/lib/hooks";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
 import { useDeskSession } from "./DeskSessionProvider";
+import { INSTITUTION, INSTITUTION_PLACE } from "@/lib/site";
+import { NOTIFICATIONS_CHANGED } from "@/lib/events";
 
 // Fail closed: no production fallback. When the origin is missing the link
 // is simply not shown; admins see the configuration notice in Settings.
@@ -88,13 +90,10 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
   const drawerOpen = drawerPath === pathname;
   const closeDrawer = useCallback(() => setDrawerPath(null), []);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
-
-  useTableCardLabels(mainRef);
 
   return (
     <div className="desk-shell">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[70] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[70] focus:rounded-lg focus:bg-[var(--surface)] focus:px-3 focus:py-2 focus:text-[var(--ink)]">
         Skip to content
       </a>
       <header className="desk-header">
@@ -123,21 +122,21 @@ export function KohaShell({ children }: { children: React.ReactNode }) {
 
       <div className="desk-body">
         <aside className="desk-sidebar" aria-label={isStudent ? "My library" : "Desk navigation"}>
-          <NavList sections={sections} pathname={pathname} />
+          <NavList sections={sections} pathname={pathname} idPrefix="sidebar" />
         </aside>
 
         {drawerOpen && (
           <Drawer onClose={closeDrawer} returnFocusTo={menuButton}>
-            <NavList sections={sections} pathname={pathname} onNavigate={closeDrawer} />
+            <NavList sections={sections} pathname={pathname} onNavigate={closeDrawer} idPrefix="drawer" />
           </Drawer>
         )}
 
         <div className="desk-content">
-          <main id="main" ref={mainRef} className="desk-main" tabIndex={-1}>
+          <main id="main" className="desk-main" tabIndex={-1}>
             {children}
           </main>
           <footer className="desk-footer">
-            <p>TRAC Library · Institute of Agricultural Sciences, Bongao, Tawi-Tawi</p>
+            <p>TRAC Library · {INSTITUTION}, {INSTITUTION_PLACE}</p>
             <nav aria-label="About and privacy">
               <Link href="/about">About</Link>
               <Link href="/about#privacy">Privacy policy</Link>
@@ -154,10 +153,13 @@ function NavList({
   sections,
   pathname,
   onNavigate,
+  idPrefix,
 }: {
   sections: NavSection[];
   pathname: string;
   onNavigate?: () => void;
+  /** Sidebar and drawer both render the list; ids must stay unique. */
+  idPrefix: string;
 }) {
   const current = activeHref(
     pathname,
@@ -167,8 +169,8 @@ function NavList({
     <nav className="desk-nav">
       {sections.map((section) => (
         <div key={section.heading} className="desk-nav-section">
-          <p className="desk-nav-heading" id={`nav-${section.heading}`}>{section.heading}</p>
-          <ul aria-labelledby={`nav-${section.heading}`}>
+          <p className="desk-nav-heading" id={`${idPrefix}-${slug(section.heading)}`}>{section.heading}</p>
+          <ul aria-labelledby={`${idPrefix}-${slug(section.heading)}`}>
             {section.links.map((link) => {
               const Icon = ICONS[link.icon];
               const content = (
@@ -201,6 +203,11 @@ function NavList({
       ))}
     </nav>
   );
+}
+
+/** "Catalog & patrons" → "catalog-patrons" (valid in an id reference list). */
+function slug(text: string) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 /** Slide-over drawer: backdrop, Esc to close, focus kept inside, focus restored. */
@@ -304,27 +311,27 @@ function AccountMenu({ name, signedIn }: { name?: string; signedIn: boolean }) {
         className="desk-account-btn"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-controls={open ? "account-menu" : undefined}
         aria-label={signedIn ? `Account menu for ${name}` : "Account"}
       >
         <span className="desk-avatar" aria-hidden>{(name ?? "?").slice(0, 1).toUpperCase()}</span>
         <span className="desk-account-name hidden sm:inline">{name ?? "Sign in"}</span>
       </button>
       {open && (
-        <div className="desk-popover" role="menu">
+        <div className="desk-popover" id="account-menu">
           {signedIn ? (
             <>
-              <Link href="/profile" className="desk-popover-item" role="menuitem">
+              <Link href="/profile" className="desk-popover-item">
                 <User size={16} aria-hidden /> My profile
               </Link>
               <form action="/api/auth/logout" method="post">
-                <button type="submit" className="desk-popover-item danger" role="menuitem">
+                <button type="submit" className="desk-popover-item danger">
                   <LogOut size={16} aria-hidden /> Log out
                 </button>
               </form>
             </>
           ) : (
-            <Link href="/login" className="desk-popover-item" role="menuitem">Sign in</Link>
+            <Link href="/login" className="desk-popover-item">Sign in</Link>
           )}
         </div>
       )}
@@ -335,7 +342,13 @@ function AccountMenu({ name, signedIn }: { name?: string; signedIn: boolean }) {
 function NotificationBell() {
   const { open, setOpen, ref } = usePopover();
   // GET /api/notifications returns the caller's notifications as an array.
-  const { data } = useApi<Notification[]>("/api/notifications");
+  const { data, reload } = useApi<Notification[]>("/api/notifications");
+  // Pages that mark notifications read announce it, so the count stays current.
+  useEffect(() => {
+    const refresh = () => void reload();
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+  }, [reload]);
   const notifications = Array.isArray(data) ? data : [];
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -360,38 +373,11 @@ function NotificationBell() {
             </div>
           ))}
           {notifications.length === 0 && <p className="desk-notif">No notifications.</p>}
-          <Link href="/notifications" className="desk-popover-item justify-center font-semibold text-[var(--jade)]">
+          <Link href="/notifications" className="desk-popover-item justify-center font-semibold text-[var(--jade-deep)]">
             See all notifications
           </Link>
         </div>
       )}
     </div>
   );
-}
-
-/**
- * Copies each table's column headings into its cells' data-label so the
- * mobile CSS can show every row as a labelled card. Re-runs when pages
- * render new rows.
- */
-function useTableCardLabels(root: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const label = () => {
-      el.querySelectorAll<HTMLTableElement>("table.data-table, table.koha-table").forEach((table) => {
-        const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent?.trim() ?? "");
-        table.querySelectorAll("tbody tr").forEach((tr) => {
-          Array.from(tr.children).forEach((cell, i) => {
-            const text = headings[i] ?? "";
-            if (cell.getAttribute("data-label") !== text) cell.setAttribute("data-label", text);
-          });
-        });
-      });
-    };
-    label();
-    const observer = new MutationObserver(label);
-    observer.observe(el, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [root]);
 }

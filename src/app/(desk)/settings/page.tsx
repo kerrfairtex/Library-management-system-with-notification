@@ -4,7 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { apiJson } from "@/lib/hooks";
-import { EmptyState, ErrorBanner, PageHeader, Modal } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Modal, Notice, PageHeader, Table, useDialogs } from "@/components/ui";
+import { statusLabel } from "@/lib/status-tone";
 import type { CirculationRule, MemberType } from "@/lib/types";
 import { resolveDeploymentOrigin } from "@/lib/deploy-config";
 
@@ -82,20 +83,19 @@ export default function SettingsPage() {
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
   const [ruleBusy, setRuleBusy] = useState(false);
   const [ruleError, setRuleError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dialogs = useDialogs();
 
   if (!isAdmin) {
     return (
       <div>
-        <PageHeader
-          title="Settings"
-          subtitle="Only administrators can modify system settings."
-        />
-        <div className="panel p-4 md:p-5">
+        <PageHeader title="System settings" subtitle="Only administrators can change system settings." />
+        <Card>
           <EmptyState
             title="Admins only"
             body="Ask an admin to change your role if you need to manage system settings."
           />
-        </div>
+        </Card>
       </div>
     );
   }
@@ -171,7 +171,14 @@ export default function SettingsPage() {
   }
 
   async function deleteRule(memberType: MemberType) {
-    if (!window.confirm(`Delete circulation rule for ${memberType}?`)) return;
+    const ok = await dialogs.confirm({
+      title: `Delete the ${statusLabel(memberType).toLowerCase()} rule?`,
+      message: "Loans for this patron type fall back to the global policies below.",
+      confirmLabel: "Delete rule",
+      danger: true,
+    });
+    if (!ok) return;
+    setActionError(null);
     try {
       await apiJson("/api/circulation-rules", {
         method: "DELETE",
@@ -179,33 +186,31 @@ export default function SettingsPage() {
       });
       await reloadRules();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      setActionError(err instanceof Error ? err.message : "The rule wasn’t deleted. Try again.");
     }
   }
 
   return (
     <div>
       <PageHeader
-        title="Settings"
-        subtitle="Configure library circulation policies and system settings."
+        title="System settings"
+        subtitle="Circulation policies, per-type loan rules and the 3D bookshelf link."
         action={
-          <button type="button" className="btn btn-primary" onClick={openCreateRule}>
-            Add Circulation Rule
-          </button>
+          <Button variant="primary" onClick={openCreateRule}>
+            Add circulation rule
+          </Button>
         }
       />
 
       <section className="panel mb-5 p-4 md:p-5" aria-labelledby="bookshelf-setting">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="bookshelf-setting" className="text-lg font-semibold">3D bookshelf</h2>
-          <span className={`badge ${SHELF_CONFIG.ok ? "tone-ok" : "tone-warn"}`}>
-            {SHELF_CONFIG.ok ? "Connected" : "Not configured"}
-          </span>
+          <Badge tone={SHELF_CONFIG.ok ? "ok" : "warn"}>{SHELF_CONFIG.ok ? "Connected" : "Not configured"}</Badge>
         </div>
         {SHELF_CONFIG.ok ? (
           <p className="mt-2 text-sm">
             Patrons and staff see a &ldquo;3D bookshelf&rdquo; link in the menu that opens{" "}
-            <a className="font-semibold text-[var(--jade)]" href={SHELF_CONFIG.value} target="_blank" rel="noreferrer noopener">
+            <a className="link break-all" href={SHELF_CONFIG.value} target="_blank" rel="noreferrer noopener">
               {SHELF_CONFIG.value}
             </a>.
           </p>
@@ -219,73 +224,47 @@ export default function SettingsPage() {
       </section>
 
       <div className="panel p-4 md:p-5">
-        {error && <ErrorBanner message={error} />}
-        {formError && <ErrorBanner message={formError} />}
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 text-green-800 rounded">
-            Settings saved successfully!
-          </div>
-        )}
+        {error && <ErrorState message={error} />}
+        {formError && <ErrorState message={formError} />}
+        {actionError && <ErrorState message={actionError} />}
+        {success && <Notice>Settings saved.</Notice>}
 
         {/* Circulation Rules Section */}
         <section className="space-y-4 mb-8">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Circulation Rules (per member type)</h3>
-          </div>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Member Type</th>
-                  <th>Loan Days</th>
-                  <th>Renewal Days</th>
-                  <th>Max Renewals</th>
-                  <th>Max Loans</th>
-                  <th>Fine/Day (₱)</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && <tr><td colSpan={7}>Loading…</td></tr>}
-                {!loading && (!rulesData?.circulationRules || rulesData.circulationRules.length === 0) && (
-                  <tr><td colSpan={7}>No circulation rules configured.</td></tr>
-                )}
+          <h2 className="text-lg font-semibold">Circulation rules by patron type</h2>
+          <Table
+            caption="Circulation rules by patron type"
+            columns={["Patron type", "Loan days", "Renewal days", "Max renewals", "Max loans", "Fine/day (₱)", { label: "Actions", hideLabel: true }]}
+            loading={loading}
+            isEmpty={!rulesData?.circulationRules || rulesData.circulationRules.length === 0}
+            empty={{ title: "No rules yet", body: "Every patron type uses the global policies below. Add a rule to override them." }}
+          >
                 {rulesData?.circulationRules?.map((rule) => (
                   <tr key={rule.memberType}>
-                    <td className="font-semibold capitalize">{rule.memberType}</td>
+                    <td className="font-semibold">{statusLabel(rule.memberType)}</td>
                     <td>{rule.loanDays}</td>
                     <td>{rule.renewalDays}</td>
                     <td>{rule.maxRenewals}</td>
                     <td>{rule.maxLoans}</td>
                     <td>₱{rule.finePerDay.toFixed(2)}</td>
                     <td>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => openEditRule(rule)}
-                        >
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button variant="ghost" onClick={() => openEditRule(rule)}>
                           Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => deleteRule(rule.memberType)}
-                        >
+                        </Button>
+                        <Button variant="danger" onClick={() => deleteRule(rule.memberType)}>
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+          </Table>
         </section>
 
         {/* Global Settings Section */}
         <section className="space-y-4">
-          <h3 className="text-lg font-semibold">Global Circulation Policies</h3>
+          <h2 className="text-lg font-semibold">Global circulation policies</h2>
 
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -491,14 +470,12 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <button
-                type="submit"
-                className="btn btn-primary"
+            <div className="flex justify-end gap-2 border-t border-[var(--line)] pt-4">
+              <Button type="submit" variant="primary"
                 disabled={busy}
               >
-                {busy ? "Saving…" : "Save Settings"}
-              </button>
+                {busy ? "Saving…" : "Save settings"}
+              </Button>
             </div>
           </form>
         </section>
@@ -511,7 +488,7 @@ export default function SettingsPage() {
         onClose={() => setRuleModalOpen(false)}
       >
         <form onSubmit={saveRule} className="space-y-3">
-          {ruleError && <ErrorBanner message={ruleError} />}
+          {ruleError && <ErrorState message={ruleError} />}
           <div>
             <label className="label" htmlFor="memberType">
               Member Type *
@@ -600,15 +577,16 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={() => setRuleModalOpen(false)}>
+            <Button variant="ghost" onClick={() => setRuleModalOpen(false)}>
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={ruleBusy}>
+            </Button>
+            <Button type="submit" variant="primary" disabled={ruleBusy}>
               {ruleBusy ? "Saving…" : editingRule ? "Update Rule" : "Create Rule"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
+      {dialogs.element}
     </div>
   );
 }

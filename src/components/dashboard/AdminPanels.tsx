@@ -12,7 +12,7 @@ import type { UserStatistics } from "@/lib/types";
 import { roleCounts } from "@/lib/dashboard-stats";
 import { Panel } from "./DashboardKit";
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function AdminPanels() {
   const stats = useApi<UserStatistics>("/api/admin/user-statistics");
@@ -27,6 +27,7 @@ export function AdminPanels() {
         linkLabel="Insights"
         loading={stats.loading}
         error={stats.error}
+        onRetry={stats.reload}
         empty={stats.data && stats.data.totalAccounts === 0 ? { title: "No accounts yet", body: "Create the first accounts in User accounts." } : null}
       >
         <ul className="space-y-2.5">

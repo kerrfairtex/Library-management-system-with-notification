@@ -1,26 +1,30 @@
 "use client";
 
-/* Login-specific error boundary. */
+/* Sign-in error boundary. */
 
 import { useEffect } from "react";
+import { Button, ButtonLink, ErrorScreen } from "@/components/ui";
 
-export default function LoginError({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function LoginError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     console.error("Login page error:", error);
   }, [error]);
 
   return (
-    <div style={{ padding: "2rem", textAlign: "center" }}>
-      <p role="alert">The sign-in page hit an error. Please refresh.</p>
-      <button type="button" className="btn btn-primary" onClick={reset} style={{ marginTop: "0.75rem" }}>
-        Retry
-      </button>
-    </div>
+    <main className="px-4">
+      <ErrorScreen
+        eyebrow="Sign in"
+        title="The sign-in page couldn’t load"
+        body="Try again. You can still search the catalog without signing in."
+        actions={
+          <>
+            <Button variant="primary" onClick={() => retry()}>
+              Try again
+            </Button>
+            <ButtonLink href="/catalog">Search the catalog</ButtonLink>
+          </>
+        }
+      />
+    </main>
   );
 }

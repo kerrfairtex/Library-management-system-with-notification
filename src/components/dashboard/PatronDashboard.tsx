@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { useApi } from "@/lib/hooks";
 import type { Notification, PublicUser } from "@/lib/types";
 import { formatDate, notificationTone } from "@/lib/utils";
+import { statusLabel } from "@/lib/status-tone";
 import {
   currentlyBorrowed,
   dueLabel,
@@ -32,7 +33,7 @@ type MyRecord = {
   loanLimit: number | null;
 };
 
-const muted = "text-[color-mix(in_srgb,var(--ink)_60%,transparent)]";
+const muted = "text-muted";
 
 export function PatronDashboard({
   user,
@@ -97,9 +98,10 @@ export function PatronDashboard({
           className="lg:col-span-2"
           title="Books you have"
           href="/my-loans"
-          linkLabel="My record"
+          linkLabel="My loans"
           loading={record.loading}
           error={record.error}
+          onRetry={record.reload}
           empty={
             borrowed.length === 0
               ? {
@@ -140,6 +142,7 @@ export function PatronDashboard({
           linkLabel="All holds"
           loading={record.loading}
           error={record.error}
+          onRetry={record.reload}
           empty={holds.length === 0 ? { title: "No holds", body: "Place a hold on a book that's out and we'll tell you when it's ready." } : null}
         >
           <ul className="space-y-2">
@@ -160,17 +163,17 @@ export function PatronDashboard({
 
       <section className="grid gap-5 lg:grid-cols-2">
         <Panel
-          title={unread ? `Alerts (${unread} new)` : "Alerts"}
+          title={unread ? `Notifications (${unread} new)` : "Notifications"}
           href="/notifications"
-          linkLabel="All alerts"
-          empty={notifications.length === 0 ? { title: "No alerts", body: "Due-date reminders and hold notices will appear here." } : null}
+          linkLabel="All notifications"
+          empty={notifications.length === 0 ? { title: "No notifications", body: "Due-date reminders and hold notices will appear here." } : null}
         >
           <ul className="space-y-2">
             {notifications.slice(0, 5).map((n) => (
               <li key={n.id} className={`rounded-xl border border-[var(--line)] px-3 py-2.5 ${n.read ? "opacity-70" : ""}`}>
                 <div className="mb-1 flex items-center gap-2">
-                  <span className={`badge ${notificationTone(n.type)}`}>{n.type.replace("_", " ")}</span>
-                  <span className="text-xs text-[color-mix(in_srgb,var(--ink)_45%,transparent)]">{formatDate(n.createdAt)}</span>
+                  <span className={`badge ${notificationTone(n.type)}`}>{statusLabel(n.type)}</span>
+                  <span className="text-xs text-muted">{formatDate(n.createdAt)}</span>
                 </div>
                 <p className="font-semibold">{n.title}</p>
                 <p className={`text-sm ${muted}`}>{n.message}</p>
@@ -183,6 +186,7 @@ export function PatronDashboard({
           title="Recent activity"
           loading={record.loading}
           error={record.error}
+          onRetry={record.reload}
           empty={activity.length === 0 ? { title: "Nothing yet", body: "Your borrows, returns and holds will show up here." } : null}
         >
           <ol className="space-y-2">
@@ -212,7 +216,7 @@ export function PatronDashboard({
       <QuickActions
         actions={[
           { href: "/books", label: "Browse the catalog", primary: true },
-          { href: "/my-loans", label: "My record" },
+          { href: "/my-loans", label: "My loans" },
           { href: "/holds", label: "My holds" },
           { href: "/fines", label: "My fines" },
         ]}
