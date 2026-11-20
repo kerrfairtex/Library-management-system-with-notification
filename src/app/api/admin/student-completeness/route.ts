@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { getStudentCompletenessAudit } from "@/lib/store";
 
@@ -12,7 +13,6 @@ export async function GET() {
   try {
     return NextResponse.json(await getStudentCompletenessAudit());
   } catch (error) {
-    console.error("Failed to build completeness audit:", error);
-    return NextResponse.json({ error: "Failed to load audit." }, { status: 500 });
+    return serverError("GET /api/admin/student-completeness", error, { error: "Failed to load audit." }, 500);
   }
 }

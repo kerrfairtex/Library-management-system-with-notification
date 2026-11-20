@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { getUserStatistics } from "@/lib/store";
 
@@ -29,15 +30,13 @@ export async function GET(request: Request) {
     })
       .then((stats) => NextResponse.json(stats))
       .catch((error) => {
-        console.error("Failed to aggregate filtered statistics:", error);
-        return NextResponse.json({ error: "Failed to load statistics." }, { status: 500 });
+        return serverError("GET /api/admin/user-statistics", error, { error: "Failed to load statistics." }, 500);
       });
   }
 
   try {
     return NextResponse.json(await getUserStatistics());
   } catch (error) {
-    console.error("Failed to aggregate account statistics:", error);
-    return NextResponse.json({ error: "Failed to load statistics." }, { status: 500 });
+    return serverError("GET /api/admin/user-statistics", error, { error: "Failed to load statistics." }, 500);
   }
 }

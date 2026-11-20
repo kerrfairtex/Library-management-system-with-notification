@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { deleteMember, updateMember } from "@/lib/store";
 import type { MemberType } from "@/lib/types";
@@ -86,8 +87,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (message.includes("already exists")) {
       return NextResponse.json({ error: message }, { status: 409 });
     }
-    console.error("updateMember failed:", error);
-    return NextResponse.json({ error: "Failed to update member." }, { status: 500 });
+    return serverError("PATCH /api/members/[id]", error, { error: "Failed to update member." }, 500);
   }
 }
 

@@ -111,15 +111,18 @@ export default function ProfilePage() {
             <div className="skeleton h-4 w-44 max-w-full" />
           </div>
         )}
-        {patron && (ownMember.error || master.error) && (
-          <ErrorState
-            className="mb-0 mt-3"
-            message={ownMember.error || master.error || "Academic details didn’t load."}
-            onRetry={() => {
-              void ownMember.reload();
-              void master.reload();
-            }}
-          />
+        {patron && ownMember.error && (
+          <ErrorState className="mb-0 mt-3" message={ownMember.error} onRetry={() => void ownMember.reload()} />
+        )}
+        {/* The department/course list only supplies names; without it the
+            details above still show, with names marked "Unavailable". */}
+        {patron && !ownMember.error && master.error && detailRows.length > 0 && (
+          <p className="text-muted mt-3 flex flex-wrap items-center gap-2 text-xs" role="status">
+            Department and course names didn’t load.
+            <Button variant="ghost" onClick={() => void master.reload()}>
+              Try again
+            </Button>
+          </p>
         )}
         {detailRows.length > 0 && (
           <p className="text-muted mt-3 text-xs">Ask the library desk to correct your ID or academic details.</p>

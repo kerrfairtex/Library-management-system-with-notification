@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireSession } from "@/lib/authz";
 import { roleDashboardTitle } from "@/lib/permissions";
 import { computeDashboardStats, getLibraryData, listBooks, getNotificationsData } from "@/lib/store";
@@ -68,9 +69,6 @@ export async function GET() {
       members: data.members,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load dashboard." },
-      { status: 500 }
-    );
+    return serverError("GET /api/dashboard", error, { error: error instanceof Error ? error.message : "Failed to load dashboard." }, 500);
   }
 }

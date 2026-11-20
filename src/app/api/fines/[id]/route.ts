@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
 import { updateFine, payFine, forgiveFine, deleteFine } from "@/lib/store";
@@ -38,10 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!fine) return NextResponse.json({ error: "Fine not found." }, { status: 404 });
     return NextResponse.json(fine);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update fine." },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/fines/[id]", error, { error: error instanceof Error ? error.message : "Failed to update fine." }, 500);
   }
 }
 
@@ -58,9 +56,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (!success) return NextResponse.json({ error: "Fine not found." }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete fine." },
-      { status: 500 }
-    );
+    return serverError("DELETE /api/fines/[id]", error, { error: error instanceof Error ? error.message : "Failed to delete fine." }, 500);
   }
 }

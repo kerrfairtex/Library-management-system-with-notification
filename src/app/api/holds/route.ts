@@ -1,4 +1,5 @@
 import { getMemberByUser } from "@/lib/store";
+import { serverError } from "@/lib/server-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { canAccess, isPatron } from "@/lib/permissions";
@@ -38,10 +39,7 @@ export async function GET(request: NextRequest) {
     if (error) throw new Error(error.message);
     return NextResponse.json({ holds: data ?? [] });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load holds." },
-      { status: 500 }
-    );
+    return serverError("GET /api/holds", error, { error: error instanceof Error ? error.message : "Failed to load holds." }, 500);
   }
 }
 
@@ -141,10 +139,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ hold: data }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to place hold." },
-      { status: 500 }
-    );
+    return serverError("POST /api/holds", error, { error: error instanceof Error ? error.message : "Failed to place hold." }, 500);
   }
 }
 
@@ -240,9 +235,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(hold);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update hold." },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/holds", error, { error: error instanceof Error ? error.message : "Failed to update hold." }, 500);
   }
 }

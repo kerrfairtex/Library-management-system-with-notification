@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { listCirculationRules, upsertCirculationRule } from "@/lib/store";
 
@@ -13,10 +14,7 @@ export async function GET() {
     const rules = await listCirculationRules();
     return NextResponse.json({ circulationRules: rules });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load circulation rules." },
-      { status: 500 }
-    );
+    return serverError("GET /api/circulation-rules", error, { error: error instanceof Error ? error.message : "Failed to load circulation rules." }, 500);
   }
 }
 
@@ -43,9 +41,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create circulation rule." },
-      { status: 500 }
-    );
+    return serverError("POST /api/circulation-rules", error, { error: error instanceof Error ? error.message : "Failed to create circulation rule." }, 500);
   }
 }

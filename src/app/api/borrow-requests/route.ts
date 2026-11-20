@@ -1,5 +1,6 @@
 // Force rebuild: 2026-10-03T09:02:55.455202
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { isPatron } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
@@ -88,10 +89,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (bookLookError) {
-      return NextResponse.json(
-        { error: "Failed to look up book." },
-        { status: 500 }
-      );
+      return serverError("POST /api/borrow-requests", bookLookError, { error: "Failed to look up book." }, 500);
     }
     if (!bookRow) {
       return NextResponse.json(
@@ -144,10 +142,7 @@ export async function GET(request: NextRequest) {
     const requests = await getBorrowRequests();
     return NextResponse.json({ requests });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load requests." },
-      { status: 500 }
-    );
+    return serverError("GET /api/borrow-requests", error, { error: error instanceof Error ? error.message : "Failed to load requests." }, 500);
   }
 }
 

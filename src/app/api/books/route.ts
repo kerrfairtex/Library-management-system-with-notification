@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireSession, requireCapability } from "@/lib/authz";
 import { createBook, listBooks } from "@/lib/store";
 
@@ -10,10 +11,7 @@ export async function GET() {
     const books = await listBooks();
     return NextResponse.json({ books });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load books." },
-      { status: 500 }
-    );
+    return serverError("GET /api/books", error, { error: error instanceof Error ? error.message : "Failed to load books." }, 500);
   }
 }
 
@@ -43,9 +41,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(book, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create book." },
-      { status: 500 }
-    );
+    return serverError("POST /api/books", error, { error: error instanceof Error ? error.message : "Failed to create book." }, 500);
   }
 }

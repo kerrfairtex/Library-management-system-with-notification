@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import {
   SESSION_COOKIE,
   createSessionToken,
@@ -77,10 +78,6 @@ export async function POST(request: Request) {
     );
     return response;
   } catch (error) {
-    console.error("Login failed:", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.json(
-      { error: "Login failed." },
-      { status: 500 }
-    );
+    return serverError("POST /api/auth/login", error, { error: "Login failed." }, 500);
   }
 }

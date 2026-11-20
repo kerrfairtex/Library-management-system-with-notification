@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import type { AppCapability } from "@/lib/permissions";
 import { requireSession } from "@/lib/authz";
 import { canAccess } from "@/lib/permissions";
@@ -65,8 +66,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (error) {
-    console.error("Password reset failed:", error.message);
-    return NextResponse.json({ error: "Password reset failed." }, { status: 500 });
+    return serverError("POST /api/auth/reset-password", error, { error: "Password reset failed." }, 500);
   }
   if (!targetUser) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });

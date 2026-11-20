@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { listBookItems, createBookItem } from "@/lib/store";
 import { bookItemsFor } from "@/lib/book-items";
@@ -16,10 +17,7 @@ export async function GET() {
     // Staff notes are private: only catalog editors (books.write) get them.
     return NextResponse.json({ bookItems: bookItemsFor(user, items) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load book items." },
-      { status: 500 }
-    );
+    return serverError("GET /api/book-items", error, { error: error instanceof Error ? error.message : "Failed to load book items." }, 500);
   }
 }
 
@@ -48,9 +46,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create book item." },
-      { status: 500 }
-    );
+    return serverError("POST /api/book-items", error, { error: error instanceof Error ? error.message : "Failed to create book item." }, 500);
   }
 }

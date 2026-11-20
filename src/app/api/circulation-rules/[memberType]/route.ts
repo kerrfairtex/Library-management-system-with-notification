@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { upsertCirculationRule, deleteCirculationRule } from "@/lib/store";
 
@@ -33,10 +34,7 @@ export async function PATCH(
 
     return NextResponse.json(rule);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update circulation rule." },
-      { status: 500 }
-    );
+    return serverError("PATCH /api/circulation-rules/[memberType]", error, { error: error instanceof Error ? error.message : "Failed to update circulation rule." }, 500);
   }
 }
 
@@ -63,9 +61,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete circulation rule." },
-      { status: 500 }
-    );
+    return serverError("DELETE /api/circulation-rules/[memberType]", error, { error: error instanceof Error ? error.message : "Failed to delete circulation rule." }, 500);
   }
 }

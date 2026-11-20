@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionUserId } from "@/lib/session";
 import { randomBytes } from "crypto";
+import { publicOrigin, safeLocalPath } from "@/lib/redirects";
 
 const PUBLIC_PATHS = [
   "/user-guidelines",
@@ -131,13 +132,15 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+    // Behind Render's proxy request.url is the internal origin; redirect to
+    // the address the visitor used (see src/lib/redirects.ts).
+    const loginUrl = new URL("/login", publicOrigin(request.headers, request.url));
+    loginUrl.searchParams.set("next", safeLocalPath(pathname + request.nextUrl.search));
     return NextResponse.redirect(loginUrl);
   }
 
   if (userId && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", publicOrigin(request.headers, request.url)));
   }
 
   // Set CSRF token cookie on safe responses for browser clients

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability, requireSession } from "@/lib/authz";
 import { canAccess, isPatron } from "@/lib/permissions";
 import { listFines, getFinesData, createFine, getMemberByUser } from "@/lib/store";
@@ -24,10 +25,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load fines." },
-      { status: 500 }
-    );
+    return serverError("GET /api/fines", error, { error: error instanceof Error ? error.message : "Failed to load fines." }, 500);
   }
 }
 
@@ -55,9 +53,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(fine, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create fine." },
-      { status: 500 }
-    );
+    return serverError("POST /api/fines", error, { error: error instanceof Error ? error.message : "Failed to create fine." }, 500);
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { checkoutBook, getLoansData, getOutstandingFines } from "@/lib/store";
 import { fineBlockMessage, parseFineThreshold } from "@/lib/fine-block";
@@ -30,10 +31,7 @@ export async function GET(request: NextRequest) {
       hasMore: start + pageSize < total,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load loans." },
-      { status: 500 }
-    );
+    return serverError("GET /api/loans", error, { error: error instanceof Error ? error.message : "Failed to load loans." }, 500);
   }
 }
 

@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "crypto";
+import { serverError } from "@/lib/server-error";
 import { NextResponse } from "next/server";
 import { supabase, db } from "@/lib/supabase";
 import { describeSupabaseError, isAccountPending } from "@/lib/store";
@@ -50,10 +51,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (findError) {
-      return NextResponse.json(
-        { error: describeSupabaseError(findError, "Failed to look up user in Supabase.") },
-        { status: 500 }
-      );
+      return serverError("POST /api/auth/google", findError, { error: describeSupabaseError(findError, "Failed to look up user in Supabase.") }, 500);
     }
 
     let userId = existing?.id as string | undefined;
@@ -94,14 +92,11 @@ export async function POST(request: Request) {
         .single();
 
       if (insertError || !inserted) {
-        return NextResponse.json(
-          {
+        return serverError("POST /api/auth/google", insertError ?? "insert returned no row", {
             error: insertError
               ? describeSupabaseError(insertError, "Failed to create account.")
               : "Failed to create account.",
-          },
-          { status: 500 }
-        );
+          }, 500);
       }
       userId = inserted.id as string;
 
@@ -127,7 +122,6 @@ export async function POST(request: Request) {
     );
     return response;
   } catch (error) {
-    console.error("Google sign-in failed:", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.json({ error: "Google sign-in failed." }, { status: 500 });
+    return serverError("POST /api/auth/google", error, { error: "Google sign-in failed." }, 500);
   }
 }

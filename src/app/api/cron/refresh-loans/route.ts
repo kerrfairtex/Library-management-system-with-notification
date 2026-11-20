@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serverError } from "@/lib/server-error";
 import { dispatchNotificationEmails, expireStaleHolds, sweepLoanStatuses } from "@/lib/store";
 import { cronPolicy } from "@/lib/cron-policy";
 
@@ -27,6 +28,7 @@ function authorize(request: Request): NextResponse | null {
       : status === 503
         ? "CRON_SECRET is not set. Add it to the deployment environment so this endpoint cannot be triggered by anyone."
         : "Unauthorized.";
+  if (status >= 500) return serverError("GET/POST /api/cron/refresh-loans", message, { error: message }, status);
   return NextResponse.json({ error: message }, { status });
 }
 
@@ -47,10 +49,7 @@ async function run(request: Request) {
     }
     return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, email });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Loan sweep failed." },
-      { status: 500 }
-    );
+    return serverError("GET/POST /api/cron/refresh-loans", error, { error: error instanceof Error ? error.message : "Loan sweep failed." }, 500);
   }
 }
 
