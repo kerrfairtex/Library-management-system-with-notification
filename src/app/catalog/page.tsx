@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicHeader } from "@/components/PublicHeader";
+import { EmptyState, PageHeader } from "@/components/ui";
 import { listBooks } from "@/lib/store";
 import {
   catalogCategories,
@@ -23,8 +25,6 @@ export const metadata: Metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
-
-const green = "#408540";
 
 function pageHref(params: { q: string; category: string; available: boolean }, page: number) {
   const sp = new URLSearchParams();
@@ -60,103 +60,107 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
   });
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f3f7f4", fontFamily: "Source Sans 3, Segoe UI, sans-serif", color: "#12241f" }}>
-      <header style={{ background: green, color: "#fff" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1rem", minHeight: 50, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-          <Link href="/catalog" style={{ color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: "1.1rem" }}>
-            TRAC Library Catalog
-          </Link>
-          <nav style={{ display: "flex", gap: "1rem", alignItems: "center", fontSize: "0.88rem" }}>
-            <Link href="/shelf" style={{ color: "rgba(255,255,255,0.9)" }}>3D Bookshelf</Link>
-            <Link href="/user-guidelines" style={{ color: "rgba(255,255,255,0.9)" }}>Guide</Link>
-            <Link href="/login?next=%2Fmy-loans" style={{ background: "rgba(255,255,255,0.18)", padding: "0.3rem 0.85rem", borderRadius: 8, color: "#fff", fontWeight: 600 }}>
-              Sign in
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen">
+      <PublicHeader
+        links={[
+          { href: "/catalog", label: "Catalog" },
+          { href: "/shelf", label: "3D bookshelf" },
+          { href: "/user-guidelines", label: "Guide" },
+        ]}
+      />
 
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
-        <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.25rem" }}>Search the collection</h1>
-        <p style={{ margin: "0 0 1rem", color: "#4a5f58" }}>
-          Find a book, see where it is shelved and whether a copy is on the shelf right now.
-        </p>
+      <main id="main" className="mx-auto max-w-6xl px-4 pb-12 pt-6">
+        <PageHeader
+          title="Search the collection"
+          subtitle="Find a book, see where it is shelved and whether a copy is on the shelf right now."
+        />
 
-        <form method="get" action="/catalog" role="search" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "1rem" }}>
-          <label htmlFor="q" style={{ position: "absolute", left: -9999 }}>Search</label>
-          <input
-            id="q"
-            name="q"
-            type="search"
-            defaultValue={params.q}
-            placeholder="Title, author, ISBN or call number"
-            style={{ flex: "1 1 260px", padding: "0.6rem 0.75rem", border: "1px solid #b8c9c0", borderRadius: 8, fontSize: "1rem" }}
-          />
-          <label htmlFor="category" style={{ position: "absolute", left: -9999 }}>Category</label>
-          <select id="category" name="category" defaultValue={params.category} style={{ padding: "0.6rem", border: "1px solid #b8c9c0", borderRadius: 8, fontSize: "0.95rem" }}>
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <label style={{ display: "flex", gap: "0.35rem", alignItems: "center", fontSize: "0.9rem" }}>
-            <input type="checkbox" name="available" value="1" defaultChecked={params.available} />
+        <form method="get" action="/catalog" role="search" className="panel mb-5 grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+          <div className="min-w-0">
+            <label htmlFor="q" className="label">Search</label>
+            <input
+              id="q"
+              name="q"
+              type="search"
+              className="field"
+              defaultValue={params.q}
+              placeholder="Title, author, ISBN or call number"
+            />
+          </div>
+          <div>
+            <label htmlFor="category" className="label">Category</label>
+            <select id="category" name="category" className="field" defaultValue={params.category}>
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <label className="inline-flex min-h-[var(--tap)] items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" name="available" value="1" defaultChecked={params.available} />
             On shelf now
           </label>
-          <button type="submit" style={{ background: green, color: "#fff", border: 0, borderRadius: 8, padding: "0.6rem 1.1rem", fontWeight: 600, fontSize: "0.95rem", cursor: "pointer" }}>
+          <button type="submit" className="btn btn-primary">
             Search
           </button>
         </form>
 
         {loadError ? (
-          <p role="alert" style={{ background: "#fdecea", color: "#8a1c12", padding: "0.75rem 1rem", borderRadius: 8 }}>
+          <div role="alert" className="notice tone-danger">
             The catalog is temporarily unavailable. Please try again shortly.
-          </p>
+          </div>
         ) : (
           <>
-            <p style={{ fontSize: "0.9rem", color: "#4a5f58", margin: "0 0 0.75rem" }} aria-live="polite">
+            <p className="text-muted mb-3 text-sm" aria-live="polite">
               {total === 0
                 ? "No books match your search."
                 : `${total} ${total === 1 ? "title" : "titles"}${pages > 1 ? ` · page ${page} of ${pages}` : ""}`}
             </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "0.75rem" }}>
-              {results.map((b) => {
-                const onShelf = b.availableCopies > 0;
-                return (
-                  <li key={b.id} style={{ background: "#fff", border: "1px solid #dbe5df", borderRadius: 10, padding: "0.9rem 1rem", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                    <strong style={{ fontSize: "1.02rem", lineHeight: 1.3 }}>{b.title}</strong>
-                    <span style={{ color: "#4a5f58", fontSize: "0.9rem" }}>
-                      {b.author}{b.publishedYear ? ` · ${b.publishedYear}` : ""}
-                    </span>
-                    <span style={{ fontSize: "0.82rem", color: "#4a5f58" }}>
-                      {b.category}{b.genre && b.genre !== b.category ? ` · ${b.genre}` : ""} · ISBN {b.isbn}
-                    </span>
-                    {(b.callNumber || b.shelfLocation) && (
-                      <span style={{ fontSize: "0.82rem" }}>
-                        {b.callNumber && <>Call no. <code>{b.callNumber}</code></>}
-                        {b.callNumber && b.shelfLocation ? " · " : ""}
-                        {b.shelfLocation}
-                      </span>
-                    )}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.35rem", gap: "0.5rem" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: onShelf ? "#2f6b3a" : "#9a4a0b" }}>
-                        {onShelf ? `${b.availableCopies} of ${b.totalCopies} on shelf` : "All copies on loan"}
-                      </span>
-                      <Link
-                        href={`/borrow?isbn=${encodeURIComponent(b.isbn)}`}
-                        style={{ fontSize: "0.85rem", color: green, fontWeight: 600 }}
-                      >
-                        {onShelf ? "Request to borrow" : "Place a hold"}
-                      </Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            {total === 0 ? (
+              <EmptyState
+                title="No books match"
+                body="Try fewer words, another category, or untick “On shelf now”."
+                action={<Link href="/catalog" className="btn btn-secondary">Clear search</Link>}
+              />
+            ) : (
+              <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr))]">
+                {results.map((b) => {
+                  const onShelf = b.availableCopies > 0;
+                  return (
+                    <li key={b.id} className="panel flex flex-col gap-1 p-4">
+                      <h2 className="text-lg font-semibold leading-snug">
+                        {b.title}
+                      </h2>
+                      <p className="text-muted text-sm">
+                        {b.author}{b.publishedYear ? ` · ${b.publishedYear}` : ""}
+                      </p>
+                      <p className="text-muted text-xs">
+                        {b.category}{b.genre && b.genre !== b.category ? ` · ${b.genre}` : ""} · ISBN {b.isbn}
+                      </p>
+                      {(b.callNumber || b.shelfLocation) && (
+                        <p className="text-sm">
+                          {b.callNumber && <>Call no. <code>{b.callNumber}</code></>}
+                          {b.callNumber && b.shelfLocation ? " · " : ""}
+                          {b.shelfLocation}
+                        </p>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className={`badge ${onShelf ? "tone-ok" : "tone-warn"}`}>
+                          {onShelf ? `${b.availableCopies} of ${b.totalCopies} on shelf` : "All copies on loan"}
+                        </span>
+                        <Link href={`/borrow?isbn=${encodeURIComponent(b.isbn)}`} className="btn btn-secondary">
+                          {onShelf ? "Request to borrow" : "Place a hold"}
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             {pages > 1 && (
-              <nav aria-label="Pages" style={{ display: "flex", justifyContent: "center", gap: "1rem", marginTop: "1.25rem" }}>
-                {page > 1 ? <Link href={pageHref(params, page - 1)}>← Previous</Link> : <span />}
-                {page < pages ? <Link href={pageHref(params, page + 1)}>Next →</Link> : <span />}
+              <nav aria-label="Pages" className="mt-5 flex justify-center gap-2">
+                {page > 1 && <Link className="btn btn-ghost" href={pageHref(params, page - 1)}>Previous page</Link>}
+                {page < pages && <Link className="btn btn-ghost" href={pageHref(params, page + 1)}>Next page</Link>}
               </nav>
             )}
           </>

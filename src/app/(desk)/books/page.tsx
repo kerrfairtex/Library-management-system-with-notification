@@ -6,7 +6,8 @@ import { canAccess, roleLabel } from "@/lib/permissions";
 import type { Book, BookItem, PublicUser } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
-import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
+import { Badge, Button, buttonClass, ErrorState, Modal, PageHeader, Table, useDialogs } from "@/components/ui";
+import { statusLabel, statusTone } from "@/lib/status-tone";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -36,7 +37,8 @@ const emptyItemForm = {
 
 export default function BooksPage() {
   const { session: me } = useDeskSession();
-  const { data, loading, error, reload } = useApi<Book[]>("/api/books");
+  // GET /api/books returns { books }.
+  const { data, loading, error, reload } = useApi<{ books: Book[] }>("/api/books");
   const { data: itemsData, reload: reloadItems } = useApi<{ bookItems: BookItem[] }>("/api/book-items");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -46,6 +48,8 @@ export default function BooksPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupNote, setLookupNote] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dialogs = useDialogs();
 
   // Copy-cataloging: fill empty fields from Open Library by ISBN. Never
   // overwrites what the librarian already typed.
@@ -109,7 +113,7 @@ export default function BooksPage() {
 
   const books = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (data ?? []).filter((b) => {
+    return (data?.books ?? []).filter((b) => {
       if (!q) return true;
       return [b.title, b.author, b.isbn, b.genre, b.category, b.shelfLocation ?? "", b.callNumber ?? ""].some((v) =>
         v.toLowerCase().includes(q)
@@ -181,12 +185,19 @@ export default function BooksPage() {
 
   async function onDelete(id: string) {
     if (!canManageBooks) return;
-    if (!window.confirm("Delete this book from the catalog?")) return;
+    const ok = await dialogs.confirm({
+      title: "Delete this book?",
+      message: "It is removed from the catalog. This can’t be undone.",
+      confirmLabel: "Delete book",
+      danger: true,
+    });
+    if (!ok) return;
+    setActionError(null);
     try {
       await apiJson(`/api/books/${id}`, { method: "DELETE" });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      setActionError(err instanceof Error ? err.message : "The book wasn’t deleted. Try again.");
     }
   }
 
@@ -211,12 +222,19 @@ export default function BooksPage() {
 
   async function deleteItem(id: string) {
     if (!canManageBooks) return;
-    if (!window.confirm("Delete this physical copy?")) return;
+    const ok = await dialogs.confirm({
+      title: "Delete this copy?",
+      message: "The physical copy is removed from the record. This can’t be undone.",
+      confirmLabel: "Delete copy",
+      danger: true,
+    });
+    if (!ok) return;
+    setItemError(null);
     try {
       await apiJson(`/api/book-items/${id}`, { method: "DELETE" });
       await reloadItems();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      setItemError(err instanceof Error ? err.message : "The copy wasn’t deleted. Try again.");
     }
   }
 
@@ -237,9 +255,9 @@ export default function BooksPage() {
         }
         action={
           canManageBooks ? (
-            <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Button variant="primary" onClick={openCreate}>
               Add book
-            </button>
+            </Button>
           ) : undefined
         }
       />
@@ -247,6 +265,8 @@ export default function BooksPage() {
       <div className="panel p-4 md:p-5">
         <div className="mb-4">
           <input
+            type="search"
+            aria-label="Search the catalog"
             className="field max-w-md"
             placeholder="Search title, author, ISBN, or genre"
             value={query}
@@ -254,36 +274,26 @@ export default function BooksPage() {
           />
         </div>
 
-        {error && <ErrorState message={error} />}
-        {loading && <p className="text-sm">Loading catalog…</p>}
+        {actionError && <ErrorState message={actionError} />}
 
-        {!loading && books.length === 0 ? (
-          <EmptyState
-            title="No books found"
-            body="Add your first title or clear the search filter."
-          />
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Author</th>
-                  <th>Category</th>
-                  <th>Shelf / Call no.</th>
-                  <th>Copies</th>
-                  <th>Items</th>
-                  <th>Year</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+        <Table
+          caption="Catalog"
+          columns={["Title", "Author", "Category", "Shelf / call no.", "Copies", "Items", "Year", { label: "Actions", hideLabel: true }]}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={books.length === 0}
+          empty={{
+            title: query ? "No books match your search" : "No books yet",
+            body: query ? "Try a shorter search or check the spelling." : canManageBooks ? "Add your first title with Add book." : "The catalog is empty for now.",
+          }}
+        >
                 {books.map((book) => {
                   const items = getItemsForBook(book.id);
                   const availableItems = items.filter((i) => i.status === "available").length;
                   const totalItems = items.length;
                   return (
-                    <>
+                    <React.Fragment key={book.id}>
                       <tr>
                         <td>
                           <p className="font-semibold">{book.title}</p>
@@ -293,7 +303,7 @@ export default function BooksPage() {
                         </td>
                         <td>{book.author}</td>
                         <td>
-                          <span className="badge tone-info">{book.category}</span>
+                          <Badge tone="info">{book.category}</Badge>
                           <p className="mt-1 text-xs text-muted">
                             {book.genre}
                           </p>
@@ -305,18 +315,15 @@ export default function BooksPage() {
                           </p>
                         </td>
                         <td>
-                          <span
-                            className={`badge ${
-                              book.availableCopies === 0 ? "tone-danger" : "tone-ok"
-                            }`}
-                          >
+                          <Badge tone={book.availableCopies === 0 ? "danger" : "ok"}>
                             {book.availableCopies}/{book.totalCopies}
-                          </span>
+                          </Badge>
                         </td>
                         <td>
                           <button
                             type="button"
-                            className={`btn btn-ghost ${itemsTab === book.id ? "btn-primary" : ""}`}
+                            className={buttonClass(itemsTab === book.id ? "primary" : "ghost")}
+                            aria-expanded={itemsTab === book.id}
                             onClick={() => openItemsTab(book.id)}
                           >
                             {totalItems > 0 ? `${totalItems} items (${availableItems} avail)` : "No items"}
@@ -327,20 +334,12 @@ export default function BooksPage() {
                           <div className="flex justify-end gap-2">
                             {canManageBooks && (
                               <>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost"
-                                  onClick={() => openEdit(book)}
-                                >
+                                <Button variant="ghost" onClick={() => openEdit(book)}>
                                   Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-danger"
-                                  onClick={() => onDelete(book.id)}
-                                >
+                                </Button>
+                                <Button variant="danger" onClick={() => onDelete(book.id)}>
                                   Delete
-                                </button>
+                                </Button>
                               </>
                             )}
                             {canRequestBorrow && !canManageBooks && (
@@ -348,61 +347,40 @@ export default function BooksPage() {
                                 href={`/borrow?isbn=${encodeURIComponent(book.isbn)}`}
                                 className="btn btn-primary"
                               >
-                                Request to Borrow
+                                Request to borrow
                               </Link>
                             )}
                           </div>
                         </td>
                       </tr>
                       {itemsTab === book.id && (
-                        <tr className="bg-[color-mix(in_srgb,var(--surface)_80%,transparent)]">
+                        <tr>
                           <td colSpan={8}>
-                            <div className="p-4 border-t border-[var(--line)]">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4>Physical copies for {"\u201c"}{book.title}{"\u201d"}</h4>
-                                <button
-                                  type="button"
-                                  className="btn btn-primary"
+                            <div className="border-t border-[var(--line)] py-4">
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h2 className="text-lg font-semibold">Physical copies of {"\u201c"}{book.title}{"\u201d"}</h2>
+                                <Button
+                                  variant="primary"
                                   onClick={() => {
                                     setItemForm({ ...emptyItemForm, bookId: book.id });
                                   }}
                                 >
                                   Add copy
-                                </button>
+                                </Button>
                               </div>
-                              
+
                               {items.length === 0 ? (
-                                <p className="text-sm text-muted">
-                                  No physical copies recorded yet.
-                                </p>
+                                <p className="text-muted text-sm">No physical copies recorded yet.</p>
                               ) : (
-                                <div className="table-wrap" style={{ maxHeight: "200px", overflow: "auto" }}>
-                                  <table className="data-table" style={{ minWidth: "600px" }}>
-                                    <thead>
-                                      <tr>
-                                        <th>Barcode</th>
-                                        <th>Status</th>
-                                        <th>Call Number</th>
-                                        <th>Shelf Location</th>
-                                        <th>Home Branch</th>
-                                        <th>Holding Branch</th>
-                                        <th>Notes</th>
-                                        <th></th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
+                                <Table
+                                  caption={`Physical copies of ${book.title}`}
+                                  columns={["Barcode", "Status", "Call number", "Shelf location", "Home branch", "Holding branch", "Notes", { label: "Actions", hideLabel: true }]}
+                                >
                                       {items.map((item) => (
                                         <tr key={item.id}>
                                           <td className="font-mono">{item.barcode}</td>
                                           <td>
-                                            <span className={`badge ${
-                                              item.status === "available" ? "tone-ok" :
-                                              item.status === "on_loan" ? "tone-info" :
-                                              item.status === "lost" || item.status === "damaged" ? "tone-danger" :
-                                              "tone-warn"
-                                            }`}>
-                                              {item.status.replace("_", " ")}
-                                            </span>
+                                            <Badge tone={statusTone(item.status)}>{statusLabel(item.status)}</Badge>
                                           </td>
                                           <td>{item.callNumber || "—"}</td>
                                           <td>{item.shelfLocation || "—"}</td>
@@ -410,30 +388,15 @@ export default function BooksPage() {
                                           <td>{item.holdingBranch}</td>
                                           <td>{item.notes || "—"}</td>
                                           <td>
-                                            <div className="flex gap-1">
-                                              <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => {
-                                                  // Edit item - simplified
-                                                }}
-                                              >
-                                                Edit
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className="btn btn-danger btn-sm"
-                                                onClick={() => deleteItem(item.id)}
-                                              >
+                                            <div className="flex justify-end gap-2">
+                                              <Button variant="danger" onClick={() => deleteItem(item.id)}>
                                                 Delete
-                                              </button>
+                                              </Button>
                                             </div>
                                           </td>
                                         </tr>
                                       ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                </Table>
                               )}
 
                               <form onSubmit={createItem} className="mt-4 space-y-3">
@@ -441,9 +404,9 @@ export default function BooksPage() {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                   <input type="hidden" name="bookId" value={itemForm.bookId} />
                                   <div>
-                                    <label className="label" htmlFor="barcode">Barcode *</label>
+                                    <label className="label" htmlFor="item-barcode">Barcode *</label>
                                     <input
-                                      id="barcode"
+                                      id="item-barcode"
                                       className="field"
                                       required
                                       value={itemForm.barcode}
@@ -452,9 +415,9 @@ export default function BooksPage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="label" htmlFor="status">Status *</label>
+                                    <label className="label" htmlFor="item-status">Status *</label>
                                     <select
-                                      id="status"
+                                      id="item-status"
                                       className="field"
                                       value={itemForm.status}
                                       onChange={(e) => setItemForm((f) => ({ ...f, status: e.target.value }))}
@@ -469,9 +432,9 @@ export default function BooksPage() {
                                     </select>
                                   </div>
                                   <div>
-                                    <label className="label" htmlFor="homeBranch">Home Branch *</label>
+                                    <label className="label" htmlFor="item-homeBranch">Home Branch *</label>
                                     <input
-                                      id="homeBranch"
+                                      id="item-homeBranch"
                                       className="field"
                                       required
                                       value={itemForm.homeBranch}
@@ -480,9 +443,9 @@ export default function BooksPage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="label" htmlFor="holdingBranch">Holding Branch *</label>
+                                    <label className="label" htmlFor="item-holdingBranch">Holding Branch *</label>
                                     <input
-                                      id="holdingBranch"
+                                      id="item-holdingBranch"
                                       className="field"
                                       required
                                       value={itemForm.holdingBranch}
@@ -491,9 +454,9 @@ export default function BooksPage() {
                                     />
                                   </div>
                                   <div className="md:col-span-2">
-                                    <label className="label" htmlFor="callNumber">Call Number</label>
+                                    <label className="label" htmlFor="item-callNumber">Call Number</label>
                                     <input
-                                      id="callNumber"
+                                      id="item-callNumber"
                                       className="field"
                                       value={itemForm.callNumber}
                                       onChange={(e) => setItemForm((f) => ({ ...f, callNumber: e.target.value }))}
@@ -501,9 +464,9 @@ export default function BooksPage() {
                                     />
                                   </div>
                                   <div className="md:col-span-2">
-                                    <label className="label" htmlFor="shelfLocation">Shelf Location</label>
+                                    <label className="label" htmlFor="item-shelfLocation">Shelf Location</label>
                                     <input
-                                      id="shelfLocation"
+                                      id="item-shelfLocation"
                                       className="field"
                                       value={itemForm.shelfLocation}
                                       onChange={(e) => setItemForm((f) => ({ ...f, shelfLocation: e.target.value }))}
@@ -511,9 +474,9 @@ export default function BooksPage() {
                                     />
                                   </div>
                                   <div className="md:col-span-4">
-                                    <label className="label" htmlFor="notes">Notes (staff only)</label>
+                                    <label className="label" htmlFor="item-notes">Notes (staff only)</label>
                                     <input
-                                      id="notes"
+                                      id="item-notes"
                                       className="field"
                                       value={itemForm.notes}
                                       onChange={(e) => setItemForm((f) => ({ ...f, notes: e.target.value }))}
@@ -522,25 +485,22 @@ export default function BooksPage() {
                                   </div>
                                 </div>
                                 <div className="flex justify-end gap-2 pt-2">
-                                  <button type="button" className="btn btn-ghost" onClick={() => setItemsTab(null)}>
+                                  <Button variant="ghost" onClick={() => setItemsTab(null)}>
                                     Close
-                                  </button>
-                                  <button type="submit" className="btn btn-primary" disabled={itemBusy}>
-                                    {itemBusy ? "Adding…" : "Add copy"}
-                                  </button>
+                                  </Button>
+                                  <Button type="submit" variant="primary" busy={itemBusy} busyLabel="Adding…">
+                                    Add copy
+                                  </Button>
                                 </div>
                               </form>
                             </div>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </Table>
       </div>
 
       <Modal
@@ -555,7 +515,7 @@ export default function BooksPage() {
               <label className="label" htmlFor="isbn-lookup">
                 Quick add by ISBN
               </label>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div className="flex gap-2">
                 <input
                   id="isbn-lookup"
                   className="field"
@@ -572,12 +532,12 @@ export default function BooksPage() {
                     }
                   }}
                 />
-                <button type="button" className="btn-ghost" onClick={lookupIsbn} disabled={lookupBusy}>
-                  {lookupBusy ? "Looking up…" : "Look up"}
-                </button>
+                <Button variant="ghost" className="shrink-0" onClick={lookupIsbn} busy={lookupBusy} busyLabel="Looking up…">
+                  Look up
+                </Button>
               </div>
               {lookupNote && (
-                <p style={{ fontSize: "0.8rem", marginTop: "0.25rem", color: "#2f6b3a" }}>{lookupNote}</p>
+                <p role="status" className="field-hint text-[var(--ok)]">{lookupNote}</p>
               )}
             </div>
           )}
@@ -699,15 +659,16 @@ export default function BooksPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "Saving…" : "Save book"}
-            </button>
+            </Button>
+            <Button type="submit" variant="primary" busy={busy} busyLabel="Saving…">
+              Save book
+            </Button>
           </div>
         </form>
       </Modal>
+      {dialogs.element}
     </div>
   );
 }

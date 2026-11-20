@@ -50,7 +50,8 @@ export function Table({
     if (!el) return;
     const names = labelKey.split("|");
     const apply = () => {
-      el.querySelectorAll("tr").forEach((tr) => {
+      // Direct rows only: a nested Table labels its own cells.
+      Array.from(el.children).forEach((tr) => {
         Array.from(tr.children).forEach((cell, i) => {
           if (cell.hasAttribute("colspan")) return;
           const text = names[i] ?? "";
