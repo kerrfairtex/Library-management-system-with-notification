@@ -98,36 +98,6 @@ canvas:focus-visible {
   opacity: 1;
 }
 
-.site-header {
-  position: absolute;
-  z-index: 20;
-  top: 0;
-  right: 0;
-  left: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 26px clamp(22px, 3.4vw, 56px);
-  pointer-events: none;
-}
-
-.wordmark {
-  display: flex;
-  gap: 13px;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.185em;
-  line-height: 1;
-}
-
-.wordmark__divider {
-  width: 28px;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.4;
-}
-
 .browse-caption {
   position: absolute;
   z-index: 16;
@@ -412,10 +382,10 @@ canvas:focus-visible {
 .book-details {
   position: absolute;
   z-index: 22;
-  top: 0;
+  top: var(--shelf-header-total);
   right: 0;
   width: min(620px, 41vw);
-  height: 100%;
+  height: calc(100% - var(--shelf-header-total));
   opacity: 0;
   pointer-events: none;
   transform: translateX(44px);
@@ -766,20 +736,6 @@ canvas:focus-visible {
 }
 
 @media (max-width: 760px) {
-  .site-header {
-    padding: 20px 18px;
-  }
-
-  .wordmark {
-    gap: 9px;
-    font-size: 8px;
-    letter-spacing: 0.15em;
-  }
-
-  .wordmark__divider {
-    width: 14px;
-  }
-
   .browse-caption {
     right: 0;
     bottom: 106px;
@@ -887,11 +843,13 @@ canvas:focus-visible {
   .back-button {
     grid-column: 1;
     grid-row: 1;
+    min-height: 44px;
   }
 
   .book-details__position {
     grid-column: 2;
     grid-row: 1;
+    align-self: center;
     margin: 0;
   }
 
@@ -903,7 +861,8 @@ canvas:focus-visible {
     grid-column: 1 / -1;
     grid-row: 2;
     align-self: auto;
-    padding: 25px 0 18px;
+    padding: 16px 0 18px;
+    border-top: 1px solid var(--hairline);
   }
 
   .book-details__copy .eyebrow {
@@ -911,8 +870,10 @@ canvas:focus-visible {
   }
 
   .book-details h2 {
-    max-width: 90%;
-    font-size: clamp(35px, 10vw, 48px);
+    max-width: 100%;
+    font-size: clamp(30px, 8.6vw, 44px);
+    line-height: 1;
+    overflow-wrap: anywhere;
   }
 
   .book-details__author {
@@ -944,10 +905,6 @@ canvas:focus-visible {
 
   .focus-controls span:nth-child(2) {
     display: none;
-  }
-
-  .is-focused .site-header {
-    opacity: 0.52;
   }
 
 }
@@ -999,37 +956,253 @@ canvas:focus-visible {
 }
 
 
-/* ── Sign-in chip (top-left, staff entry to the library desk) ── */
-.signin-chip {
-  pointer-events: auto; /* header is pointer-events:none — re-enable for the chip */
-  margin-left: auto; /* push to right edge of the header row */
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 1rem;
-  border-radius: 999px;
-  background: #408540;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: background 0.15s ease, transform 0.12s ease;
+/* ── Header: seal + lockup left, Sign in / account right ─────────────────
+ * One fixed row, solid surface, 1px bottom border, no shadow or gradient.
+ * Tokens come from the desk app (src/app/globals.css) with fallbacks; the
+ * shelf's own --ink/--paper stay as they are for the 3D scene. */
+.press-experience {
+  --shelf-header-h: 56px;
+  --shelf-header-total: calc(var(--shelf-header-h) + env(safe-area-inset-top, 0px));
+  --shelf-surface: var(--surface, #ffffff);
+  --shelf-line: var(--line, rgba(18, 36, 31, 0.1));
+  --shelf-line-strong: var(--line-strong, rgba(18, 36, 31, 0.22));
+  --shelf-muted: var(--ink-muted, #596662); /* 6.0:1 on white */
+  --shelf-brand: var(--jade, #1f7a5c); /* white on it: 5.3:1 */
+  --shelf-brand-deep: var(--jade-deep, #165a44); /* white on it: 8.1:1 */
+  --shelf-brand-press: #0f4031; /* white on it: 11.7:1 */
+  --shelf-hover: var(--sand, #e8efe9);
+  --shelf-tap: var(--tap, 44px);
+  --shelf-radius: var(--radius-sm, 8px);
+  --shelf-font: var(--font-body), "Source Sans 3", "Segoe UI", system-ui, sans-serif;
 }
-/* keep the header row flexed so the chip lands on the right */
+
 .site-header {
+  position: absolute;
+  z-index: 45; /* above the loading screen (40): visible and crisp on load */
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--shelf-header-total);
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0
+    max(16px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--shelf-line);
+  background: var(--shelf-surface);
+  color: var(--ink);
+  font-family: var(--shelf-font);
+}
+
+.site-header__brand {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.site-header__seal {
+  flex: none;
+  width: 36px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.site-header__lockup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.site-header__name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.site-header__divider {
+  display: none;
+}
+
+.site-header__tagline {
+  overflow: hidden;
+  color: var(--shelf-muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+/* Primary button: Sign in */
+.shelf-btn {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  min-height: var(--shelf-tap);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--shelf-radius);
+  background: var(--shelf-brand);
+  color: #ffffff;
+  font-family: var(--shelf-font);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.shelf-btn:hover {
+  background: var(--shelf-brand-deep);
+}
+
+.shelf-btn:active {
+  background: var(--shelf-brand-press);
+}
+
+/* Optically on the text baseline: the glyph's base sits with the letters'. */
+.shelf-btn__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-0.5px);
+}
+
+.site-header :focus-visible {
+  outline: 2px solid var(--shelf-brand);
+  outline-offset: 2px;
+}
+
+/* Signed-in account menu */
+.account {
+  position: relative;
+  flex: none;
+}
+
+.account__button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 46vw;
+  min-height: var(--shelf-tap);
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--shelf-line-strong);
+  border-radius: var(--shelf-radius);
+  background: var(--shelf-surface);
+  color: inherit;
+  font-family: var(--shelf-font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.account__button:hover,
+.account__button[aria-expanded="true"] {
+  background: var(--shelf-hover);
+}
+
+.account__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--shelf-brand);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--shelf-line-strong);
+  border-radius: var(--shelf-radius);
+  background: var(--shelf-surface);
+}
+
+.account__menu form {
+  margin: 0;
+}
+
+.account__item {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  width: 100%;
+  min-height: var(--shelf-tap);
+  padding: 0 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--shelf-font);
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
-.site-header .wordmark {
-  margin-right: auto;
+
+.account__item:hover {
+  background: var(--shelf-hover);
 }
-.signin-chip:hover {
-  background: rgba(64, 133, 64, 0.75);
-  transform: translateY(-1px);
+
+@media (max-width: 339px) {
+  .shelf-btn__icon {
+    display: none;
+  }
 }
+
+@media (min-width: 761px) {
+  .press-experience {
+    --shelf-header-h: 64px;
+  }
+
+  .site-header {
+    padding-right: max(24px, env(safe-area-inset-right, 0px));
+    padding-left: max(24px, env(safe-area-inset-left, 0px));
+  }
+
+  /* Desktop: tagline inline after a thin vertical divider. */
+  .site-header__lockup {
+    flex-direction: row;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .site-header__divider {
+    display: block;
+    flex: none;
+    width: 1px;
+    height: 20px;
+    background: var(--shelf-line-strong);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .signin-chip { transition: none; }
+  .shelf-btn,
+  .account__button {
+    transition: none;
+  }
 }
