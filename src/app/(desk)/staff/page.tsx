@@ -6,7 +6,7 @@ import type { PublicUser, UserRole } from "@/lib/types";
 import { apiJson, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { MIN_PASSWORD_LENGTH } from "@/lib/staff-rules";
-import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Modal, PageHeader, Table, useDialogs } from "@/components/ui";
 import { AcademicSetup } from "@/components/AcademicSetup";
 import { AcademicFields, StudentIdField, type AcademicMaster } from "@/components/AcademicFields";
 import { acceptsIdNumber, idNumberLabel, isIdNumberRequired, sharesIdNumberKind } from "@/lib/academic";
@@ -71,6 +71,8 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dialogs = useDialogs();
   const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
 
   useEffect(() => {
@@ -100,15 +102,15 @@ export default function StaffPage() {
     return (
       <div>
         <PageHeader
-          title="User accounts"
+          title="Accounts"
           subtitle="Librarians and admins create and manage sign-in accounts."
         />
-        <div className="panel p-4 md:p-5">
+        <Card>
           <EmptyState
             title="Librarians and admins only"
-            body="Ask an admin to change your role if you need to manage user accounts."
+            body="Ask an admin to change your role if you need to manage accounts."
           />
-        </div>
+        </Card>
       </div>
     );
   }
@@ -196,10 +198,17 @@ export default function StaffPage() {
     const body: Record<string, unknown> = { role };
     const next = memberTypeForRole(role);
     if (roleChangeNeedsId(person.role, role) && isIdNumberRequired(next)) {
-      const entered = window.prompt(`Enter ${person.name}'s ${idNumberLabel(next)} exactly as issued.`);
+      const entered = await dialogs.prompt({
+        title: `Change ${person.name} to ${roleLabel(role)}?`,
+        label: idNumberLabel(next),
+        hint: "Enter it exactly as issued.",
+        required: true,
+        confirmLabel: "Change role",
+      });
       if (entered === null) return;
       body.studentId = entered;
     }
+    setActionError(null);
     try {
       await apiJson(`/api/users/${person.id}`, {
         method: "PATCH",
@@ -207,11 +216,12 @@ export default function StaffPage() {
       });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Could not change role");
+      setActionError(err instanceof Error ? err.message : "The role wasn’t changed. Try again.");
     }
   }
 
   async function approvePending(person: PublicUser) {
+    setActionError(null);
     try {
       await apiJson(`/api/users/${person.id}`, {
         method: "PATCH",
@@ -219,39 +229,45 @@ export default function StaffPage() {
       });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Could not approve account");
+      setActionError(err instanceof Error ? err.message : "The account wasn’t approved. Try again.");
     }
   }
 
   async function onDelete(person: PublicUser) {
-    if (!window.confirm(`Remove ${person.name}'s access?`)) return;
+    const ok = await dialogs.confirm({
+      title: `Remove ${person.name}’s access?`,
+      message: "Their sign-in account is deleted. This can’t be undone.",
+      confirmLabel: "Remove access",
+      danger: true,
+    });
+    if (!ok) return;
+    setActionError(null);
     try {
       await apiJson(`/api/users/${person.id}`, { method: "DELETE" });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      setActionError(err instanceof Error ? err.message : "The account wasn’t removed. Try again.");
     }
   }
 
   return (
     <div>
       <PageHeader
-      title="User accounts"
+      title={isAdmin ? "User accounts" : "Patron accounts"}
       subtitle={
         isAdmin
           ? "Create accounts, assign roles, and control sign-in access."
           : "Create and edit patron accounts: students, faculty, teachers and community members."
       }
         action={
-          <button type="button" className="btn btn-primary" onClick={openCreate}>
+          <Button variant="primary" onClick={openCreate}>
           Add user
-          </button>
+          </Button>
         }
       />
 
       <div className="panel p-4 md:p-5">
-        {error && <ErrorState message={error} />}
-        {loading && <p className="text-sm">Loading staff…</p>}
+        {actionError && <ErrorState message={actionError} />}
 
         {!loading && pending.length > 0 && (
           <section className="mb-6 space-y-3">
@@ -270,26 +286,22 @@ export default function StaffPage() {
                 <div>
                   <p className="font-semibold">{person.name}</p>
                   <p className="text-xs text-muted">
-                    {person.email} · {person.role}
+                    {person.email} · {roleLabel(person.role)}
                   </p>
                 </div>
                 {canEditPerson(person) && (
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-primary"
+                    <Button variant="primary"
                       onClick={() => approvePending(person)}
                     >
                       Approve
-                    </button>
+                    </Button>
                     {isAdmin && (
-                      <button
-                        type="button"
-                        className="btn btn-danger"
+                      <Button variant="danger"
                         onClick={() => onDelete(person)}
                       >
                         Reject
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
@@ -298,20 +310,15 @@ export default function StaffPage() {
           </section>
         )}
 
-        {!loading && staff.length === 0 ? (
-          <EmptyState title="No user accounts" body="Add a student, faculty member, teacher or community member to get started." />
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+        <Table
+          caption={isAdmin ? "User accounts" : "Patron accounts"}
+          columns={["Name", "Email", "Role", { label: "Actions", hideLabel: true }]}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={staff.length === 0}
+          empty={{ title: "No accounts yet", body: "Add a student, faculty member, teacher or community member to get started." }}
+        >
                 {staff.map((person) => {
                   const isSelf = person.id === me?.user?.id;
                   const lastAdmin = person.role === "admin" && adminCount <= 1;
@@ -320,7 +327,7 @@ export default function StaffPage() {
                       <td className="font-semibold">
                         {person.name}
                         {person.status === "pending" && (
-                          <span className="badge tone-warn ml-2">pending</span>
+                          <Badge tone="warn" className="ml-2">Pending</Badge>
                         )}
                         {isSelf && (
                           <span className="ml-2 text-xs font-normal text-muted">
@@ -330,11 +337,7 @@ export default function StaffPage() {
                       </td>
                       <td>{person.email}</td>
                       <td>
-                        <span
-                          className={`badge ${person.role === "admin" ? "tone-info" : "tone-ok"}`}
-                        >
-                          {roleLabel(person.role)}
-                        </span>
+                        <Badge tone={person.role === "admin" ? "info" : "ok"}>{roleLabel(person.role)}</Badge>
                         <p className="mt-1 text-xs text-muted">
                           {roleBlurb(person.role)}
                         </p>
@@ -342,25 +345,19 @@ export default function StaffPage() {
                       <td>
                         {canEditPerson(person) && (
                         <div className="flex flex-wrap justify-end gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
+                          <Button variant="ghost"
                             onClick={() => openEdit(person)}
                           >
                             Edit
-                          </button>
+                          </Button>
                           {!isAdmin ? null : person.role === "librarian" ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
+                            <Button variant="ghost"
                               onClick={() => changeRole(person, "admin")}
                             >
                               Make admin
-                            </button>
+                            </Button>
                           ) : (
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
+                            <Button variant="ghost"
                               onClick={() => changeRole(person, "librarian")}
                               disabled={isSelf || lastAdmin}
                               title={
@@ -372,12 +369,12 @@ export default function StaffPage() {
                               }
                             >
                               Make librarian
-                            </button>
+                            </Button>
                           )}
                           {isPatron(person) && academicRoles
                             .filter((r) => r !== person.role)
                             .map((r) => (
-                              <button key={r} type="button" className="btn btn-ghost"
+                              <Button key={r} variant="ghost"
                                 onClick={() => changeRole(person, r)}
                                 disabled={isSelf || lastAdmin}
                                 title={
@@ -387,13 +384,11 @@ export default function StaffPage() {
                                       ? "The library needs at least one admin"
                                       : undefined
                                 }>
-                                Make {r}
-                              </button>
+                                Make {roleLabel(r).toLowerCase()}
+                              </Button>
                             ))}
                           {isAdmin && (
-                          <button
-                            type="button"
-                            className="btn btn-danger"
+                          <Button variant="danger"
                             onClick={() => onDelete(person)}
                             disabled={isSelf || lastAdmin}
                             title={
@@ -405,7 +400,7 @@ export default function StaffPage() {
                             }
                           >
                             Delete
-                          </button>
+                          </Button>
                           )}
                         </div>
                         )}
@@ -413,10 +408,7 @@ export default function StaffPage() {
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </Table>
       </div>
 
       {isAdmin && <AcademicSetup />}
@@ -561,15 +553,16 @@ export default function StaffPage() {
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
+            </Button>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Saving…" : editing ? "Save changes" : "Create account"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
+      {dialogs.element}
     </div>
   );
 }

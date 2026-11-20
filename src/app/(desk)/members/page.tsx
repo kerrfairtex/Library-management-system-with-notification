@@ -9,7 +9,7 @@ import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { YEAR_LEVELS, coursesForDepartment } from "@/lib/academic";
 import { filterMembers, membersToCsv } from "@/lib/member-export";
-import { EmptyState, ErrorState, Modal, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Modal, PageHeader, Table, useDialogs } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -51,6 +51,8 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const dialogs = useDialogs();
   const [master, setMaster] = useState<AcademicMaster>({ departments: [], courses: [] });
 
   useEffect(() => {
@@ -207,6 +209,7 @@ export default function MembersPage() {
 
   async function toggleActive(member: Member) {
     if (!canManageMembers) return;
+    setActionError(null);
     try {
       await apiJson(`/api/members/${member.id}`, {
         method: "PATCH",
@@ -214,25 +217,32 @@ export default function MembersPage() {
       });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Update failed");
+      setActionError(err instanceof Error ? err.message : "The patron wasn’t updated. Try again.");
     }
   }
 
   async function onDelete(id: string) {
     if (!canDeleteMembers) return;
-    if (!window.confirm("Remove this member?")) return;
+    const ok = await dialogs.confirm({
+      title: "Remove this patron?",
+      message: "Their patron record is deleted. This can’t be undone.",
+      confirmLabel: "Remove patron",
+      danger: true,
+    });
+    if (!ok) return;
+    setActionError(null);
     try {
       await apiJson(`/api/members/${id}`, { method: "DELETE" });
       await reload();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      setActionError(err instanceof Error ? err.message : "The patron wasn’t removed. Try again.");
     }
   }
 
   return (
     <div>
       <PageHeader
-        title="Students & members"
+        title="Patrons"
         subtitle={
           restrictedView
             ? "Only librarians and admins can open the member registry."
@@ -242,41 +252,42 @@ export default function MembersPage() {
         }
         action={
           canManageMembers ? (
-            <button type="button" className="btn btn-primary" onClick={openCreate}>
-              Add student / member
-            </button>
+            <Button variant="primary" onClick={openCreate}>
+              Add patron
+            </Button>
           ) : undefined
         }
       />
 
       {restrictedView ? (
-        <div className="panel p-4 md:p-5">
+        <Card>
           <EmptyState
-            title="Members are restricted"
+            title="Patrons are restricted"
             body={`Signed in as ${roleLabel(me!.user.role)}. You can update only your own profile.`}
           />
-        </div>
+        </Card>
       ) : (
       <>
       <div className="panel p-4 md:p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <input
+            type="search"
             className="field max-w-md"
-            aria-label="Search members"
+            aria-label="Search patrons"
             placeholder="Search name, email, phone or ID number"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Patron type">
             {typeFilters.map((key) => (
-              <button
+              <Button
                 key={key}
-                type="button"
-                className={`btn ${typeFilter === key ? "btn-primary" : "btn-ghost"}`}
+                variant={typeFilter === key ? "primary" : "ghost"}
+                aria-pressed={typeFilter === key}
                 onClick={() => setTypeFilter(key)}
               >
                 {key === "all" ? "All" : typeLabel(key)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -313,48 +324,33 @@ export default function MembersPage() {
               {YEAR_LEVELS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
-          <button type="button" className="btn btn-ghost" onClick={clearFilters} disabled={!filtersActive}>
+          <Button variant="ghost" onClick={clearFilters} disabled={!filtersActive}>
             Clear filters
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={downloadCsv} disabled={members.length === 0}>
+          </Button>
+          <Button variant="ghost" onClick={downloadCsv} disabled={members.length === 0}>
             Download CSV ({members.length})
-          </button>
+          </Button>
         </div>
 
-        {error && <ErrorState message={error} />}
-        {loading && <p className="text-sm">Loading members…</p>}
+        {actionError && <ErrorState message={actionError} />}
 
-        {!loading && members.length === 0 ? (
-          <EmptyState
-            title={filtersActive ? "No members match these filters" : "No students or members yet"}
-            body={filtersActive ? "Clear the filters or try a different search." : "Add a student to start lending books."}
-          />
-        ) : (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>ID number</th>
-                  <th>Contact</th>
-                  <th>Joined</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
+        <Table
+          caption="Patrons"
+          columns={["Name", "Type", "ID number", "Contact", "Joined", "Status", { label: "Actions", hideLabel: true }]}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={members.length === 0}
+          empty={{
+            title: filtersActive ? "No patrons match these filters" : "No patrons yet",
+            body: filtersActive ? "Clear the filters or try a different search." : "Add a patron to start lending books.",
+          }}
+        >
                 {members.map((member) => (
                   <tr key={member.id}>
                     <td className="font-semibold">{member.name}</td>
                     <td>
-                      <span
-                        className={`badge ${
-                          member.memberType === "student" ? "tone-info" : "tone-ok"
-                        }`}
-                      >
-                        {typeLabel(member.memberType)}
-                      </span>
+                      <Badge tone={member.memberType === "student" ? "info" : "ok"}>{typeLabel(member.memberType)}</Badge>
                     </td>
                     <td>
                       {member.memberType === "student" ? (
@@ -392,36 +388,22 @@ export default function MembersPage() {
                     </td>
                     <td>{formatDate(member.joinedAt)}</td>
                     <td>
-                      <span className={`badge ${member.active ? "tone-ok" : "tone-warn"}`}>
-                        {member.active ? "active" : "inactive"}
-                      </span>
+                      <Badge tone={member.active ? "ok" : "warn"}>{member.active ? "Active" : "Inactive"}</Badge>
                     </td>
                     <td>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         {canManageMembers && (
                           <>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => openEdit(member)}
-                            >
+                            <Button variant="ghost" onClick={() => openEdit(member)}>
                               Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => toggleActive(member)}
-                            >
+                            </Button>
+                            <Button variant="ghost" onClick={() => toggleActive(member)}>
                               {member.active ? "Deactivate" : "Activate"}
-                            </button>
+                            </Button>
                             {canDeleteMembers && (
-                              <button
-                                type="button"
-                                className="btn btn-danger"
-                                onClick={() => onDelete(member.id)}
-                              >
+                              <Button variant="danger" onClick={() => onDelete(member.id)}>
                                 Delete
-                              </button>
+                              </Button>
                             )}
                           </>
                         )}
@@ -429,15 +411,12 @@ export default function MembersPage() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </Table>
       </div>
 
       <Modal
         open={open && canManageMembers}
-        title={editing ? "Edit member" : "Add student / member"}
+        title={editing ? "Edit patron" : "Add patron"}
         onClose={() => setOpen(false)}
       >
         <form className="space-y-3" onSubmit={onSubmit}>
@@ -520,15 +499,16 @@ export default function MembersPage() {
               onChange={(studentId) => setForm((f) => ({ ...f, studentId }))} />
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "Saving…" : form.memberType === "student" ? "Save student" : "Save member"}
-            </button>
+            </Button>
+            <Button type="submit" variant="primary" busy={busy} busyLabel="Saving…">
+              Save patron
+            </Button>
           </div>
         </form>
       </Modal>
+      {dialogs.element}
       </>
       )}
     </div>
