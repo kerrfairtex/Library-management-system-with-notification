@@ -79,7 +79,7 @@ export default function UserGuidelinesPage() {
       </div>
 
       {/* ── Main content ────────────────────────────────────────── */}
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "2.5rem 1.5rem 4rem", display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}>
+      <main id="main" style={{ maxWidth: 1200, margin: "0 auto", padding: "2.5rem 1.5rem 4rem", display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}>
 
         {/* ─ Section 1: About ─ */}
         <section id="about" style={{ scrollMarginTop: 70 }}>
