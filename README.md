@@ -65,7 +65,7 @@ Then verify (read-only; exits 1 and names the missing file if anything is absent
 npm run db:check
 ```
 
-`schema.sql` alone is **not** enough: the Fines, Holds/borrow requests, item barcodes, circulation rules, Staff and Admin insights pages query tables and functions created by the later files. `npm run db:apply-schema` applies only `schema.sql`. The `BOOK_ITEMS_INTEGRATION*.sql` and `FIX_RPC_CALLS.sql` files are one-off hotfixes for older databases. Check them against your live functions before running them.
+`schema.sql` alone is **not** enough: the Fines, Holds/borrow requests, item barcodes, circulation rules, Staff and Admin insights pages query tables and functions created by the later files. `npm run db:apply-schema` applies only `schema.sql`. The `BOOK_ITEMS_INTEGRATION*.sql` and `FIX_RPC_CALLS.sql` files are one-off hotfixes for older databases; `FIX_RPC_CALLS.sql` holds the current four-argument `checkout_loan` and `return_loan` the app calls. Check them against your live functions before running them. Older one-off scripts live in `supabase/archive/` and must not be run (see its README); the later migrations are listed in `docs/migrations-applied.md`.
 
 Then seed the two demo accounts so login actually works:
 

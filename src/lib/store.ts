@@ -1249,7 +1249,8 @@ export async function checkoutBook(
   // Runs checkout_loan() on the database: one transaction that atomically
   // decrements availability (WHERE available_copies > 0), inserts the loan
   // (the loans_capacity trigger is the final authority on copies and the
-  // 5-active-loan cap) and creates the notifications. Any failure rolls
+  // member type's max_loans cap from circulation_rules) and creates the
+  // notifications. Any failure rolls
   // back the whole checkout — no manual compensation write needed.
   const { data, error } = await db(supabase).rpc("checkout_loan", {
     p_book_id: bookId,
