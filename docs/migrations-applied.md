@@ -17,6 +17,8 @@ in the Supabase SQL editor. It only reads.
 | 20261122 role change keeps ID | [`migrations/20261122_role_change_keeps_id.sql`](../supabase/migrations/20261122_role_change_keeps_id.sql) | 2026-11-21 | Directly |
 | Catch-up for 17 and 20 | [`catch-up/20261121_catch_up_17_20.sql`](../supabase/catch-up/20261121_catch_up_17_20.sql) | 2026-11-21 | Directly |
 | Access hardening | [`security/20261121_hardening.sql`](../supabase/security/20261121_hardening.sql) | 2026-11-21 | Directly |
+| Core tables lockdown + session revocations | [`security/20261123_core_tables_lockdown.sql`](../supabase/security/20261123_core_tables_lockdown.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
+| 20261123 circulation rules enforced | [`migrations/20261123_circulation_rules_enforced.sql`](../supabase/migrations/20261123_circulation_rules_enforced.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
 
 ## Do not re-run
 
@@ -38,6 +40,20 @@ The catch-up and hardening scripts are safe to run again.
   change them.
 - **book_items:** `anon` and `authenticated` may read every column except
   `notes`. The grant is per column, made when the script ran.
+- **users, members, books, loans, holds, fines, notifications,
+  circulation_rules, settings, session_revocations** (core tables lockdown):
+  RLS on and every privilege revoked from `anon` and `authenticated`. The
+  older "Staff …", "Student own …", "Admin …" and "Public can read books
+  catalog" policies are still defined but grant nothing without privileges.
+  Only the service role (the app's server) can read or write these tables.
+- **checkout_loan, return_loan, renew_loan, sweep_loan_statuses,
+  sync_book_availability_after_change:** callable by the service role only.
+
+> **Shared account:** another Supabase project in the same account has tables
+> with the same names (`users`, `books`, `notifications`) that belong to a
+> different app. Run TRAC SQL only on project `wapnzuawqhekgkqpgphj`. The
+> lockdown script checks each table's columns and aborts if they are not
+> TRAC's.
 
 > **When you add a column to `book_items`:** it is not readable with the
 > publishable key until you grant it. If the public catalog should show it,

@@ -15,11 +15,9 @@ const SHELF_CONFIG = resolveDeploymentOrigin(process.env.NEXT_PUBLIC_SHELF_ORIGI
 export const dynamic = "force-dynamic";
 
 type CirculationSettings = {
-  max_active_loans_per_member: number;
   loan_period_days: number;
   loan_period_options: number[];
   max_loan_days: number;
-  overdue_fine_per_day: number;
   pickup_window_days: number;
   overdue_alert_cooldown_days: number;
   due_soon_window_days: number;
@@ -27,11 +25,9 @@ type CirculationSettings = {
 };
 
 const defaultSettings: CirculationSettings = {
-  max_active_loans_per_member: 3,
   loan_period_days: 14,
   loan_period_options: [7, 14, 21, 30],
   max_loan_days: 60,
-  overdue_fine_per_day: 5,
   pickup_window_days: 3,
   overdue_alert_cooldown_days: 4,
   due_soon_window_days: 3,
@@ -61,11 +57,9 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!data) return;
     const values: CirculationSettings = {
-      max_active_loans_per_member: data.max_active_loans_per_member ?? 3,
       loan_period_days: data.loan_period_days ?? 14,
       loan_period_options: data.loan_period_options ?? [7, 14, 21, 30],
       max_loan_days: data.max_loan_days ?? 60,
-      overdue_fine_per_day: data.overdue_fine_per_day ?? 5,
       pickup_window_days: data.pickup_window_days ?? 3,
       overdue_alert_cooldown_days: data.overdue_alert_cooldown_days ?? 4,
       due_soon_window_days: data.due_soon_window_days ?? 3,
@@ -265,32 +259,12 @@ export default function SettingsPage() {
         {/* Global Settings Section */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Global circulation policies</h2>
+          <p className="text-sm text-gray-500">
+            Loan limits and fines per day are set per member type in the circulation rules above.
+          </p>
 
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label" htmlFor="max_active_loans_per_member">
-                  Max Active Loans per Member
-                </label>
-                <input
-                  id="max_active_loans_per_member"
-                  type="number"
-                  min="1"
-                  max="20"
-                  className="field"
-                  value={form.max_active_loans_per_member}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      max_active_loans_per_member: parseInt(e.target.value) || 1,
-                    }))
-                  }
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Maximum number of books a member can borrow at once.
-                </p>
-              </div>
-
               <div>
                 <label className="label" htmlFor="loan_period_days">
                   Default Loan Period (days)
@@ -350,30 +324,6 @@ export default function SettingsPage() {
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Maximum allowed loan period (also limits renewals).
-                </p>
-              </div>
-
-              <div>
-                <label className="label" htmlFor="overdue_fine_per_day">
-                  Overdue Fine per Day (₱)
-                </label>
-                <input
-                  id="overdue_fine_per_day"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  className="field"
-                  value={form.overdue_fine_per_day}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      overdue_fine_per_day: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Fine charged per day overdue, starting from day 1.
                 </p>
               </div>
 

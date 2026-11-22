@@ -20,21 +20,17 @@ export async function GET() {
     if (!audience) {
       return NextResponse.json({ error: "Unauthorized notification access." }, { status: 403 });
     }
-    let notifications = await getNotificationsData();
+    let notifications: Awaited<ReturnType<typeof getNotificationsData>>;
     if (audience === "member") {
       const me = await getMemberByUser(user);
       const myMemberId = (me as { id: string } | null)?.id;
       // No member record means nothing is addressed to this account.
       notifications = myMemberId
-        ? notifications.filter(
-            (n) => n.audience === "member" && n.recipient_member_id === myMemberId
-          )
+        ? await getNotificationsData({ kind: "member", memberId: myMemberId })
         : [];
     } else {
       // Staff inbox: staff-addressed alerts plus legacy rows with no recipient.
-      notifications = notifications.filter(
-        (n) => n.audience === "staff" || !n.recipient_member_id
-      );
+      notifications = await getNotificationsData({ kind: "staff" });
     }
     return NextResponse.json(sortNotifications(notifications));
   } catch (error) {

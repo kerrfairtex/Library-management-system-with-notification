@@ -48,18 +48,52 @@ async function sign(payload: string): Promise<string> {
   return toBase64Url(signature);
 }
 
-export async function createSessionToken(userId: string): Promise<string> {
-  const payload = toBase64Url(encoder.encode(userId));
+/** How long a sign-in lasts. The cookie maxAge and the token's exp agree. */
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+
+export type SessionClaims = {
+  /** users.id */
+  sub: string;
+  /** Random per-sign-in id, so one session can be revoked on logout. */
+  sid: string;
+  /** Issued at, seconds since epoch. */
+  iat: number;
+  /** Expires at, seconds since epoch. Checked on every read. */
+  exp: number;
+};
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function randomSid(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return toBase64Url(bytes);
+}
+
+export async function createSessionToken(
+  userId: string,
+  ttlSeconds = SESSION_TTL_SECONDS
+): Promise<string> {
+  const iat = nowSeconds();
+  const claims: SessionClaims = { sub: userId, sid: randomSid(), iat, exp: iat + ttlSeconds };
+  const payload = toBase64Url(encoder.encode(JSON.stringify(claims)));
   const signature = await sign(payload);
   return `${payload}.${signature}`;
 }
 
-export async function readSessionUserId(
+/**
+ * Verifies the signature and expiry and returns the claims. Tokens from
+ * before claims existed (payload = bare user id, no exp) are rejected, so
+ * those sessions end and the user signs in once more.
+ */
+export async function readSession(
   token: string | undefined | null
-): Promise<string | null> {
+): Promise<SessionClaims | null> {
   if (!token) return null;
-  const [payload, signature] = token.split(".");
-  if (!payload || !signature) return null;
+  const [payload, signature, extra] = token.split(".");
+  if (!payload || !signature || extra !== undefined) return null;
   const expected = await sign(payload);
   if (signature.length !== expected.length) return null;
   let mismatch = 0;
@@ -67,16 +101,32 @@ export async function readSessionUserId(
     mismatch |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
   }
   if (mismatch !== 0) return null;
+  let claims: unknown;
   try {
-    return new TextDecoder().decode(
-      Uint8Array.from(fromBase64Url(payload), (c) => c.charCodeAt(0))
+    claims = JSON.parse(
+      new TextDecoder().decode(
+        Uint8Array.from(fromBase64Url(payload), (c) => c.charCodeAt(0))
+      )
     );
   } catch {
     return null;
   }
+  if (!claims || typeof claims !== "object") return null;
+  const { sub, sid, iat, exp } = claims as Partial<SessionClaims>;
+  if (typeof sub !== "string" || !sub) return null;
+  if (typeof sid !== "string" || !sid) return null;
+  if (typeof iat !== "number" || typeof exp !== "number") return null;
+  if (exp <= nowSeconds()) return null;
+  return { sub, sid, iat, exp };
 }
 
-export function sessionCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 7) {
+export async function readSessionUserId(
+  token: string | undefined | null
+): Promise<string | null> {
+  return (await readSession(token))?.sub ?? null;
+}
+
+export function sessionCookieOptions(maxAgeSeconds = SESSION_TTL_SECONDS) {
   return {
     httpOnly: true,
     sameSite: "none" as const,  // Allow cross-origin cookie for Vercel → Render

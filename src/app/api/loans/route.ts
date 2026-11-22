@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCirculationSettings } from "@/lib/settings";
 import { serverError } from "@/lib/server-error";
 import { requireCapability } from "@/lib/authz";
 import { checkoutBook, getLoansData, getOutstandingFines } from "@/lib/store";
@@ -50,10 +51,14 @@ export async function POST(request: Request) {
     }
     // Server-side clamp (E2): a negative/zero days value creates an
     // already-overdue loan; huge values create absurd due dates. The UI caps
-    // 1-60; the API is the trust boundary.
+    // to the admin's max_loan_days setting; the API is the trust boundary.
+    const { max_loan_days } = await getCirculationSettings();
     const loanDays = days === undefined || days === null || days === "" ? 7 : Number(days);
-    if (!Number.isInteger(loanDays) || loanDays < 1 || loanDays > 60) {
-      return NextResponse.json({ error: "days must be an integer between 1 and 60." }, { status: 400 });
+    if (!Number.isInteger(loanDays) || loanDays < 1 || loanDays > max_loan_days) {
+      return NextResponse.json(
+        { error: `days must be an integer between 1 and ${max_loan_days}.` },
+        { status: 400 }
+      );
     }
     const blocked = fineBlockMessage(
       await getOutstandingFines(memberId),

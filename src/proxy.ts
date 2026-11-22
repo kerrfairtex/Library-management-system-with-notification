@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionUserId } from "@/lib/session";
 import { randomBytes } from "crypto";
 import { publicOrigin, safeLocalPath } from "@/lib/redirects";
+import { csrfTokensMatch } from "@/lib/csrf";
 
 const PUBLIC_PATHS = [
   "/user-guidelines",
@@ -51,10 +52,6 @@ function sameOrigin(request: NextRequest): boolean {
   }
 }
 
-function getCsrfToken(request: NextRequest): string | null {
-  // Check header first (for SPA), then cookie (for form submissions)
-  return request.headers.get(CSRF_HEADER) || request.cookies.get(CSRF_COOKIE)?.value || null;
-}
 
 function generateCsrfToken(): string {
   return randomBytes(32).toString("base64url");
@@ -95,20 +92,11 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/api/") &&
     !isCsrfExempt
   ) {
-    const token = getCsrfToken(request);
-    if (!token) {
-      return NextResponse.json(
-        { error: "CSRF token missing." },
-        { status: 403 }
-      );
-    }
-    // For double-submit, we just verify the token exists and matches cookie/header
-    // In a real implementation, you'd verify against a stored value
-    // Here we use the presence of the token as the check (same-origin already verified)
+    const headerToken = request.headers.get(CSRF_HEADER);
     const cookieToken = request.cookies.get(CSRF_COOKIE)?.value;
-    if (cookieToken && token !== cookieToken) {
+    if (!csrfTokensMatch(headerToken, cookieToken)) {
       return NextResponse.json(
-        { error: "CSRF token mismatch." },
+        { error: headerToken && cookieToken ? "CSRF token mismatch." : "CSRF token missing." },
         { status: 403 }
       );
     }

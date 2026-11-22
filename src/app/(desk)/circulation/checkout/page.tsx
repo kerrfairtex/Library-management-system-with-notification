@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { deriveLoanStatus } from "@/lib/loan-status";
@@ -82,7 +82,7 @@ export default function CheckoutPage() {
     try {
       const res = await fetch("/api/loans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ bookId, memberId: selectedMember.id, days }),
       });
       const body = await res.json();

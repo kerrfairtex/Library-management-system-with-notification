@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCirculationSettings } from "@/lib/settings";
 import { requireCapability } from "@/lib/authz";
 import { renewLoan, returnBook } from "@/lib/store";
 
@@ -26,9 +27,10 @@ export async function PATCH(request: Request, { params }: Params) {
         body.extraDays === undefined || body.extraDays === null || body.extraDays === ""
           ? 7
           : Number(body.extraDays);
-      if (!Number.isInteger(extraDays) || extraDays < 1 || extraDays > 60) {
+      const { max_renewal_days } = await getCirculationSettings();
+      if (!Number.isInteger(extraDays) || extraDays < 1 || extraDays > max_renewal_days) {
         return NextResponse.json(
-          { error: "extraDays must be an integer between 1 and 60." },
+          { error: `extraDays must be an integer between 1 and ${max_renewal_days}.` },
           { status: 400 }
         );
       }

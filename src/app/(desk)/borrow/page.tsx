@@ -11,7 +11,7 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { canAccess, type AppCapability } from "@/lib/permissions";
@@ -73,7 +73,7 @@ function BorrowInner() {
     try {
       const res = await fetch("/api/loans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ bookId: book.id, memberId, days }),
       });
       const body = await res.json();
@@ -257,7 +257,7 @@ function StudentBorrowPanel({ bookId, available }: { bookId: string; available: 
     try {
       const res = await fetch("/api/borrow-requests", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ bookId }),
       });
       const body = await res.json();
@@ -275,7 +275,7 @@ function StudentBorrowPanel({ bookId, available }: { bookId: string; available: 
     try {
       const res = await fetch("/api/holds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ bookId }),
       });
       const body = await res.json();

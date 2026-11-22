@@ -20,9 +20,15 @@ export async function GET() {
       // Students see their own-facing snapshot only: catalog stats and the
       // alert feed. The member registry and circulation history are withheld
       // (member PII must not reach student accounts).
-      const [books, notifications] = await Promise.all([
+      // Students see only their own notifications (audience='member' AND
+      // recipient_member_id = their id), filtered in SQL.
+      const me = await (await import("@/lib/store")).getMemberByUser(user);
+      const myMemberId = (me as { id: string } | null)?.id ?? "";
+      const [books, studentNotifications] = await Promise.all([
         listBooks(),
-        getNotificationsData(),
+        myMemberId
+          ? getNotificationsData({ kind: "member", memberId: myMemberId })
+          : Promise.resolve([]),
       ]);
       const stats: DashboardStats = {
         totalBooks: books.reduce((sum, b) => sum + b.totalCopies, 0),
@@ -30,16 +36,10 @@ export async function GET() {
         totalMembers: 0,
         activeLoans: 0,
         overdueLoans: 0,
-        unreadNotifications: notifications.filter((n) => !n.read).length,
+        unreadNotifications: studentNotifications.filter((n) => !n.read).length,
         outstandingFines: 0,
         overdueFinesCount: 0,
       };
-      // Students see only their own notifications (audience='member' AND recipient_member_id = their id)
-      const me = await (await import("@/lib/store")).getMemberByUser(user);
-      const myMemberId = (me as { id: string } | null)?.id ?? "";
-      const studentNotifications = notifications.filter(
-        (n) => n.audience === "member" && n.recipient_member_id === myMemberId
-      );
       return NextResponse.json({
         user,
         roleTitle: roleDashboardTitle(user.role),
