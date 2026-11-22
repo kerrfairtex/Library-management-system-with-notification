@@ -4,12 +4,14 @@
  * skipped and in-app notifications work exactly as before.
  * Uses Resend's HTTP API via fetch — no extra npm dependency.
  */
+import { absoluteLink, noticeLink } from "./notices";
 
 /** Notification types worth an e-mail to the member. */
 export const EMAILED_TYPES = [
   "due_soon",
   "overdue",
   "hold_ready",
+  "hold_expiring",
   "hold_expired",
   "borrow_request_approved",
   "borrow_request_rejected",
@@ -33,25 +35,27 @@ export function isPlausibleEmail(addr: string | null | undefined): addr is strin
 }
 
 export function buildNoticeEmail(
-  n: { title: string; message: string },
+  n: { title: string; message: string; type?: string },
   memberName: string,
   siteUrl: string | null
 ) {
-  const link = siteUrl ? `${siteUrl}/my-loans` : null;
+  // Each notice links to where the member can act on it (src/lib/notices.ts).
+  const target = (n.type && noticeLink(n.type, "member")) || { href: "/my-loans", label: "View your loans" };
+  const link = absoluteLink(siteUrl, target.href);
   const greeting = memberName ? `Hi ${memberName},` : "Hello,";
   const text = [
     greeting,
     "",
     n.message,
     "",
-    link ? `View your loans: ${link}` : "",
+    link ? `${target.label}: ${link}` : "",
     "— TRAC Library",
   ]
     .filter((l, i, arr) => !(l === "" && arr[i - 1] === ""))
     .join("\n");
   const html =
     `<p>${escapeHtml(greeting)}</p><p>${escapeHtml(n.message)}</p>` +
-    (link ? `<p><a href="${escapeHtml(link)}">View your loans</a></p>` : "") +
+    (link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(target.label)}</a></p>` : "") +
     `<p>— TRAC Library</p>`;
   return { subject: `TRAC Library: ${n.title}`, text, html };
 }

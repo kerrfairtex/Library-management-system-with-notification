@@ -5,6 +5,13 @@ import { revokeAllSessions } from "./session-store";
 import { getCirculationSettings } from "./settings";
 import { DEFAULT_RENEWAL_RULE, type RenewalRule } from "./renewal";
 import type { QueueHold } from "./hold-queue";
+import {
+  HOLD_NOTICE_TYPES,
+  LOAN_NOTICE_TYPES,
+  holdExpiringMessage,
+  noticeStillTrue,
+  type LoanState,
+} from "./notices";
 import { deriveLoanStatus } from "./loan-status";
 import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
@@ -591,7 +598,96 @@ export async function setHoldPaused(holdId: string, memberId: string, paused: bo
   return rows.length > 0;
 }
 
-export type EmailDispatchResult = { enabled: boolean; sent: number; failed: number; skipped: number };
+export type EmailDispatchResult = {
+  enabled: boolean;
+  sent: number;
+  failed: number;
+  /** No usable e-mail address on the member. */
+  skipped: number;
+  /** No longer true when it came to sending (e.g. the book was returned). */
+  stale?: number;
+};
+
+/**
+ * What is true NOW for each notice about to be e-mailed: the loan behind a
+ * due-date notice, and whether the member's hold behind a hold notice is
+ * still waiting on the shelf. Two queries for the whole batch.
+ */
+async function loadNoticeStates(
+  rows: { type: string; related_id: string | null; recipient_member_id: string }[]
+): Promise<{ loans: Map<string, LoanState>; holds: Set<string> }> {
+  const loanIds = [
+    ...new Set(rows.filter((r) => LOAN_NOTICE_TYPES.has(r.type) && r.related_id).map((r) => r.related_id as string)),
+  ];
+  const holdRows = rows.filter((r) => HOLD_NOTICE_TYPES.has(r.type) && r.related_id);
+  const [loansRes, holdsRes] = await Promise.all([
+    loanIds.length
+      ? db(supabase).from("loans").select("id, status, returned_at, due_at").in("id", loanIds)
+      : Promise.resolve({ data: [], error: null }),
+    holdRows.length
+      ? db(supabase)
+          .from("holds")
+          .select("book_id, member_id")
+          .eq("status", "ready")
+          .in("book_id", [...new Set(holdRows.map((r) => r.related_id as string))])
+          .in("member_id", [...new Set(holdRows.map((r) => r.recipient_member_id))])
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (loansRes.error) throw new Error(loansRes.error.message || "Failed to check loans for e-mail.");
+  if (holdsRes.error) throw new Error(holdsRes.error.message || "Failed to check holds for e-mail.");
+  const loans = new Map<string, LoanState>();
+  for (const l of (loansRes.data ?? []) as { id: string; status: string; returned_at: string | null; due_at: string }[]) {
+    loans.set(l.id, { returned: l.status === "returned" || l.returned_at !== null, dueAt: l.due_at });
+  }
+  const holds = new Set(
+    ((holdsRes.data ?? []) as { book_id: string; member_id: string }[]).map((h) => `${h.book_id}:${h.member_id}`)
+  );
+  return { loans, holds };
+}
+
+/**
+ * "Pick up by tomorrow" reminder for ready holds whose pickup window ends
+ * within the next day (Libby's "hold lapsing" alert). One per hold.
+ */
+export async function remindExpiringHolds(now = new Date()): Promise<number> {
+  const soon = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .select("id, book_id, member_id, expires_at, placed_at, books(title)")
+    .eq("status", "ready")
+    .gt("expires_at", now.toISOString())
+    .lte("expires_at", soon);
+  if (error) throw new Error(error.message || "Failed to load holds for reminders.");
+  const rows = (data ?? []) as unknown as {
+    id: string; book_id: string; member_id: string; expires_at: string; books: { title?: string } | null;
+  }[];
+  let sent = 0;
+  for (const h of rows) {
+    // One reminder per hold: any hold_expiring notice for this member and
+    // title within the last pickup window counts.
+    const { count, error: seenErr } = await db(supabase)
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "hold_expiring")
+      .eq("recipient_member_id", h.member_id)
+      .eq("related_id", h.book_id)
+      .gt("created_at", new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString());
+    if (seenErr) throw new Error(seenErr.message || "Failed to check reminders.");
+    if ((count ?? 0) > 0) continue;
+    const { error: insErr } = await db(supabase).from("notifications").insert({
+      type: "hold_expiring",
+      title: "Pick up your hold by tomorrow",
+      message: holdExpiringMessage(h.books?.title ?? "Your reserved book", h.expires_at),
+      related_id: h.book_id,
+      recipient_member_id: h.member_id,
+      audience: "member",
+      read: false,
+    });
+    if (insErr) throw new Error(insErr.message || "Failed to send the pickup reminder.");
+    sent++;
+  }
+  return sent;
+}
 
 /**
  * Sends e-mail copies of recent member notifications (see src/lib/email.ts).
@@ -607,7 +703,7 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
   const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await db(supabase)
     .from("notifications")
-    .select("id, type, title, message, recipient_member_id")
+    .select("id, type, title, message, related_id, recipient_member_id")
     .is("emailed_at", null)
     .eq("audience", "member")
     .in("type", [...EMAILED_TYPES])
@@ -618,9 +714,10 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
   if (error) throw new Error(error.message || "Failed to load notifications for e-mail.");
 
   const rows = (data ?? []) as {
-    id: string; type: string; title: string; message: string; recipient_member_id: string;
+    id: string; type: string; title: string; message: string; related_id: string | null; recipient_member_id: string;
   }[];
-  if (rows.length === 0) return { enabled: true, sent: 0, failed: 0, skipped: 0 };
+  if (rows.length === 0) return { enabled: true, sent: 0, failed: 0, skipped: 0, stale: 0 };
+  const states = await loadNoticeStates(rows);
 
   const memberIds = [...new Set(rows.map((r) => r.recipient_member_id))];
   const { data: members, error: memberErr } = await db(supabase)
@@ -632,7 +729,7 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
     ((members ?? []) as { id: string; name: string; email: string | null }[]).map((m) => [m.id, m])
   );
 
-  const result: EmailDispatchResult = { enabled: true, sent: 0, failed: 0, skipped: 0 };
+  const result: EmailDispatchResult = { enabled: true, sent: 0, failed: 0, skipped: 0, stale: 0 };
   for (const row of rows) {
     // Claim first: only the sweep whose update matches sends this notice.
     const { data: claimed, error: claimErr } = await db(supabase)
@@ -643,6 +740,17 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
       .select("id");
     if (claimErr) throw new Error(claimErr.message || "Failed to claim notification for e-mail.");
     if (!claimed || (claimed as unknown[]).length === 0) continue;
+
+    // Re-check just before sending: the claim stays, so a notice that is no
+    // longer true (book returned, hold collected) is never e-mailed later.
+    const stillTrue = noticeStillTrue(row.type, {
+      loan: row.related_id ? states.loans.get(row.related_id) ?? null : null,
+      hold: row.related_id && states.holds.has(`${row.related_id}:${row.recipient_member_id}`) ? { ready: true } : null,
+    });
+    if (!stillTrue) {
+      result.stale = (result.stale ?? 0) + 1;
+      continue;
+    }
 
     const member = byId.get(row.recipient_member_id);
     if (!member || !isPlausibleEmail(member.email)) {

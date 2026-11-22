@@ -222,6 +222,7 @@ export type CirculationRule = {
 export type NotificationType =
   | "overdue"
   | "hold_ready"
+  | "hold_expiring"
   | "hold_expired"
   | "pending_approval"
   | "due_soon"

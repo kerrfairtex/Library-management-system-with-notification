@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { serverError } from "@/lib/server-error";
-import { dispatchNotificationEmails, expireStaleHolds, sweepLoanStatuses, trapAllHolds } from "@/lib/store";
+import { dispatchNotificationEmails, expireStaleHolds, remindExpiringHolds, sweepLoanStatuses, trapAllHolds } from "@/lib/store";
 import { cronPolicy } from "@/lib/cron-policy";
 
 /**
@@ -41,6 +41,7 @@ async function run(request: Request) {
     const result = await sweepLoanStatuses();
     const expiredHolds = await expireStaleHolds();
     const holdsReady = await trapAllHolds();
+    const pickupReminders = await remindExpiringHolds();
     // E-mail is best effort: a mail outage or a missing emailed_at column
     // (migration 20261119 not applied) must not fail the circulation sweep.
     let email: Awaited<ReturnType<typeof dispatchNotificationEmails>> | { error: string };
@@ -49,7 +50,7 @@ async function run(request: Request) {
     } catch (err) {
       email = { error: err instanceof Error ? err.message : "E-mail dispatch failed." };
     }
-    return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, holdsReady, email });
+    return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, holdsReady, pickupReminders, email });
   } catch (error) {
     return serverError("GET/POST /api/cron/refresh-loans", error, { error: error instanceof Error ? error.message : "Loan sweep failed." }, 500);
   }

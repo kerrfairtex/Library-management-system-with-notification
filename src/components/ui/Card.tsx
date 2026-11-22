@@ -11,6 +11,7 @@ export function Card({
   className = "",
   padded = true,
   as: Tag = "section",
+  anchorId,
 }: {
   title?: ReactNode;
   action?: ReactNode;
@@ -18,11 +19,14 @@ export function Card({
   className?: string;
   padded?: boolean;
   as?: "section" | "article" | "div";
+  /** Optional fragment target, e.g. "holds" for /my-loans#holds. */
+  anchorId?: string;
 }) {
   const id = useId();
   return (
     <Tag
-      className={`panel min-w-0 ${padded ? "p-4 md:p-5" : ""} ${className}`.trim()}
+      id={anchorId}
+      className={`panel min-w-0 ${anchorId ? "scroll-mt-20" : ""} ${padded ? "p-4 md:p-5" : ""} ${className}`.trim()}
       aria-labelledby={title ? id : undefined}
     >
       {(title || action) && (
