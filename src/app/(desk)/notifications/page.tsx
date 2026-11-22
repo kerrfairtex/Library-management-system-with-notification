@@ -8,12 +8,15 @@ import { statusLabel } from "@/lib/status-tone";
 import { announceNotificationsChanged } from "@/lib/events";
 import { Button, ButtonLink, Card, EmptyState, ErrorState, PageHeader } from "@/components/ui";
 import { noticeLink } from "@/lib/notices";
+import { isPatron } from "@/lib/permissions";
+import { useDeskSession } from "@/components/DeskSessionProvider";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
 
 export default function NotificationsPage() {
   const { data, loading, error, reload } = useApi<Notification[]>("/api/notifications");
+  const { session } = useDeskSession();
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -42,6 +45,10 @@ export default function NotificationsPage() {
         title="Notifications"
         subtitle="Due dates, holds, requests and library activity. Each notice links to where you can act on it."
         action={
+          <div className="flex flex-wrap gap-2">
+          {isPatron(session?.user) && (
+            <ButtonLink href="/profile#notifications" variant="ghost">E-mail settings</ButtonLink>
+          )}
           <Button
             variant="primary"
             disabled={unread === 0}
@@ -51,6 +58,7 @@ export default function NotificationsPage() {
           >
             Mark all read
           </Button>
+          </div>
         }
       />
 
