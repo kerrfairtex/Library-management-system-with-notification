@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { serverError } from "@/lib/server-error";
-import { dispatchNotificationEmails, expireStaleHolds, sweepLoanStatuses } from "@/lib/store";
+import { dispatchNotificationEmails, expireStaleHolds, sweepLoanStatuses, trapAllHolds } from "@/lib/store";
 import { cronPolicy } from "@/lib/cron-policy";
 
 /**
- * Stamps overdue loans, sends due-date reminders, and expires ready holds
- * whose pickup window has passed, then e-mails the new member notices
+ * Stamps overdue loans, sends due-date reminders, expires ready holds whose
+ * pickup window has passed, gives free copies to the next member in each
+ * hold queue (catch-up for anything missed during the day), then e-mails the new member notices
  * (only when RESEND_API_KEY and EMAIL_FROM are set). Scheduled in vercel.json;
  * Vercel calls it with `Authorization: Bearer $CRON_SECRET` whenever that
  * variable is set on the project.
@@ -39,6 +40,7 @@ async function run(request: Request) {
   try {
     const result = await sweepLoanStatuses();
     const expiredHolds = await expireStaleHolds();
+    const holdsReady = await trapAllHolds();
     // E-mail is best effort: a mail outage or a missing emailed_at column
     // (migration 20261119 not applied) must not fail the circulation sweep.
     let email: Awaited<ReturnType<typeof dispatchNotificationEmails>> | { error: string };
@@ -47,7 +49,7 @@ async function run(request: Request) {
     } catch (err) {
       email = { error: err instanceof Error ? err.message : "E-mail dispatch failed." };
     }
-    return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, email });
+    return NextResponse.json({ ranAt: new Date().toISOString(), ...result, expiredHolds, holdsReady, email });
   } catch (error) {
     return serverError("GET/POST /api/cron/refresh-loans", error, { error: error instanceof Error ? error.message : "Loan sweep failed." }, 500);
   }

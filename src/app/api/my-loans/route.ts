@@ -9,7 +9,9 @@ import {
   getOutstandingFines,
   getRenewalContext,
   getRenewalRule,
+  listPendingQueue,
 } from "@/lib/store";
+import { queuePositions } from "@/lib/hold-queue";
 import { parseFineThreshold } from "@/lib/fine-block";
 import { renewalCheck, renewalFineBlock } from "@/lib/renewal";
 import { getCirculationSettings } from "@/lib/settings";
@@ -42,6 +44,7 @@ export async function GET() {
         .from("holds")
         .select("*, books(title)")
         .eq("member_id", memberId)
+        .eq("kind", "hold")
         .in("status", ["pending", "ready"])
         .order("placed_at", { ascending: true }),
       getBorrowRequests(memberId),
@@ -64,12 +67,17 @@ export async function GET() {
       renewals_count: number | null;
     }[];
     const openRows = loanRows.filter((l) => !l.returned_at && l.status !== "returned");
-    const [rule, settings, context, outstanding] = await Promise.all([
+    const holdRows = (holds.data ?? []) as { id: string; book_id: string }[];
+    const [rule, settings, context, outstanding, queue] = await Promise.all([
       getRenewalRule(me.memberType),
       getCirculationSettings(),
       getRenewalContext(memberId, openRows.map((l) => l.book_id)),
       openRows.length > 0 ? getOutstandingFines(memberId) : Promise.resolve(0),
+      listPendingQueue(holdRows.map((h) => h.book_id)),
     ]);
+    // Live place in line (not the stored priority, which goes stale as
+    // holds ahead are filled or cancelled).
+    const positions = queuePositions(queue);
     const fineBlock = renewalFineBlock(outstanding, parseFineThreshold(process.env.FINE_BLOCK_THRESHOLD));
     const withRenewal = loanRows.map((l) => {
       const returned = Boolean(l.returned_at) || l.status === "returned";
@@ -98,7 +106,7 @@ export async function GET() {
 
     return NextResponse.json({
       loans: withRenewal,
-      holds: holds.data ?? [],
+      holds: holdRows.map((h) => ({ ...h, position: positions[h.id] ?? null })),
       borrowRequests: borrowRequests ?? [],
       fines: fines.data ?? [],
       loanLimit,
