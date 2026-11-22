@@ -2,7 +2,8 @@
 
 /*
  * My loans — self-service page for patrons:
- * current loans with due dates, open holds, and outstanding fines.
+ * current loans with due dates (renewable here, within the rules for the
+ * member's type), open holds, and outstanding fines.
  * Also the landing target after placing a hold from the 3D bookshelf.
  */
 
@@ -12,7 +13,7 @@ import { LIBRARY_PHONE } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { statusLabel, statusTone } from "@/lib/status-tone";
-import { Badge, Button, ButtonLink, Card, ErrorState, KpiRow, PageHeader, Table } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, ErrorState, KpiRow, Notice, PageHeader, Table } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -24,7 +25,16 @@ type MyLoan = {
   due_at: string;
   returned_at: string | null;
   status: string;
+  renewals_count?: number | null;
   books: { title: string; author: string; isbn: string } | null;
+  /** null once returned. Computed by GET /api/my-loans. */
+  renewal?: {
+    canRenew: boolean;
+    reason: string | null;
+    renewalsLeft: number;
+    maxRenewals: number;
+    extraDays: number;
+  } | null;
 };
 type MyHold = {
   id: string;
@@ -71,6 +81,8 @@ export default function MyLoansPage() {
   }>("/api/my-loans");
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState<string | null>(null);
+  const [renewed, setRenewed] = useState<string | null>(null);
 
   const loans = data?.loans ?? [];
   const holds = data?.holds ?? [];
@@ -103,6 +115,31 @@ export default function MyLoansPage() {
     }
   }
 
+  async function renew(loan: MyLoan) {
+    setRenewing(loan.id);
+    setActionError(null);
+    setRenewed(null);
+    try {
+      const res = await fetch(`/api/my-loans/${loan.id}/renew`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "The loan wasn’t renewed. Try again.");
+      const title = loan.books?.title ?? "Your book";
+      const left = typeof body.renewalsLeft === "number" ? body.renewalsLeft : null;
+      setRenewed(
+        `Renewed “${title}”. It’s now due ${formatDate(body.loan?.dueAt)}.` +
+          (left === null ? "" : left === 0 ? " That was your last renewal for this loan." : ` ${left} renewal${left === 1 ? "" : "s"} left.`)
+      );
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "The loan wasn’t renewed. Try again.");
+    } finally {
+      setRenewing(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -123,11 +160,12 @@ export default function MyLoansPage() {
       />
 
       {actionError && <ErrorState message={actionError} />}
+      {renewed && <Notice>{renewed}</Notice>}
 
       <Card title="Checkouts">
         <Table
           caption="Checkouts"
-          columns={["Title", "Borrowed", "Due", "Status"]}
+          columns={["Title", "Borrowed", "Due", "Status", "Renew"]}
           {...state}
           isEmpty={loans.length === 0}
           empty={{
@@ -148,6 +186,29 @@ export default function MyLoansPage() {
                 <td>{formatDate(l.due_at)}</td>
                 <td>
                   <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge>
+                </td>
+                <td>
+                  {l.renewal && (
+                    <div className="max-w-[16rem]">
+                      {l.renewal.canRenew ? (
+                        <Button
+                          busy={renewing === l.id}
+                          busyLabel="Renewing…"
+                          onClick={() => renew(l)}
+                          aria-label={`Renew ${l.books?.title ?? "this book"} for ${l.renewal.extraDays} days`}
+                        >
+                          Renew
+                        </Button>
+                      ) : (
+                        <p className="text-muted text-sm">{l.renewal.reason}</p>
+                      )}
+                      {l.renewal.maxRenewals > 0 && (
+                        <p className="text-muted mt-1 text-xs">
+                          {l.renewal.renewalsLeft} of {l.renewal.maxRenewals} renewals left
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </td>
               </tr>
             );
