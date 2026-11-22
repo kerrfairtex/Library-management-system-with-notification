@@ -5,7 +5,7 @@
  * cancel from one queue; patrons see and cancel their own.
  */
 
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
@@ -77,7 +77,7 @@ export default function HoldsPage() {
     try {
       const res = await fetch(isRequest ? "/api/borrow-requests" : "/api/holds", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ id, ...payload }),
       });
       if (!res.ok) {

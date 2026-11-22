@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import type { Book, Loan, Member } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -58,7 +58,7 @@ export default function CheckinPage() {
 
       const res = await fetch(`/api/loans/${loan.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ action: "return" }),
       });
       const body = await res.json();

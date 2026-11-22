@@ -1,4 +1,5 @@
 import { getMemberByUser } from "@/lib/store";
+import { getCirculationSettings } from "@/lib/settings";
 import { serverError } from "@/lib/server-error";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, requireSession } from "@/lib/authz";
@@ -202,9 +203,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(data);
     }
 
-    // Fulfill → mark READY for pickup with a 3-day window + notify student.
+    // Fulfill → mark READY for pickup for the configured pickup window
+    // (settings: pickup_window_days) + notify student.
     // The loan itself is created at desk checkout (physical handover).
-    const pickupExpires = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { pickup_window_days } = await getCirculationSettings();
+    const pickupExpires = new Date(Date.now() + pickup_window_days * 24 * 60 * 60 * 1000).toISOString();
     const { data: hold, error } = await db(supabase)
       .from("holds")
       .update({ status: "ready", expires_at: pickupExpires })
@@ -225,7 +228,7 @@ export async function PATCH(request: NextRequest) {
       title: "Hold ready for pickup",
       message:
         `${memberName ? memberName + ": " : ""}"${title}" is ready at the ` +
-        `library desk. Please pick it up within 3 days (by ` +
+        `library desk. Please pick it up within ${pickup_window_days} day${pickup_window_days === 1 ? "" : "s"} (by ` +
         `${new Date(pickupExpires).toLocaleDateString("en-PH")}).`,
       related_id: holdRow.book_id,
       recipient_member_id: holdRow.member_id,

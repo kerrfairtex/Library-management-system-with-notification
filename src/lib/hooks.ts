@@ -61,6 +61,12 @@ function getCsrfToken(): string | null {
   return null;
 }
 
+/** Headers every mutating /api request needs (src/proxy.ts checks them). */
+export function csrfHeaders(): Record<string, string> {
+  const token = getCsrfToken();
+  return token ? { "x-csrf-token": token } : {};
+}
+
 export async function apiJson<T>(
   url: string,
   options?: RequestInit

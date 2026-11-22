@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { LIBRARY_PHONE } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
@@ -88,7 +88,7 @@ export default function MyLoansPage() {
     try {
       const res = await fetch("/api/borrow-requests", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify({ id, action: "cancel" }),
       });
       if (!res.ok) {

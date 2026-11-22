@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { canAccess, type AppCapability } from "./permissions";
 import { describeRoleAssignmentProblem } from "./staff-rules";
-import { SESSION_COOKIE, readSessionUserId } from "./session";
+import { SESSION_COOKIE, readSession } from "./session";
+import { isSessionRevoked } from "./session-store";
 import { getPublicUserById } from "./store";
 import type { PublicUser } from "./types";
 
@@ -22,15 +23,15 @@ type Allowed = { user: PublicUser; response: null };
 
 export async function requireSession(): Promise<Allowed | Denied> {
   const jar = await cookies();
-  const userId = await readSessionUserId(jar.get(SESSION_COOKIE)?.value);
-  if (!userId) {
+  const claims = await readSession(jar.get(SESSION_COOKIE)?.value);
+  if (!claims || (await isSessionRevoked(claims))) {
     return {
       user: null,
       response: NextResponse.json({ error: "Not signed in." }, { status: 401 }),
     };
   }
 
-  const user = await getPublicUserById(userId);
+  const user = await getPublicUserById(claims.sub);
   if (!user) {
     return {
       user: null,

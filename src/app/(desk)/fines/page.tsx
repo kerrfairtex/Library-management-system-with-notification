@@ -4,7 +4,7 @@
  * Fines. Staff: every fine, mark paid or waive. Patrons: their own fines.
  */
 
-import { useApi } from "@/lib/hooks";
+import { csrfHeaders, useApi } from "@/lib/hooks";
 import { useDeskSession } from "@/components/DeskSessionProvider";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
@@ -44,7 +44,7 @@ export default function FinesPage() {
     try {
       const res = await fetch(`/api/fines/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
         body: JSON.stringify(action === "pay" ? { action: "pay", amount } : { action: "forgive" }),
       });
       if (!res.ok) {

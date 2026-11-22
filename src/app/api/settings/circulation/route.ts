@@ -1,61 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/server-error";
-import { requireCapability } from "@/lib/authz";
-import { supabase } from "@/lib/supabase";
+import { requireCapability, requireSession } from "@/lib/authz";
+import { db, supabase } from "@/lib/supabase";
+import {
+  getCirculationSettings,
+  invalidateCirculationSettings,
+  parseCirculationSetting,
+} from "@/lib/settings";
 
 export async function GET() {
+  const { user, response } = await requireSession();
+  if (!user) return response;
   try {
-    const { data, error } = await supabase
-      .from("settings")
-      .select("key, value")
-      .eq("category", "circulation");
-
-    if (error) throw new Error(error.message);
-
-    const settings: Record<string, unknown> = {};
-    for (const row of data ?? []) {
-      settings[row.key] = row.value;
-    }
-
-    // Return with defaults
-    const defaults = {
-      circulation: {
-        max_active_loans_per_member: 3,
-        loan_period_days: 14,
-        loan_period_options: [7, 14, 21, 30],
-        max_loan_days: 60,
-        overdue_fine_per_day: 5,
-        pickup_window_days: 3,
-        overdue_alert_cooldown_days: 4,
-        due_soon_window_days: 3,
-        max_renewal_days: 60,
-      },
-    };
-
-    const result = { ...defaults };
-    for (const [key, value] of Object.entries(settings)) {
-      const parts = key.split(".");
-      if (parts.length === 2 && parts[0] === "circulation") {
-        const value = settings[key];
-        if (typeof value === "string" && value.startsWith("[")) {
-          try {
-            (result.circulation as Record<string, unknown>)[parts[1]] = JSON.parse(value);
-          } catch {
-            // keep default
-          }
-        } else if (typeof value === "string" && !isNaN(Number(value))) {
-          (result.circulation as Record<string, unknown>)[parts[1]] = Number(value);
-        } else if (typeof value === "number") {
-          (result.circulation as Record<string, unknown>)[parts[1]] = value;
-        } else {
-          (result.circulation as Record<string, unknown>)[parts[1]] = value;
-        }
-      }
-    }
-
-    return NextResponse.json(result.circulation);
+    return NextResponse.json(await getCirculationSettings());
   } catch (error) {
-    return serverError("GET /api/settings/circulation", error, { error: error instanceof Error ? error.message : "Failed to load settings" }, 500);
+    return serverError("GET /api/settings/circulation", error, { error: "Failed to load settings" }, 500);
   }
 }
 
@@ -66,23 +25,39 @@ export async function PATCH(request: NextRequest) {
   );
   if (!user) return response;
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const updatedBy = user.id;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Send an object of settings." }, { status: 400 });
+  }
 
-    const updates = Object.entries(body).map(([key, value]) => ({
-      key: `circulation.${key}`,
-      value,
+  const updates = [];
+  for (const [key, value] of Object.entries(body)) {
+    const parsed = parseCirculationSetting(key, value);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    updates.push({
+      key: `circulation.${parsed.key}`,
+      value: parsed.value,
       category: "circulation",
-      updated_by: updatedBy,
-    }));
+      updated_by: user.id,
+    });
+  }
+  if (updates.length === 0) {
+    return NextResponse.json({ error: "No settings to save." }, { status: 400 });
+  }
 
-    const { error } = await supabase.from("settings").upsert(updates);
-
+  try {
+    const { error } = await db(supabase).from("settings").upsert(updates);
     if (error) throw new Error(error.message);
-
+    invalidateCirculationSettings();
     return NextResponse.json({ success: true });
   } catch (error) {
-    return serverError("PATCH /api/settings/circulation", error, { error: error instanceof Error ? error.message : "Failed to update settings" }, 500);
+    return serverError("PATCH /api/settings/circulation", error, { error: "Failed to update settings" }, 500);
   }
 }

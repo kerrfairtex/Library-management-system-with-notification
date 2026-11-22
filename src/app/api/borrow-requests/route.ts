@@ -1,4 +1,5 @@
 // Force rebuild: 2026-10-03T09:02:55.455202
+import { getCirculationSettings } from "@/lib/settings";
 import { NextRequest, NextResponse } from "next/server";
 import { serverError } from "@/lib/server-error";
 import { requireCapability, requireSession } from "@/lib/authz";
@@ -205,10 +206,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === "checkout") {
-      const days = Number(body.days ?? 14);
-      if (!Number.isInteger(days) || days < 1 || days > 60) {
+      const { loan_period_days, max_loan_days } = await getCirculationSettings();
+      const days = Number(body.days ?? loan_period_days);
+      if (!Number.isInteger(days) || days < 1 || days > max_loan_days) {
         return NextResponse.json(
-          { error: "days must be an integer between 1 and 60." },
+          { error: `days must be an integer between 1 and ${max_loan_days}.` },
           { status: 400 }
         );
       }

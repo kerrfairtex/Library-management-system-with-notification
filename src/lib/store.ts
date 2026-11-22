@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
+import { revokeAllSessions } from "./session-store";
+import { getCirculationSettings } from "./settings";
 import { deriveLoanStatus } from "./loan-status";
 import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
@@ -341,6 +343,31 @@ export function describeSupabaseError(
   return `${fallback} Supabase says: "${error.message ?? "unknown error"}".`;
 }
 
+/**
+ * PostgREST returns at most `max-rows` (1,000 on Supabase) rows per request
+ * and does not say it cut the list short. Every "whole table" read goes
+ * through here: it asks for PAGE_SIZE rows at a time with range() until a
+ * short page comes back. `build` must return a fresh, fully ordered query
+ * each call; a unique tiebreaker column (id) keeps pages from overlapping.
+ */
+const PAGE_SIZE = 1000;
+
+type PagedResult = { data: unknown[] | null; error: { code?: string; message?: string } | null };
+type RangeQuery = { range(from: number, to: number): PromiseLike<PagedResult> };
+
+export async function fetchAllRows<Row>(
+  build: () => RangeQuery
+): Promise<{ data: Row[]; error: PagedResult["error"] }> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: rows, error };
+    const page = (data ?? []) as Row[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return { data: rows, error: null };
+  }
+}
+
 function throwIfError(
   error: { code?: string; message?: string } | null,
   fallback: string
@@ -392,7 +419,17 @@ export type LoanSweepResult = {
  * impossible even if Vercel fires the cron twice.
  */
 export async function sweepLoanStatuses(): Promise<LoanSweepResult> {
-  const { data, error } = await db(supabase).rpc("sweep_loan_statuses");
+  const { due_soon_window_days, overdue_alert_cooldown_days } = await getCirculationSettings();
+  let { data, error } = await db(supabase).rpc("sweep_loan_statuses", {
+    p_due_soon_days: due_soon_window_days,
+    p_cooldown_days: overdue_alert_cooldown_days,
+  });
+  // Before 20261123_circulation_rules_enforced.sql the function takes no
+  // arguments (fixed 3-day window, 4-day cooldown). PostgREST answers
+  // PGRST202 for "no function with these arguments"; fall back to it.
+  if (error?.code === "PGRST202") {
+    ({ data, error } = await db(supabase).rpc("sweep_loan_statuses"));
+  }
   if (error) {
     throw new Error(error.message || "Loan sweep failed.");
   }
@@ -533,19 +570,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
  * table just to list books or members.
  */
 export async function listBooks(): Promise<Book[]> {
-  const { data, error } = await db(supabase)
-    .from("books")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data, error } = await fetchAllRows(() =>
+    db(supabase).from("books").select("*").order("created_at", { ascending: false }).order("id")
+  );
   throwIfError(error, "Failed to load books.");
   return ((data as BookRow[] | null) ?? []).map(mapBook);
 }
 
 export async function listMembers(): Promise<Member[]> {
-  const { data, error } = await db(supabase)
-    .from("members")
-    .select("*")
-    .order("joined_at", { ascending: false });
+  const { data, error } = await fetchAllRows(() =>
+    db(supabase).from("members").select("*").order("joined_at", { ascending: false }).order("id")
+  );
   throwIfError(error, "Failed to load members.");
   return ((data as MemberRow[] | null) ?? []).map(mapMember);
 }
@@ -556,9 +591,9 @@ export async function getLoansData(): Promise<{
   members: Member[];
 }> {
   const [loansRes, booksRes, membersRes] = await Promise.all([
-    db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }),
-    db(supabase).from("books").select("*"),
-    db(supabase).from("members").select("*"),
+    fetchAllRows(() => db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }).order("id")),
+    fetchAllRows(() => db(supabase).from("books").select("*").order("id")),
+    fetchAllRows(() => db(supabase).from("members").select("*").order("id")),
   ]);
   throwIfError(loansRes.error, "Failed to load loans.");
   throwIfError(booksRes.error, "Failed to load books.");
@@ -570,11 +605,25 @@ export async function getLoansData(): Promise<{
   };
 }
 
-export async function getNotificationsData(): Promise<Notification[]> {
-  const { data, error } = await db(supabase)
-    .from("notifications")
-    .select("*")
-    .order("created_at", { ascending: false });
+export type NotificationFilter =
+  | { kind: "member"; memberId: string }
+  | { kind: "staff" };
+
+/**
+ * Inbox read. The recipient filter runs in SQL so a member's inbox never
+ * depends on how many notices other people have.
+ */
+export async function getNotificationsData(filter?: NotificationFilter): Promise<Notification[]> {
+  const { data, error } = await fetchAllRows(() => {
+    let query = db(supabase).from("notifications").select("*");
+    if (filter?.kind === "member") {
+      query = query.eq("audience", "member").eq("recipient_member_id", filter.memberId);
+    } else if (filter?.kind === "staff") {
+      // Staff-addressed alerts plus legacy rows with no recipient.
+      query = query.or("audience.eq.staff,recipient_member_id.is.null");
+    }
+    return query.order("created_at", { ascending: false }).order("id");
+  });
   throwIfError(error, "Failed to load notifications.");
   return ((data as NotificationRow[] | null) ?? []).map(mapNotification);
 }
@@ -1051,10 +1100,13 @@ export async function getPublicUserById(id: string): Promise<PublicUser | null> 
 
 export async function listStaff(): Promise<PublicUser[]> {
   // Select safe columns only — password_hash excluded by RLS policy
-  const { data, error } = await db(supabase)
-    .from("users")
-    .select("id,name,email,password_hash,role,status,created_at,auth_user_id")
-    .order("created_at", { ascending: true });
+  const { data, error } = await fetchAllRows(() =>
+    db(supabase)
+      .from("users")
+      .select("id,name,email,password_hash,role,status,created_at,auth_user_id")
+      .order("created_at", { ascending: true })
+      .order("id")
+  );
   throwIfError(error, "Failed to load staff accounts.");
   return ((data as UserRow[] | null) ?? []).map((row) => toPublicUser(mapUser(row)));
 }
@@ -1224,6 +1276,8 @@ export async function updateStaff(
     .maybeSingle();
   throwIfError(error, "Failed to update staff account.");
   if (!data) return null;
+  // A changed password ends every session signed in with the old one.
+  if (patch.password_hash !== undefined) await revokeAllSessions(id);
   return toPublicUser(mapUser(data as UserRow));
 }
 
@@ -1309,21 +1363,22 @@ export async function getMemberByUser(user: { id: string; email: string }) {
 }
 
 export async function getBorrowRequests(memberId?: string) {
-  let query = db(supabase)
-    .from("holds")
-    .select("*, books!inner(id, isbn, title, author), members!inner(id, name, email)")
-    .eq("kind", "borrow_request")
-    .order("placed_at", { ascending: false });
-
-  if (memberId) {
-    query = query.eq("member_id", memberId);
-  } else {
-    query = query.in("status", ["pending", "ready", "approved"]);
-  }
-
-  const { data, error } = await query;
+  type BorrowRequestRow = HoldRow & {
+    books?: { isbn?: string | null; title?: string | null; author?: string | null } | null;
+    members?: { name?: string | null; email?: string | null } | null;
+  };
+  const { data, error } = await fetchAllRows<BorrowRequestRow>(() => {
+    let query = db(supabase)
+      .from("holds")
+      .select("*, books!inner(id, isbn, title, author), members!inner(id, name, email)")
+      .eq("kind", "borrow_request");
+    query = memberId
+      ? query.eq("member_id", memberId)
+      : query.in("status", ["pending", "ready", "approved"]);
+    return query.order("placed_at", { ascending: false }).order("id");
+  });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((h) => ({
+  return data.map((h) => ({
     id: h.id,
     bookId: h.book_id,
     memberId: h.member_id,
@@ -1389,7 +1444,8 @@ export async function createBorrowRequest(bookId: string, memberId: string) {
 }
 
 export async function approveBorrowRequest(id: string, reviewedBy: string) {
-  const pickupExpires = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { pickup_window_days } = await getCirculationSettings();
+  const pickupExpires = new Date(Date.now() + pickup_window_days * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await db(supabase)
     .from("holds")
@@ -1544,19 +1600,19 @@ function mapFine(row: FineRow): Fine {
 }
 
 export async function listFines(memberId?: string): Promise<Fine[]> {
-  let query = db(supabase).from("fines").select("*").order("created_at", { ascending: false });
-  if (memberId) {
-    query = query.eq("member_id", memberId);
-  }
-  const { data, error } = await query;
+  const { data, error } = await fetchAllRows(() => {
+    let query = db(supabase).from("fines").select("*");
+    if (memberId) query = query.eq("member_id", memberId);
+    return query.order("created_at", { ascending: false }).order("id");
+  });
   throwIfError(error, "Failed to load fines.");
   return ((data as FineRow[] | null) ?? []).map(mapFine);
 }
 
 export async function getFinesData(): Promise<{ fines: Fine[]; members: Member[] }> {
   const [finesRes, membersRes] = await Promise.all([
-    db(supabase).from("fines").select("*").order("created_at", { ascending: false }),
-    db(supabase).from("members").select("*"),
+    fetchAllRows(() => db(supabase).from("fines").select("*").order("created_at", { ascending: false }).order("id")),
+    fetchAllRows(() => db(supabase).from("members").select("*").order("id")),
   ]);
   throwIfError(finesRes.error, "Failed to load fines.");
   throwIfError(membersRes.error, "Failed to load members.");
@@ -1722,10 +1778,9 @@ function mapHold(row: HoldRow): Hold {
 }
 
 export async function listHolds(): Promise<Hold[]> {
-  const { data, error } = await db(supabase)
-    .from("holds")
-    .select("*")
-    .order("placed_at", { ascending: false });
+  const { data, error } = await fetchAllRows(() =>
+    db(supabase).from("holds").select("*").order("placed_at", { ascending: false }).order("id")
+  );
   throwIfError(error, "Failed to load holds.");
   return ((data as HoldRow[] | null) ?? []).map(mapHold);
 }
@@ -1789,10 +1844,9 @@ export async function getMaxLoansForMemberType(memberType: MemberType): Promise<
 }
 
 export async function listCirculationRules(): Promise<CirculationRule[]> {
-  const { data, error } = await db(supabase)
-    .from("circulation_rules")
-    .select("*")
-    .order("member_type", { ascending: true });
+  const { data, error } = await fetchAllRows(() =>
+    db(supabase).from("circulation_rules").select("*").order("member_type", { ascending: true }).order("id")
+  );
   throwIfError(error, "Failed to load circulation rules.");
   return ((data as CirculationRuleRow[] | null) ?? []).map(mapCirculationRule);
 }
@@ -1801,15 +1855,15 @@ export async function listCirculationRules(): Promise<CirculationRule[]> {
 export async function getLibraryData(): Promise<LibraryData> {
   const [booksRes, membersRes, loansRes, notificationsRes, usersRes, bookItemsRes, holdsRes, finesRes, rulesRes] =
     await Promise.all([
-      db(supabase).from("books").select("*").order("created_at", { ascending: false }),
-      db(supabase).from("members").select("*").order("joined_at", { ascending: false }),
-      db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }),
-      db(supabase).from("notifications").select("*").order("created_at", { ascending: false }),
-      db(supabase).from("users").select("*").order("created_at", { ascending: false }),
-      db(supabase).from("book_items").select("*").order("created_at", { ascending: false }),
-      db(supabase).from("holds").select("*").order("placed_at", { ascending: false }),
-      db(supabase).from("fines").select("*").order("created_at", { ascending: false }),
-      db(supabase).from("circulation_rules").select("*").order("member_type", { ascending: true }),
+      fetchAllRows(() => db(supabase).from("books").select("*").order("created_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("members").select("*").order("joined_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("loans").select("*").order("borrowed_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("notifications").select("*").order("created_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("users").select("*").order("created_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("book_items").select("*").order("created_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("holds").select("*").order("placed_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("fines").select("*").order("created_at", { ascending: false }).order("id")),
+      fetchAllRows(() => db(supabase).from("circulation_rules").select("*").order("member_type", { ascending: true }).order("id")),
     ]);
 
   throwIfError(booksRes.error, "Failed to load books.");

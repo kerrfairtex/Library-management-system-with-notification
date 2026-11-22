@@ -6,6 +6,7 @@ import { canAccess } from "@/lib/permissions";
 import { describePasswordProblem } from "@/lib/staff-rules";
 import { db, supabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/auth";
+import { revokeAllSessions } from "@/lib/session-store";
 import { clientIp, rateLimitAsync as rateLimit } from "@/lib/rate-limit";
 
 const RESET_MAX_PER_IP = 10;
@@ -71,6 +72,9 @@ export async function POST(request: Request) {
   if (!targetUser) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });
   }
+
+  // A reset password must end every session signed in with the old one.
+  await revokeAllSessions((targetUser as { id: string }).id);
 
   // Notify the affected user via their linked member record when present.
   const { data: member } = await db(supabase)
