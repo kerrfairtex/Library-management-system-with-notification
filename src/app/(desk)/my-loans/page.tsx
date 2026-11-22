@@ -204,7 +204,7 @@ export default function MyLoansPage() {
       {renewed && <Notice>{renewed}</Notice>}
       {dialogs.element}
 
-      <Card title="Checkouts">
+      <Card title="Checkouts" anchorId="checkouts">
         <Table
           caption="Checkouts"
           columns={["Title", "Borrowed", "Due", "Status", "Renew"]}
@@ -258,7 +258,7 @@ export default function MyLoansPage() {
         </Table>
       </Card>
 
-      <Card title="Holds">
+      <Card title="Holds" anchorId="holds">
         <Table
           caption="Holds"
           columns={["Title", "Placed on", "Status", { label: "Actions", hideLabel: true }]}
@@ -317,7 +317,7 @@ export default function MyLoansPage() {
         </Table>
       </Card>
 
-      <Card title="Borrow requests">
+      <Card title="Borrow requests" anchorId="requests">
         <Table
           caption="Borrow requests"
           columns={["Title", "Requested on", "Status", { label: "Actions", hideLabel: true }]}
@@ -344,7 +344,7 @@ export default function MyLoansPage() {
         </Table>
       </Card>
 
-      <Card title="Fines">
+      <Card title="Fines" anchorId="fines">
         <Table
           caption="Fines"
           columns={["Description", "Date", "Amount", "Outstanding"]}

@@ -6,7 +6,8 @@ import { apiJson, useApi } from "@/lib/hooks";
 import { formatDate, notificationTone } from "@/lib/utils";
 import { statusLabel } from "@/lib/status-tone";
 import { announceNotificationsChanged } from "@/lib/events";
-import { Button, Card, EmptyState, ErrorState, PageHeader } from "@/components/ui";
+import { Button, ButtonLink, Card, EmptyState, ErrorState, PageHeader } from "@/components/ui";
+import { noticeLink } from "@/lib/notices";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default function NotificationsPage() {
     <div>
       <PageHeader
         title="Notifications"
-        subtitle="Overdue loans, due-soon reminders, checkouts, returns, and inventory notices."
+        subtitle="Due dates, holds, requests and library activity. Each notice links to where you can act on it."
         action={
           <Button
             variant="primary"
@@ -100,6 +101,14 @@ export default function NotificationsPage() {
                     </div>
                     <h2 className={`display text-xl ${n.read ? "text-muted" : ""}`}>{n.title}</h2>
                     <p className="text-muted mt-1 text-sm">{n.message}</p>
+                    {(() => {
+                      const link = noticeLink(n.type, n.audience);
+                      return link ? (
+                        <ButtonLink href={link.href} variant="ghost" className="mt-2 -ml-3">
+                          {link.label} →
+                        </ButtonLink>
+                      ) : null;
+                    })()}
                   </div>
                   {!n.read && (
                     <Button variant="ghost" busy={busy === n.id} busyLabel="Marking…" onClick={() => mark({ id: n.id }, n.id)}>
