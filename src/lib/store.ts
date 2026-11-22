@@ -3,6 +3,7 @@ import { supabase, db } from "./supabase";
 import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { revokeAllSessions } from "./session-store";
 import { getCirculationSettings } from "./settings";
+import { DEFAULT_RENEWAL_RULE, type RenewalRule } from "./renewal";
 import { deriveLoanStatus } from "./loan-status";
 import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
@@ -1928,6 +1929,82 @@ export async function getMaxLoansForMemberType(memberType: MemberType): Promise<
   if (error) return null; // table absent on older installs: same fallback as the trigger
   const max = (data as { max_loans?: number } | null)?.max_loans;
   return typeof max === "number" ? max : null;
+}
+
+/** Renewal length and limit for a member type; Koha's defaults without a rule. */
+export async function getRenewalRule(memberType: MemberType): Promise<RenewalRule> {
+  const { data, error } = await db(supabase)
+    .from("circulation_rules")
+    .select("renewal_days, max_renewals")
+    .eq("member_type", memberType)
+    .maybeSingle();
+  const row = data as { renewal_days?: number; max_renewals?: number } | null;
+  if (error || !row) return { ...DEFAULT_RENEWAL_RULE };
+  return {
+    renewalDays: typeof row.renewal_days === "number" ? row.renewal_days : DEFAULT_RENEWAL_RULE.renewalDays,
+    maxRenewals: typeof row.max_renewals === "number" ? row.max_renewals : DEFAULT_RENEWAL_RULE.maxRenewals,
+  };
+}
+
+/**
+ * For the titles a member has out: how many OTHER members wait in the hold
+ * queue, and how many copies are on the shelf. Two queries for all titles.
+ */
+export async function getRenewalContext(
+  memberId: string,
+  bookIds: string[]
+): Promise<Record<string, { waitingHolds: number; availableCopies: number }>> {
+  const ids = [...new Set(bookIds)];
+  const context: Record<string, { waitingHolds: number; availableCopies: number }> = {};
+  if (ids.length === 0) return context;
+  for (const id of ids) context[id] = { waitingHolds: 0, availableCopies: 0 };
+
+  const [holdsRes, booksRes] = await Promise.all([
+    fetchAllRows<{ book_id: string }>(() =>
+      db(supabase)
+        .from("holds")
+        .select("book_id, id")
+        .in("book_id", ids)
+        .eq("kind", "hold")
+        .eq("status", "pending")
+        .neq("member_id", memberId)
+        .order("id")
+    ),
+    db(supabase).from("books").select("id, available_copies").in("id", ids),
+  ]);
+  throwIfError(holdsRes.error, "Failed to load holds.");
+  throwIfError(booksRes.error, "Failed to load titles.");
+  for (const h of holdsRes.data) context[h.book_id].waitingHolds += 1;
+  for (const b of (booksRes.data ?? []) as { id: string; available_copies: number }[]) {
+    context[b.id].availableCopies = b.available_copies ?? 0;
+  }
+  return context;
+}
+
+/** One loan, for ownership checks before a patron acts on it. */
+export async function getLoanOwner(
+  loanId: string
+): Promise<{ memberId: string; bookId: string; returned: boolean; renewalsCount: number } | null> {
+  const { data, error } = await db(supabase)
+    .from("loans")
+    .select("member_id, book_id, status, returned_at, renewals_count")
+    .eq("id", loanId)
+    .maybeSingle();
+  throwIfError(error, "Failed to load the loan.");
+  if (!data) return null;
+  const row = data as {
+    member_id: string;
+    book_id: string;
+    status: string;
+    returned_at: string | null;
+    renewals_count: number | null;
+  };
+  return {
+    memberId: row.member_id,
+    bookId: row.book_id,
+    returned: row.status === "returned" || row.returned_at !== null,
+    renewalsCount: row.renewals_count ?? 0,
+  };
 }
 
 export async function listCirculationRules(): Promise<CirculationRule[]> {
