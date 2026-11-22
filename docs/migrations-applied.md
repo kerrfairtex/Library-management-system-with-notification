@@ -21,6 +21,7 @@ in the Supabase SQL editor. It only reads.
 | 20261123 circulation rules enforced | [`migrations/20261123_circulation_rules_enforced.sql`](../supabase/migrations/20261123_circulation_rules_enforced.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
 | 20261124 hold queue | [`migrations/20261124_hold_queue.sql`](../supabase/migrations/20261124_hold_queue.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
 | 20261125 patron notices | [`migrations/20261125_patron_notices.sql`](../supabase/migrations/20261125_patron_notices.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
+| 20261126 notification prefs | [`migrations/20261126_notification_prefs.sql`](../supabase/migrations/20261126_notification_prefs.sql) | 2026-11-22 | Directly, on project `wapnzuawqhekgkqpgphj` |
 
 ## Do not re-run
 
