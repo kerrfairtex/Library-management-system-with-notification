@@ -12,6 +12,7 @@ import {
   noticeStillTrue,
   type LoanState,
 } from "./notices";
+import { parsePrefs, serializePrefs, wantsEmail, type NotificationPrefs } from "./notification-prefs";
 import { deriveLoanStatus } from "./loan-status";
 import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
@@ -606,7 +607,36 @@ export type EmailDispatchResult = {
   skipped: number;
   /** No longer true when it came to sending (e.g. the book was returned). */
   stale?: number;
+  /** The member turned e-mail off for this notice type. */
+  optedOut?: number;
 };
+
+function isMissingColumn(error: { code?: string } | null): boolean {
+  return !!error && (error.code === "42703" || error.code === "PGRST204");
+}
+
+/** A member's e-mail settings; defaults (e-mail everything) before the migration. */
+export async function getNotificationPrefs(memberId: string): Promise<{ prefs: NotificationPrefs; available: boolean }> {
+  const { data, error } = await db(supabase)
+    .from("members")
+    .select("notification_prefs")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (isMissingColumn(error)) return { prefs: parsePrefs(null), available: false };
+  throwIfError(error, "Failed to load notification settings.");
+  return { prefs: parsePrefs((data as { notification_prefs?: unknown } | null)?.notification_prefs), available: true };
+}
+
+export async function saveNotificationPrefs(memberId: string, prefs: NotificationPrefs): Promise<void> {
+  const { error } = await db(supabase)
+    .from("members")
+    .update({ notification_prefs: serializePrefs(prefs) })
+    .eq("id", memberId);
+  if (isMissingColumn(error)) {
+    throw new InputError("Notification settings aren't available yet. Ask the library desk.", 409);
+  }
+  throwIfError(error, "Failed to save notification settings.");
+}
 
 /**
  * What is true NOW for each notice about to be e-mailed: the loan behind a
@@ -720,16 +750,23 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
   const states = await loadNoticeStates(rows);
 
   const memberIds = [...new Set(rows.map((r) => r.recipient_member_id))];
-  const { data: members, error: memberErr } = await db(supabase)
+  type MemberMailRow = { id: string; name: string; email: string | null; notification_prefs?: unknown };
+  let membersRes: { data: MemberMailRow[] | null; error: { code?: string; message?: string } | null } = await db(supabase)
     .from("members")
-    .select("id, name, email")
+    .select("id, name, email, notification_prefs")
     .in("id", memberIds);
-  if (memberErr) throw new Error(memberErr.message || "Failed to load members for e-mail.");
+  if (isMissingColumn(membersRes.error)) {
+    // Before 20261126_notification_prefs.sql: nobody has opted out yet.
+    membersRes = await db(supabase).from("members").select("id, name, email").in("id", memberIds);
+  }
+  if (membersRes.error) throw new Error(membersRes.error.message || "Failed to load members for e-mail.");
   const byId = new Map(
-    ((members ?? []) as { id: string; name: string; email: string | null }[]).map((m) => [m.id, m])
+    (membersRes.data ?? []).map(
+      (m) => [m.id, { ...m, prefs: parsePrefs(m.notification_prefs) }]
+    )
   );
 
-  const result: EmailDispatchResult = { enabled: true, sent: 0, failed: 0, skipped: 0, stale: 0 };
+  const result: EmailDispatchResult = { enabled: true, sent: 0, failed: 0, skipped: 0, stale: 0, optedOut: 0 };
   for (const row of rows) {
     // Claim first: only the sweep whose update matches sends this notice.
     const { data: claimed, error: claimErr } = await db(supabase)
@@ -753,6 +790,11 @@ export async function dispatchNotificationEmails(limit = 200): Promise<EmailDisp
     }
 
     const member = byId.get(row.recipient_member_id);
+    if (member && !wantsEmail(member.prefs, row.type)) {
+      // The member turned this type off on My profile; it stays in the inbox.
+      result.optedOut = (result.optedOut ?? 0) + 1;
+      continue;
+    }
     if (!member || !isPlausibleEmail(member.email)) {
       result.skipped++;
       continue;

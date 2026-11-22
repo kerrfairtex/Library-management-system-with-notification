@@ -10,6 +10,7 @@ import { Badge, Button, Card, ErrorState, FormField, Notice, PageHeader } from "
 import { formatDate } from "@/lib/utils";
 import { profileDetailRows, type OwnMemberDetails } from "@/lib/profile-details";
 import type { AcademicMaster } from "@/components/AcademicFields";
+import { NotificationPrefsCard } from "@/components/NotificationPrefsCard";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -128,6 +129,8 @@ export default function ProfilePage() {
           <p className="text-muted mt-3 text-xs">Ask the library desk to correct your ID or academic details.</p>
         )}
       </Card>
+
+      {patron && <NotificationPrefsCard />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Change display name">
