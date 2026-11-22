@@ -114,6 +114,8 @@ export function ProgressLibrary() {
         ref={canvasRef}
         className="shelf-canvas"
         data-testid="shelf-canvas"
+        // Keyboard-operable 3D widget: "application" passes arrow keys to it.
+        // eslint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role
         role="application"
         tabIndex={0}
         aria-label={`Interactive three-dimensional shelf of ${catalog.length} books. Drag or use the arrow keys to browse. Press Enter to inspect the selected book.`}

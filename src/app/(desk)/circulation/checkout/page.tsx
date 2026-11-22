@@ -129,6 +129,9 @@ export default function CheckoutPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
+              // Barcode scanners type into the focused field: the desk scan box
+              // must be ready the moment the page opens (staff-only page).
+              // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           </FormField>

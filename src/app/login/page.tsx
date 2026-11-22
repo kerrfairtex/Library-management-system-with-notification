@@ -163,7 +163,6 @@ function LoginForm() {
           autoComplete="username"
           inputMode="email"
           required
-          autoFocus
           disabled={locked}
           value={email}
           onChange={(e) => setEmail(e.target.value)}

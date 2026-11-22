@@ -53,5 +53,7 @@ export function ButtonAnchor({
   className = "",
   ...rest
 }: AnchorHTMLAttributes<HTMLAnchorElement> & { variant?: ButtonVariant }) {
+  // Content arrives as children inside `rest`.
+  // eslint-disable-next-line jsx-a11y/anchor-has-content
   return <a className={buttonClass(variant, className)} {...rest} />;
 }

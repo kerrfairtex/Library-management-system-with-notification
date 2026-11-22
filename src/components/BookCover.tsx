@@ -36,7 +36,8 @@ export function BookCover({
       {!failed && (
         // Remote cover of unknown size from a third party: next/image would
         // need the host allow-listed and adds nothing for one small image.
-        // eslint-disable-next-line @next/next/no-img-element
+        // onError is a load failure, not a user interaction.
+        // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/no-noninteractive-element-interactions
         <img
           src={`https://covers.openlibrary.org/b/isbn/${clean}-${size}.jpg?default=false`}
           alt=""
