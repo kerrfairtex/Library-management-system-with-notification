@@ -13,7 +13,8 @@ import { LIBRARY_PHONE } from "@/lib/site";
 import { formatDate } from "@/lib/utils";
 import { deriveLoanStatus } from "@/lib/loan-status";
 import { statusLabel, statusTone } from "@/lib/status-tone";
-import { Badge, Button, ButtonLink, Card, ErrorState, KpiRow, Notice, PageHeader, Table } from "@/components/ui";
+import { holdView } from "@/lib/hold-queue";
+import { Badge, Button, ButtonLink, Card, ErrorState, KpiRow, Notice, PageHeader, Table, useDialogs } from "@/components/ui";
 
 // Force dynamic rendering - this page needs session and database access
 export const dynamic = "force-dynamic";
@@ -42,6 +43,10 @@ type MyHold = {
   status: string;
   priority: number;
   placed_at: string;
+  expires_at?: string | null;
+  suspended_at?: string | null;
+  /** Live place in line, from GET /api/my-loans. */
+  position?: number | null;
   books: { title: string } | null;
 };
 type MyFine = {
@@ -83,6 +88,8 @@ export default function MyLoansPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [renewing, setRenewing] = useState<string | null>(null);
   const [renewed, setRenewed] = useState<string | null>(null);
+  const [holdBusy, setHoldBusy] = useState<string | null>(null);
+  const dialogs = useDialogs();
 
   const loans = data?.loans ?? [];
   const holds = data?.holds ?? [];
@@ -112,6 +119,40 @@ export default function MyLoansPage() {
       setActionError(err instanceof Error ? err.message : "The request wasn’t cancelled. Try again.");
     } finally {
       setCancelling(null);
+    }
+  }
+
+  async function holdAction(hold: MyHold, action: "pause" | "resume" | "cancel") {
+    if (action === "cancel") {
+      const ok = await dialogs.confirm({
+        title: "Cancel this hold?",
+        message:
+          hold.status === "ready"
+            ? "The copy set aside for you goes to the next member in line."
+            : "You lose your place in line. To keep it, pause the hold instead.",
+        confirmLabel: "Cancel hold",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setHoldBusy(`${hold.id}:${action}`);
+    setActionError(null);
+    setRenewed(null);
+    try {
+      const res = await fetch("/api/holds", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
+        body: JSON.stringify({ id: hold.id, action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "The hold wasn’t changed. Try again.");
+      }
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "The hold wasn’t changed. Try again.");
+    } finally {
+      setHoldBusy(null);
     }
   }
 
@@ -161,6 +202,7 @@ export default function MyLoansPage() {
 
       {actionError && <ErrorState message={actionError} />}
       {renewed && <Notice>{renewed}</Notice>}
+      {dialogs.element}
 
       <Card title="Checkouts">
         <Table
@@ -219,21 +261,59 @@ export default function MyLoansPage() {
       <Card title="Holds">
         <Table
           caption="Holds"
-          columns={["Title", "Placed on", "Queue position", "Status"]}
+          columns={["Title", "Placed on", "Status", { label: "Actions", hideLabel: true }]}
           {...state}
           isEmpty={holds.length === 0}
           empty={{ title: "No open holds", body: "Place a hold on a book that’s out and we’ll tell you when it’s ready." }}
         >
-          {holds.map((h) => (
-            <tr key={h.id}>
-              <td className="font-semibold">{h.books?.title ?? "Unknown title"}</td>
-              <td>{formatDate(h.placed_at)}</td>
-              <td>#{h.priority}</td>
-              <td>
-                <Badge tone={statusTone(h.status)}>{statusLabel(h.status)}</Badge>
-              </td>
-            </tr>
-          ))}
+          {holds.map((h) => {
+            const view = holdView(h, h.position ?? undefined, formatDate);
+            const title = h.books?.title ?? "this book";
+            return (
+              <tr key={h.id}>
+                <td className="font-semibold">{h.books?.title ?? "Unknown title"}</td>
+                <td>{formatDate(h.placed_at)}</td>
+                <td>
+                  <Badge tone={view.tone}>{view.label}</Badge>
+                </td>
+                <td>
+                  <div className="flex flex-wrap gap-2">
+                    {view.canPause && (
+                      <Button
+                        busy={holdBusy === `${h.id}:pause`}
+                        busyLabel="Pausing…"
+                        onClick={() => holdAction(h, "pause")}
+                        aria-label={`Pause hold on ${title}`}
+                      >
+                        Pause
+                      </Button>
+                    )}
+                    {view.canResume && (
+                      <Button
+                        busy={holdBusy === `${h.id}:resume`}
+                        busyLabel="Resuming…"
+                        onClick={() => holdAction(h, "resume")}
+                        aria-label={`Resume hold on ${title}`}
+                      >
+                        Resume
+                      </Button>
+                    )}
+                    {view.canCancel && (
+                      <Button
+                        variant="ghost"
+                        busy={holdBusy === `${h.id}:cancel`}
+                        busyLabel="Cancelling…"
+                        onClick={() => holdAction(h, "cancel")}
+                        aria-label={`Cancel hold on ${title}`}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </Table>
       </Card>
 

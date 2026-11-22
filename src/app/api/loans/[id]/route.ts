@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCirculationSettings } from "@/lib/settings";
 import { requireCapability } from "@/lib/authz";
-import { renewLoan, returnBook } from "@/lib/store";
+import { renewLoan, returnBook, trapHoldsQuietly } from "@/lib/store";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,6 +18,8 @@ export async function PATCH(request: Request, { params }: Params) {
     const action = body.action as string;
     if (action === "return") {
       const loan = await returnBook(id);
+      // The returned copy goes to the next member in the hold queue.
+      await trapHoldsQuietly(loan.bookId);
       return NextResponse.json(loan);
     }
     if (action === "renew") {

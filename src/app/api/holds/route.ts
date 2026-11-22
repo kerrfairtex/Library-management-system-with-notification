@@ -1,4 +1,5 @@
-import { getMemberByUser } from "@/lib/store";
+import { getMemberByUser, setHoldPaused, trapHoldsQuietly } from "@/lib/store";
+import { InputError } from "@/lib/academic";
 import { getCirculationSettings } from "@/lib/settings";
 import { serverError } from "@/lib/server-error";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +12,12 @@ import { db, supabase } from "@/lib/supabase";
  *
  * GET    /api/holds              → queue (staff) or own holds (patron)
  * POST   /api/holds {bookId}     → patron: own hold; staff: hold for memberId
- * PATCH  /api/holds {id, action} → patron: cancel own; staff: cancel | fulfill
+ * PATCH  /api/holds {id, action} → patron: cancel | pause | resume own;
+ *                                  staff: cancel | fulfill
+ *
+ * Holds normally become ready on their own: trap_holds() gives a free copy
+ * to the next member in line after a return, cancel or expiry (see
+ * src/lib/store.ts trapHolds). "fulfill" stays as a manual override.
  *
  * Patron = student, faculty, teacher or community (isPatron). Anyone who is
  * neither a patron nor holds loans.manage is refused.
@@ -138,6 +144,8 @@ export async function POST(request: NextRequest) {
       throw new Error(error.message);
     }
 
+    // If a copy is already free, the hold is ready straight away.
+    await trapHoldsQuietly(bookId);
     return NextResponse.json({ hold: data }, { status: 201 });
   } catch (error) {
     return serverError("POST /api/holds", error, { error: error instanceof Error ? error.message : "Failed to place hold." }, 500);
@@ -157,24 +165,46 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "id is required." }, { status: 400 });
     }
 
-    // ── Patrons: may cancel only their own pending/ready hold. ──
+    // ── Patrons: cancel, pause or resume only their own hold. ──
     if (isPatron(user)) {
-      if (action !== "cancel") {
+      if (!["cancel", "pause", "resume"].includes(action)) {
         return NextResponse.json(
-          { error: "You can only cancel your own holds." },
+          { error: "You can cancel, pause or resume your own holds." },
           { status: 403 }
         );
       }
       const me = await getMemberByUser(user);
       if (!me) throw new Error("No library membership found.");
       const memberId = (me as { id: string }).id;
-      const { error } = await db(supabase)
+
+      if (action === "pause" || action === "resume") {
+        try {
+          const changed = await setHoldPaused(id, memberId, action === "pause");
+          if (!changed) {
+            return NextResponse.json(
+              { error: "Only a hold that is still waiting in line can be paused or resumed." },
+              { status: 409 }
+            );
+          }
+          return NextResponse.json({ success: true });
+        } catch (err) {
+          if (err instanceof InputError) {
+            return NextResponse.json({ error: err.message }, { status: err.status });
+          }
+          throw err;
+        }
+      }
+
+      const { data: cancelled, error } = await db(supabase)
         .from("holds")
         .update({ status: "cancelled" })
         .eq("id", id)
         .eq("member_id", memberId)
-        .in("status", ["pending", "ready"]);
+        .in("status", ["pending", "ready"])
+        .select("book_id");
       if (error) throw new Error(error.message);
+      // A cancelled ready hold frees its copy for the next member in line.
+      await trapHoldsQuietly((cancelled as { book_id: string }[] | null)?.[0]?.book_id);
       return NextResponse.json({ success: true });
     }
 
@@ -200,6 +230,7 @@ export async function PATCH(request: NextRequest) {
         .select("*")
         .single();
       if (error) throw new Error(error.message);
+      await trapHoldsQuietly((data as { book_id?: string } | null)?.book_id);
       return NextResponse.json(data);
     }
 

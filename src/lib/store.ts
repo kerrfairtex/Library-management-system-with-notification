@@ -4,6 +4,7 @@ import { hashPassword, toPublicUser, verifyPassword } from "./auth";
 import { revokeAllSessions } from "./session-store";
 import { getCirculationSettings } from "./settings";
 import { DEFAULT_RENEWAL_RULE, type RenewalRule } from "./renewal";
+import type { QueueHold } from "./hold-queue";
 import { deriveLoanStatus } from "./loan-status";
 import { describeOpenLoansTypeChangeProblem } from "./staff-rules";
 import { EMAILED_TYPES, buildNoticeEmail, emailConfig, isPlausibleEmail, sendEmail } from "./email";
@@ -470,8 +471,124 @@ export async function expireStaleHolds(now = new Date()): Promise<number> {
       }))
     );
     if (notifyError) throw new Error(notifyError.message || "Hold expiry notice failed.");
+    // Each released copy goes to the next member in line.
+    for (const bookId of new Set(rows.map((h) => h.book_id))) {
+      await trapHoldsQuietly(bookId);
+    }
   }
   return rows.length;
+}
+
+// ── Hold queue (supabase/migrations/20261124_hold_queue.sql) ──────────────
+
+let warnedNoTrap = false;
+
+/**
+ * Promotes the next pending holds on a title to "ready" while it has copies
+ * on the shelf that no ready hold has claimed (trap_holds on the database:
+ * one locked transaction, notice included). Returns how many were promoted.
+ * Before the migration is applied the function does not exist: then nothing
+ * happens and staff keep marking holds ready by hand.
+ */
+export async function trapHolds(bookId: string): Promise<number> {
+  const { pickup_window_days } = await getCirculationSettings();
+  const { data, error } = await db(supabase).rpc("trap_holds", {
+    p_book_id: bookId,
+    p_pickup_days: pickup_window_days,
+  });
+  if (error) {
+    if (error.code === "PGRST202") {
+      if (!warnedNoTrap) {
+        warnedNoTrap = true;
+        console.warn("trap_holds() not found: apply supabase/migrations/20261124_hold_queue.sql to fill holds automatically.");
+      }
+      return 0;
+    }
+    throw new Error(error.message || "Hold queue update failed.");
+  }
+  return typeof data === "number" ? data : 0;
+}
+
+/**
+ * trapHolds for something that already happened (a return, a cancel): the
+ * main action succeeded, so a queue failure is logged, never thrown.
+ */
+export async function trapHoldsQuietly(bookId: string | null | undefined): Promise<void> {
+  if (!bookId) return;
+  try {
+    await trapHolds(bookId);
+  } catch (error) {
+    console.error("Hold queue update failed for book", bookId, error);
+  }
+}
+
+/** Nightly catch-up: every title with someone waiting. */
+export async function trapAllHolds(): Promise<number> {
+  const { data, error } = await fetchAllRows<{ book_id: string }>(() =>
+    db(supabase)
+      .from("holds")
+      .select("book_id, id")
+      .eq("kind", "hold")
+      .eq("status", "pending")
+      .order("id")
+  );
+  throwIfError(error, "Failed to load the hold queue.");
+  let promoted = 0;
+  for (const bookId of new Set(data.map((h) => h.book_id))) {
+    promoted += await trapHolds(bookId);
+  }
+  return promoted;
+}
+
+/** Ready holds (copies set aside) on a title for anyone but `memberId`. */
+export async function countReadyHoldsForOthers(bookId: string, memberId: string): Promise<number> {
+  const { count, error } = await db(supabase)
+    .from("holds")
+    .select("id", { count: "exact", head: true })
+    .eq("book_id", bookId)
+    .eq("status", "ready")
+    .neq("member_id", memberId);
+  throwIfError(error, "Failed to check holds.");
+  return count ?? 0;
+}
+
+/** Everyone's pending holds on these titles, for place-in-line numbers. */
+export async function listPendingQueue(bookIds: string[]): Promise<QueueHold[]> {
+  const ids = [...new Set(bookIds)];
+  if (ids.length === 0) return [];
+  const { data, error } = await fetchAllRows<QueueHold>(() =>
+    db(supabase)
+      .from("holds")
+      .select("*")
+      .in("book_id", ids)
+      .eq("kind", "hold")
+      .eq("status", "pending")
+      .order("id")
+  );
+  throwIfError(error, "Failed to load the hold queue.");
+  return data;
+}
+
+/** Pause or resume a member's own pending hold. Returns false if none matched. */
+export async function setHoldPaused(holdId: string, memberId: string, paused: boolean): Promise<boolean> {
+  const { data, error } = await db(supabase)
+    .from("holds")
+    .update({ suspended_at: paused ? new Date().toISOString() : null })
+    .eq("id", holdId)
+    .eq("member_id", memberId)
+    .eq("kind", "hold")
+    .eq("status", "pending")
+    .select("id, book_id");
+  if (error) {
+    if (error.code === "PGRST204" || error.code === "42703") {
+      throw new InputError("Pausing holds isn't available yet. Ask the library desk.", 409);
+    }
+    throw new Error(error.message || "Failed to update the hold.");
+  }
+  const rows = (data ?? []) as { book_id: string }[];
+  // Resuming may let this hold take a copy that is already waiting.
+  if (!paused && rows[0]) await trapHoldsQuietly(rows[0].book_id);
+  return rows.length > 0;
 }
 
 export type EmailDispatchResult = { enabled: boolean; sent: number; failed: number; skipped: number };
