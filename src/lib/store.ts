@@ -1711,6 +1711,93 @@ export async function listBookItemsPage(
   };
 }
 
+// ── Public title page (/catalog/[id]) ─────────────────────────────────────
+
+export async function getBookById(id: string): Promise<Book | null> {
+  const { data, error } = await db(supabase).from("books").select("*").eq("id", id).maybeSingle();
+  throwIfError(error, "Failed to load the title.");
+  return data ? mapBook(data as BookRow) : null;
+}
+
+/**
+ * One page of a title's copies for the public table: withdrawn copies are
+ * left out, available copies come first (status sorts "available" first),
+ * then by barcode. For copies on loan, the open loan's due date is attached;
+ * nothing about the borrower is read.
+ */
+export async function listPublicCopiesPage(
+  bookId: string,
+  range: { from: number; to: number },
+  hiddenStatuses: readonly string[]
+): Promise<{ items: BookItem[]; total: number; dueByItem: Record<string, string> }> {
+  const hidden = `(${hiddenStatuses.map((s) => `"${s}"`).join(",")})`;
+  const [pageRes, totalRes] = await Promise.all([
+    db(supabase)
+      .from("book_items")
+      .select("*")
+      .eq("book_id", bookId)
+      .not("status", "in", hidden)
+      .order("status", { ascending: true })
+      .order("barcode", { ascending: true })
+      .order("id", { ascending: true })
+      .range(range.from, range.to),
+    db(supabase)
+      .from("book_items")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", bookId)
+      .not("status", "in", hidden),
+  ]);
+  const pastEnd = pageRes.error?.code === "PGRST103";
+  if (!pastEnd) throwIfError(pageRes.error, "Failed to load copies.");
+  throwIfError(totalRes.error, "Failed to count copies.");
+  const items = pastEnd ? [] : ((pageRes.data as BookItemRow[] | null) ?? []).map(mapBookItem);
+
+  const dueByItem: Record<string, string> = {};
+  const onLoan = items.filter((i) => i.status === "on_loan").map((i) => i.id);
+  if (onLoan.length > 0) {
+    const { data, error } = await db(supabase)
+      .from("loans")
+      .select("item_id, due_at")
+      .in("item_id", onLoan)
+      .neq("status", "returned");
+    throwIfError(error, "Failed to load due dates.");
+    for (const row of (data ?? []) as { item_id: string; due_at: string }[]) {
+      dueByItem[row.item_id] = row.due_at;
+    }
+  }
+  return { items, total: totalRes.count ?? 0, dueByItem };
+}
+
+/** Members waiting in the hold queue for a title (not borrow requests). */
+export async function countWaitingHolds(bookId: string): Promise<number> {
+  const { count, error } = await db(supabase)
+    .from("holds")
+    .select("id", { count: "exact", head: true })
+    .eq("book_id", bookId)
+    .eq("kind", "hold")
+    .eq("status", "pending");
+  throwIfError(error, "Failed to count holds.");
+  return count ?? 0;
+}
+
+/**
+ * "While you wait" / "More like this": other titles in the same category,
+ * ones on the shelf first.
+ */
+export async function listRelatedBooks(book: Book, limit: number): Promise<Book[]> {
+  if (!book.category) return [];
+  const { data, error } = await db(supabase)
+    .from("books")
+    .select("*")
+    .eq("category", book.category)
+    .neq("id", book.id)
+    .order("available_copies", { ascending: false })
+    .order("title", { ascending: true })
+    .limit(limit);
+  throwIfError(error, "Failed to load related titles.");
+  return ((data as BookRow[] | null) ?? []).map(mapBook);
+}
+
 export async function getBookItemsByBookId(bookId: string): Promise<BookItem[]> {
   const { data, error } = await db(supabase)
     .from("book_items")

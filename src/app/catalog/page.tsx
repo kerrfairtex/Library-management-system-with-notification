@@ -129,7 +129,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
                   return (
                     <li key={b.id} className="panel flex flex-col gap-1 p-4">
                       <h2 className="text-lg font-semibold leading-snug">
-                        {b.title}
+                        <Link href={`/catalog/${b.id}`} className="underline-offset-2 hover:underline">
+                          {b.title}
+                        </Link>
                       </h2>
                       <p className="text-muted text-sm">
                         {b.author}{b.publishedYear ? ` · ${b.publishedYear}` : ""}
@@ -148,7 +150,11 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
                         <span className={`badge ${onShelf ? "tone-ok" : "tone-warn"}`}>
                           {onShelf ? `${b.availableCopies} of ${b.totalCopies} on shelf` : "All copies on loan"}
                         </span>
-                        <Link href={`/borrow?isbn=${encodeURIComponent(b.isbn)}`} className="btn btn-secondary">
+                        <Link
+                          href={`/borrow?isbn=${encodeURIComponent(b.isbn)}`}
+                          className="btn btn-secondary"
+                          aria-label={`${onShelf ? "Request to borrow" : "Place a hold on"} ${b.title}`}
+                        >
                           {onShelf ? "Request to borrow" : "Place a hold"}
                         </Link>
                       </div>
