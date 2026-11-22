@@ -104,7 +104,7 @@ were added. ISCTS spelling remains flagged for administrator confirmation.
 
 The read-only duplicate query in section 2 depends on public.members.user_id.
 That column is NOT defined in supabase/schema.sql; it is added by
-MISSING_COLUMNS_MIGRATION.sql:16 (`ADD COLUMN IF NOT EXISTS user_id uuid
+supabase/archive/MISSING_COLUMNS_MIGRATION.sql:16 (`ADD COLUMN IF NOT EXISTS user_id uuid
 REFERENCES public.users(id)`). Before running the query on staging, confirm the
 column exists (read-only):
 
